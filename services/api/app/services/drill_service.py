@@ -10,8 +10,8 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_oxblood import (
-    Drill, DrillStatus, DrillParticipant, DrillTeam, DrillAnnouncement,
-    DrillObjective, DrillFlag, DrillScenario, Lab, Team, User,
+    Drill, DrillStatus, DrillParticipant, DrillAnnouncement,
+    DrillObjective, DrillFlag, DrillScenario, Drill, User,
 )
 import re
 
@@ -258,56 +258,6 @@ async def remove_participant(db: AsyncSession, drill_id: int, user_id: int) -> b
 # ============================================================================
 # Teams
 # ============================================================================
-
-async def list_drill_teams(db: AsyncSession, drill_id: int) -> list[DrillTeam]:
-    """List all teams in a drill."""
-    result = await db.execute(
-        select(DrillTeam)
-        .where(DrillTeam.drill_id == drill_id)
-        .order_by(DrillTeam.registered_at)
-    )
-    return result.scalars().all()
-
-
-async def add_team(
-    db: AsyncSession,
-    drill_id: int,
-    team_id: int,
-    team_side: Optional[str] = None,
-) -> DrillTeam:
-    """Add a team to a drill."""
-    # Check if already added
-    existing = await db.execute(
-        select(DrillTeam).where(
-            DrillTeam.drill_id == drill_id,
-            DrillTeam.team_id == team_id
-        )
-    )
-    if existing.scalar_one_or_none():
-        raise ValueError("Team is already in this drill")
-    
-    drill_team = DrillTeam(
-        drill_id=drill_id,
-        team_id=team_id,
-        team_side=team_side,
-    )
-    db.add(drill_team)
-    await db.commit()
-    await db.refresh(drill_team)
-    return drill_team
-
-
-async def remove_team(db: AsyncSession, drill_id: int, team_id: int) -> bool:
-    """Remove a team from a drill."""
-    result = await db.execute(
-        delete(DrillTeam).where(
-            DrillTeam.drill_id == drill_id,
-            DrillTeam.team_id == team_id
-        )
-    )
-    await db.commit()
-    return result.rowcount > 0
-
 
 # ============================================================================
 # Announcements

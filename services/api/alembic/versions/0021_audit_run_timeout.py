@@ -16,7 +16,12 @@ depends_on = None
 
 def upgrade() -> None:
     # Add 'run.timeout' to the audit_action enum
-    op.execute("ALTER TYPE audit_action ADD VALUE IF NOT EXISTS 'run.timeout'")
+    try:
+        _is_pg = op.get_bind().dialect.name == 'postgresql'
+    except Exception:
+        _is_pg = True
+    if _is_pg:
+        op.execute("ALTER TYPE audit_action ADD VALUE IF NOT EXISTS 'run.timeout'")
 
 
 def downgrade() -> None:

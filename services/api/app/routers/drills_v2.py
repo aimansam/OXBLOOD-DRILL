@@ -16,7 +16,6 @@ from app.services.drill_service import (
     list_drills, get_drill, create_drill, update_drill, cancel_drill,
     start_drill, pause_drill, resume_drill, stop_drill,
     list_drill_participants, add_participant, remove_participant,
-    list_drill_teams, add_team, remove_team,
     list_drill_announcements, create_announcement,
     list_drill_objectives, create_drill_objective,
     list_drill_flags, create_drill_flag, delete_drill_flag,
@@ -60,11 +59,6 @@ class ParticipantAdd(BaseModel):
     user_id: int
     team_id: Optional[int] = None
     role: str = "participant"
-
-
-class TeamAdd(BaseModel):
-    team_id: int
-    team_side: Optional[str] = None
 
 
 class AnnouncementCreate(BaseModel):
@@ -324,66 +318,6 @@ async def delete_participant(
     if not removed:
         raise HTTPException(status_code=404, detail="Participant not found")
     return {"message": "Participant removed"}
-
-
-# ============================================================================
-# Teams
-# ============================================================================
-
-@router.get("/{drill_id}/teams")
-async def get_teams(
-    drill_id: int,
-    db: AsyncSession = Depends(get_session),
-):
-    """Get all teams in a drill."""
-    drill = await get_drill(db, drill_id)
-    if not drill:
-        raise HTTPException(status_code=404, detail="Drill not found")
-    teams = await list_drill_teams(db, drill_id)
-    return {
-        "teams": [
-            {
-                "id": t.id,
-                "team_id": t.team_id,
-                "team_side": t.team_side,
-                "registered_at": t.registered_at.isoformat() if t.registered_at else None,
-            }
-            for t in teams
-        ]
-    }
-
-
-@router.post("/{drill_id}/teams")
-async def post_team(
-    drill_id: int,
-    data: TeamAdd,
-    db: AsyncSession = Depends(get_session),
-):
-    """Add a team to a drill."""
-    drill = await get_drill(db, drill_id)
-    if not drill:
-        raise HTTPException(status_code=404, detail="Drill not found")
-    try:
-        team = await add_team(db, drill_id, data.team_id, data.team_side)
-        return {"message": "Team added", "drill_team_id": team.id}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.delete("/{drill_id}/teams/{team_id}")
-async def delete_team(
-    drill_id: int,
-    team_id: int,
-    db: AsyncSession = Depends(get_session),
-):
-    """Remove a team from a drill."""
-    drill = await get_drill(db, drill_id)
-    if not drill:
-        raise HTTPException(status_code=404, detail="Drill not found")
-    removed = await remove_team(db, drill_id, team_id)
-    if not removed:
-        raise HTTPException(status_code=404, detail="Team not found")
-    return {"message": "Team removed"}
 
 
 # ============================================================================

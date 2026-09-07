@@ -22,7 +22,12 @@ depends_on = None
 def _safe_add_value(enum_value: str) -> None:
     sql = sa.text(f"ALTER TYPE audit_action ADD VALUE '{enum_value}'")
     try:
-        op.execute(sql)
+        try:
+            _is_pg = op.get_bind().dialect.name == 'postgresql'
+        except Exception:
+            _is_pg = True
+        if _is_pg:
+            op.execute(sql)
     except Exception:  # noqa: BLE001
         pass
 

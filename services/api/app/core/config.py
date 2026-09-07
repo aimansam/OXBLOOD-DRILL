@@ -37,12 +37,6 @@ class Settings(BaseSettings):
     db_url: str = "postgresql+asyncpg://divide:divide@postgres:5432/divide"
     db_echo: bool = False
 
-    # Learn product database (separate Postgres DB).
-    # Empty = Learn routers share the Drill DB (back-compat during migration).
-    # Set DIVIDE_LEARN_DB_URL to split Learn onto its own database.
-    learn_db_url: str | None = None
-    learn_db_echo: bool = False
-
     # Redis
     redis_url: str = "redis://redis:6379/0"
 

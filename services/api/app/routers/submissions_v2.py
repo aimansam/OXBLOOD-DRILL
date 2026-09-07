@@ -5,7 +5,8 @@ Provides endpoints for flag submissions, evidence uploads, scoring, leaderboards
 from __future__ import annotations
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
+from app.core.auth import current_token
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -148,9 +149,9 @@ def score_history_to_dict(sh) -> dict:
 @router.post("/submissions")
 async def post_submission(
     data: FlagSubmissionCreate,
-    request: Request,
     user_id: int = Query(..., description="User ID (0 = resolve from X-Divide-Token sub)"),
     session: AsyncSession = Depends(get_session),
+    token=Depends(current_token),
 ):
     """Submit a flag.
 
@@ -162,13 +163,12 @@ async def post_submission(
         # Drill-native identity: user_id=0 means "resolve from token sub".
         # Creates the Drill users row on first submit (sub is the identity).
         from app.db.models import User as _DrillUser
-        from app.core.auth import token_subject as _token_subject
         if not user_id:
-            sub = _token_subject(request)
+            sub = token.sub if token else None
             if not sub:
                 raise ValueError("Authentication required (missing X-Divide-Token)")
             existing = await session.execute(
-                _select(_DrillUser).where(_DrillUser.sub == sub)
+                select(_DrillUser).where(_DrillUser.sub == sub)
             )
             user = existing.scalar_one_or_none()
             if user is None:

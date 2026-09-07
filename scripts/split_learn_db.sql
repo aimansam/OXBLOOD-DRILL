@@ -1,63 +1,25 @@
 -- ============================================================================
--- Drill/Learn split migration — RUN ONLY during the cutover window.
+-- Drill: purge Learn, go Drill-native. RUN against the DRILL database.
+-- Backup first: pg_dump -U divide divide > drill_backup.sql
 --
--- Preconditions (do these first, in order):
---   1. Provision the Learn Postgres database.
---   2. Set DIVIDE_LEARN_DB_URL and run:
---        DIVIDE_DB_URL=... DIVIDE_LEARN_DB_URL=... python tools/export_learn_db.py
---      Verify row counts match (28 Learn tables).
---   3. Point the Learn service at the new DB and smoke-test login.
---   4. THEN run this file against the DRILL database only.
---
--- What it does:
---   * Adds drills.scenario_id / drill_scenarios.scenario_id (idempotent).
---   * Drops the FK constraints drills->labs and drill_scenarios->labs
---     (actual constraint names are resolved dynamically; the model no
---     longer declares them).
---   * Leaves lab_id columns as plain-integer read-only refs (NOT dropped)
---     so historical drills keep their Learn-catalog pointer.
---
--- Rollback: re-adding the FKs requires validating every lab_id exists in
--- the Learn DB — treat this as one-way. Restore from backup to undo.
+-- Live-data inventory (verified 2026-09-08): 8 users, 33 drills (drill 1
+-- links lab 1), 3 submissions + 3 flag_submissions + 2 first_bloods on
+-- drill 1 / lab_flags 1-2, 1 score, 2 participants. Teams empty.
+-- This migration preserves ALL of it:
+--   * lab_flags 1-2 are COPIED into drill_flags (ids preserved), then
+--     flag_submissions/first_bloods re-pointed at drill_flags.
+--   * users rows stay (token-sub identity); Learn-only profile/badge/
+--     session tables are dropped (empty in practice).
+--   * lab_id columns become plain-integer history refs (values kept).
+-- Rollback: restore from backup. One-way by design.
 -- ============================================================================
 BEGIN;
 
--- 1. New Drill-catalog columns (idempotent).
+-- 0. Drill catalog column (idempotent).
 ALTER TABLE drills ADD COLUMN IF NOT EXISTS scenario_id INTEGER;
-ALTER TABLE drill_scenarios ADD COLUMN IF NOT EXISTS scenario_id INTEGER;
-ALTER TABLE drill_scenarios ALTER COLUMN lab_id DROP NOT NULL;
-
--- 2. Drop FK constraints to labs (dynamic names — DO NOT hardcode).
-DO $$
-DECLARE
-    r RECORD;
-BEGIN
-    FOR r IN
-        SELECT conname, conrelid::regclass::text AS tbl
-        FROM pg_constraint
-        WHERE contype = 'f'
-          AND conrelid::regclass::text IN ('drills', 'drill_scenarios')
-          AND confrelid::regclass::text = 'labs'
-    LOOP
-        RAISE NOTICE 'dropping FK % on %', r.conname, r.tbl;
-        EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', r.tbl, r.conname);
-    END LOOP;
-END $$;
-
--- 3. Drop the old uniqueness on (drill_id, lab_id) if present; the model
---    now uses a plain index on drill_id.
-ALTER TABLE drill_scenarios DROP CONSTRAINT IF EXISTS uq_drill_scenarios;
-CREATE INDEX IF NOT EXISTS idx_drill_scenarios_drill ON drill_scenarios (drill_id);
 CREATE INDEX IF NOT EXISTS idx_drills_scenario ON drills (scenario_id);
 
--- 4. Verify: these queries must return zero rows after the migration.
--- SELECT conname FROM pg_constraint
---  WHERE contype='f' AND conrelid::regclass::text IN ('drills','drill_scenarios')
---    AND confrelid::regclass::text = 'labs';
-
-
--- 5. Drill-native flags (new table; Drill no longer reads Learn lab_flags
---    for submit). Idempotent.
+-- 1. Drill-native flags table + migrate live lab_flags rows into it.
 CREATE TABLE IF NOT EXISTS drill_flags (
     id SERIAL PRIMARY KEY,
     drill_id INTEGER NOT NULL REFERENCES drills(id) ON DELETE CASCADE,
@@ -71,22 +33,105 @@ CREATE TABLE IF NOT EXISTS drill_flags (
 );
 CREATE INDEX IF NOT EXISTS idx_drill_flags_drill ON drill_flags (drill_id);
 
--- 6. Drop drill_objectives->lab_objectives FK (dynamic name; the column
---    stays as a read-only Learn ref).
 DO $$
 DECLARE
     r RECORD;
+    target_drill INTEGER;
+    new_id INTEGER;
+BEGIN
+    FOR r IN SELECT * FROM lab_flags ORDER BY id LOOP
+        SELECT d.id INTO target_drill
+        FROM drills d WHERE d.lab_id = r.lab_id ORDER BY d.id LIMIT 1;
+        IF target_drill IS NULL THEN
+            RAISE NOTICE 'lab_flag % (lab %) has no drill - skipping', r.id, r.lab_id;
+            CONTINUE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM drill_flags WHERE id = r.id) THEN
+            INSERT INTO drill_flags (id, drill_id, name, value, points,
+                decay_window_seconds, sort_order, created_at)
+            VALUES (r.id, target_drill, r.name, r.value, r.points,
+                r.decay_window_seconds, r.sort_order, r.created_at);
+        ELSE
+            INSERT INTO drill_flags (drill_id, name, value, points,
+                decay_window_seconds, sort_order, created_at)
+            VALUES (target_drill, r.name, r.value, r.points,
+                r.decay_window_seconds, r.sort_order, r.created_at)
+            RETURNING id INTO new_id;
+            UPDATE flag_submissions SET lab_flag_id = new_id WHERE lab_flag_id = r.id;
+            UPDATE first_bloods SET lab_flag_id = new_id WHERE lab_flag_id = r.id;
+            RAISE NOTICE 'lab_flag % remapped to drill_flag %', r.id, new_id;
+        END IF;
+    END LOOP;
+    PERFORM setval('drill_flags_id_seq',
+        (SELECT COALESCE(MAX(id), 0) + 1 FROM drill_flags), false);
+END $$;
+
+-- Re-point child FKs from lab_flags to drill_flags (dynamic names).
+ALTER TABLE flag_submissions DROP CONSTRAINT IF EXISTS fk_flag_submissions_lab_flag_id_lab_flags;
+DO $$
+DECLARE r RECORD;
+BEGIN
+    FOR r IN SELECT conname FROM pg_constraint
+        WHERE contype = 'f' AND conrelid = 'flag_submissions'::regclass
+          AND confrelid = 'lab_flags'::regclass LOOP
+        EXECUTE format('ALTER TABLE flag_submissions DROP CONSTRAINT %I', r.conname);
+    END LOOP;
+    FOR r IN SELECT conname FROM pg_constraint
+        WHERE contype = 'f' AND conrelid = 'first_bloods'::regclass
+          AND confrelid = 'lab_flags'::regclass LOOP
+        EXECUTE format('ALTER TABLE first_bloods DROP CONSTRAINT %I', r.conname);
+    END LOOP;
+END $$;
+ALTER TABLE flag_submissions
+    ADD CONSTRAINT flag_submissions_drill_flag_fkey
+    FOREIGN KEY (lab_flag_id) REFERENCES drill_flags(id) ON DELETE CASCADE;
+ALTER TABLE first_bloods
+    ADD CONSTRAINT first_bloods_drill_flag_fkey
+    FOREIGN KEY (lab_flag_id) REFERENCES drill_flags(id) ON DELETE CASCADE;
+
+-- 2. Drop every FK pointing INTO a Learn table (dynamic, idempotent).
+DO $$
+DECLARE r RECORD;
 BEGIN
     FOR r IN
-        SELECT conname
-        FROM pg_constraint
-        WHERE contype = 'f'
-          AND conrelid = 'drill_objectives'::regclass
-          AND confrelid = 'lab_objectives'::regclass
+        SELECT c.conname, c.conrelid::regclass::text AS tbl
+        FROM pg_constraint c
+        WHERE c.contype = 'f'
+          AND c.confrelid::regclass::text IN (
+            'labs', 'lab_objectives', 'lab_flags', 'lab_hints', 'lab_files',
+            'lab_categories', 'tags', 'lab_tags', 'target_machines',
+            'teams', 'team_memberships', 'team_invitations', 'team_statistics',
+            'learning_paths', 'learning_path_modules', 'learning_path_labs',
+            'user_learning_progress', 'lab_skills', 'user_profiles',
+            'sessions', 'password_reset_tokens', 'user_activity_logs',
+            'badges', 'user_badges', 'system_notifications',
+            'user_notifications', 'platform_settings', 'lab_environment_logs')
     LOOP
-        RAISE NOTICE 'dropping FK % on drill_objectives', r.conname;
-        EXECUTE format('ALTER TABLE drill_objectives DROP CONSTRAINT %I', r.conname);
+        IF r.tbl IN ('flag_submissions', 'first_bloods')
+           AND r.conname LIKE '%drill_flag%' THEN
+            CONTINUE;
+        END IF;
+        RAISE NOTICE 'dropping FK % on %', r.conname, r.tbl;
+        EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', r.tbl, r.conname);
     END LOOP;
 END $$;
 
+ALTER TABLE drill_scenarios ALTER COLUMN lab_id DROP NOT NULL;
+
+-- 3. Drop Learn tables (Drill keeps drills*, submissions*, scores*,
+--    reports*, benchmarks, audit_logs, security_events, users).
+DROP TABLE IF EXISTS
+    learning_path_labs, learning_path_modules, learning_paths,
+    user_learning_progress, lab_skills,
+    lab_tags, target_machines, lab_hints, lab_files, lab_objectives, lab_flags, labs,
+    lab_categories, tags,
+    team_statistics, team_invitations, team_memberships, drill_teams, teams,
+    user_badges, badges,
+    user_profiles, sessions, password_reset_tokens, user_activity_logs,
+    system_notifications, user_notifications, platform_settings,
+    lab_environment_logs
+    CASCADE;
+
+-- 4. Verify after COMMIT: drill_flags has 2 rows; users 8; drills 33;
+--    no labs/lab_flags/teams/learning_paths tables remain.
 COMMIT;

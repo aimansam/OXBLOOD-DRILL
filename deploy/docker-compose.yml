@@ -44,11 +44,6 @@ services:
       DIVIDE_ENV: ${DIVIDE_ENV:-dev}
       DIVIDE_LOG_LEVEL: ${DIVIDE_LOG_LEVEL:-INFO}
       DIVIDE_DB_URL: postgresql+asyncpg://divide:${POSTGRES_PASSWORD:-divide}@postgres:5432/divide
-      # Learn product database (separate Postgres DB). Unset = Learn shares
-      # the Drill DB (back-compat). To split: provision the Learn DB, run
-      # tools/export_learn_db.py, apply scripts/split_learn_db.sql to the
-      # Drill DB, then set DIVIDE_LEARN_DB_URL to the Learn database.
-      DIVIDE_LEARN_DB_URL: ${DIVIDE_LEARN_DB_URL:-}
       DIVIDE_REDIS_URL: redis://redis:6379/0
       # R1: opt into the Redis-backed event bus. With multiple
       # uvicorn workers this is the only way to deliver SSE events

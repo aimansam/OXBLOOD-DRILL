@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_oxblood import (
     Submission, FlagSubmission, EvidenceSubmission, Score, ScoreHistory,
-    FirstBlood, LabFlag, Lab, Drill, DrillParticipant, DrillObjective,
+    FirstBlood, Drill, DrillParticipant, DrillObjective,
     DrillFlag, SubmissionStatus, EvidenceType,
 )
 
@@ -32,32 +32,16 @@ async def submit_flag(
     team_id: Optional[int] = None,
     drill_flag=None,
 ) -> dict:
-    """Submit a flag and calculate points.
-
-    Drill-native path: pass drill_flag (a DrillFlag row) and validation
-    runs against drill_flags. Learn LabFlag path is kept as a fallback
-    for pre-split historical drills.
-    """
-    lab_flag = None
+    """Submit a flag and calculate points (Drill-native drill_flags)."""
     if drill_flag is None:
         flag_result = await db.execute(
             select(DrillFlag).where(DrillFlag.id == lab_flag_id)
         )
         drill_flag = flag_result.scalar_one_or_none()
-    if drill_flag is not None:
-        flag_value_expected = drill_flag.value
-        decay_window = drill_flag.decay_window_seconds
-        is_drill_flag = True
-    else:
-        flag_result = await db.execute(
-            select(LabFlag).where(LabFlag.id == lab_flag_id)
-        )
-        lab_flag = flag_result.scalar_one_or_none()
-        if not lab_flag:
-            raise ValueError("Flag not found")
-        flag_value_expected = lab_flag.value
-        decay_window = lab_flag.decay_window_seconds
-        is_drill_flag = False
+    if drill_flag is None:
+        raise ValueError("Flag not found")
+    flag_value_expected = drill_flag.value
+    decay_window = drill_flag.decay_window_seconds
     
     # Get drill start time for time decay calculation
     elapsed_seconds = 0
@@ -71,20 +55,20 @@ async def submit_flag(
             elapsed_seconds = int((now - drill.actual_start_at).total_seconds())
     
     # Validate flag
-    is_correct = (flag_value.strip() == lab_flag.value.strip())
+    is_correct = (flag_value.strip() == flag_value_expected.strip())
     
     # Calculate points
     points_earned = 0
     time_decay_factor = 1.0
     if is_correct:
-        time_decay_factor = calculate_time_decay(elapsed_seconds, lab_flag.decay_window_seconds)
-        points_earned = calculate_flag_points(lab_flag, time_decay_factor, hints_used)
+        time_decay_factor = calculate_time_decay(elapsed_seconds, decay_window)
+        points_earned = calculate_flag_points(drill_flag, time_decay_factor, hints_used)
     
     # Create parent submission
     submission = Submission(
         user_id=user_id,
         drill_id=drill_id,
-        lab_id=lab_id or (lab_flag.lab_id if lab_flag else None),
+        lab_id=lab_id,
         team_id=team_id,
         submission_type="flag",
         status=SubmissionStatus.CORRECT if is_correct else SubmissionStatus.INCORRECT,
@@ -145,15 +129,15 @@ def calculate_time_decay(elapsed_seconds: int, decay_window: int) -> float:
     return round(factor, 2)
 
 
-def calculate_flag_points(lab_flag: LabFlag, time_decay_factor: float, hints_used: int) -> int:
+def calculate_flag_points(flag, time_decay_factor: float, hints_used: int) -> int:
     """Calculate final points for a flag capture.
     
     Formula: (base_points * time_decay) - (hints_used * hint_penalty)
     Minimum 0 points.
     """
-    base_points = lab_flag.points
+    base_points = flag.points
     points_after_decay = base_points * time_decay_factor
-    hint_penalty = hints_used * lab_flag.hint_penalty
+    hint_penalty = hints_used * getattr(flag, 'hint_penalty', 10)
     final_points = max(0, points_after_decay - hint_penalty)
     return int(final_points)
 
@@ -468,25 +452,11 @@ async def get_drill_stats(db: AsyncSession, drill_id: int) -> dict:
     )
     correct_submissions = correct_result.scalar() or 0
     
-    # Total flags available
-    # Total flags available: drill-scoped objectives own their points via
-    # DrillObjective; Learn LabFlags are only a back-compat fallback while
-    # drills still carry a lab_id ref. Drill has no FK to labs anymore.
-    drill_result = await db.execute(
-        select(Drill).where(Drill.id == drill_id)
+    # Total flags available: Drill-native drill_flags count.
+    flag_result = await db.execute(
+        select(func.count(DrillFlag.id)).where(DrillFlag.drill_id == drill_id)
     )
-    drill = drill_result.scalar_one_or_none()
-    obj_result = await db.execute(
-        select(func.count(DrillObjective.id)).where(DrillObjective.drill_id == drill_id)
-    )
-    total_flags = obj_result.scalar() or 0
-    if total_flags == 0 and drill is not None and drill.lab_id:
-        flag_result = await db.execute(
-            select(func.count(LabFlag.id)).where(
-                LabFlag.lab_id == drill.lab_id
-            )
-        )
-        total_flags = flag_result.scalar() or 0
+    total_flags = flag_result.scalar() or 0
     
     # First bloods claimed
     first_blood_result = await db.execute(
