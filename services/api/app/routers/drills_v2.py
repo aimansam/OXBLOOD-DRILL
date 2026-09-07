@@ -32,7 +32,8 @@ router = APIRouter(prefix="/api/v2/drills", tags=["Drills v2"])
 class DrillCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    lab_id: Optional[int] = None
+    lab_id: Optional[int] = None  # read-only Learn ref (no FK)
+    scenario_id: Optional[int] = None  # Drill catalog (scenarios table)
     drill_type: str = "individual"
     scheduled_start_at: Optional[datetime] = None
     scheduled_end_at: Optional[datetime] = None
@@ -45,6 +46,7 @@ class DrillCreate(BaseModel):
 class DrillUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    scenario_id: Optional[int] = None
     scheduled_start_at: Optional[datetime] = None
     scheduled_end_at: Optional[datetime] = None
     duration_limit_minutes: Optional[int] = None
@@ -79,7 +81,8 @@ class ObjectiveCreate(BaseModel):
 
 
 class ScenarioLink(BaseModel):
-    lab_id: int
+    lab_id: Optional[int] = None  # read-only Learn ref (no FK)
+    scenario_id: Optional[int] = None  # Drill catalog (scenarios table)
     scenario_config: Optional[dict] = None
 
 
@@ -94,6 +97,7 @@ def drill_to_dict(drill) -> dict:
         "title": drill.title,
         "description": drill.description,
         "lab_id": drill.lab_id,
+        "scenario_id": drill.scenario_id,
         "drill_type": drill.drill_type,
         "status": drill.status.value if hasattr(drill.status, "value") else drill.status,
         "scheduled_start_at": drill.scheduled_start_at.isoformat() if drill.scheduled_start_at else None,
@@ -496,6 +500,7 @@ async def get_scenarios(
             {
                 "id": s.id,
                 "lab_id": s.lab_id,
+                "scenario_id": s.scenario_id,
                 "scenario_config": s.scenario_config,
                 "is_active": s.is_active,
                 "created_at": s.created_at.isoformat() if s.created_at else None,
@@ -516,7 +521,7 @@ async def post_scenario(
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
     try:
-        scenario = await link_scenario(db, drill_id, data.lab_id, data.scenario_config)
+        scenario = await link_scenario(db, drill_id, data.lab_id, data.scenario_id, data.scenario_config)
         return {"message": "Scenario linked", "scenario_id": scenario.id}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

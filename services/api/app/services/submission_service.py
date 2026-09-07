@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_oxblood import (
     Submission, FlagSubmission, EvidenceSubmission, Score, ScoreHistory,
-    FirstBlood, LabFlag, Lab, Drill, DrillParticipant,
+    FirstBlood, LabFlag, Lab, Drill, DrillParticipant, DrillObjective,
     SubmissionStatus, EvidenceType,
 )
 
@@ -450,12 +450,18 @@ async def get_drill_stats(db: AsyncSession, drill_id: int) -> dict:
     correct_submissions = correct_result.scalar() or 0
     
     # Total flags available
+    # Total flags available: drill-scoped objectives own their points via
+    # DrillObjective; Learn LabFlags are only a back-compat fallback while
+    # drills still carry a lab_id ref. Drill has no FK to labs anymore.
     drill_result = await db.execute(
         select(Drill).where(Drill.id == drill_id)
     )
     drill = drill_result.scalar_one_or_none()
-    total_flags = 0
-    if drill and drill.lab_id:
+    obj_result = await db.execute(
+        select(func.count(DrillObjective.id)).where(DrillObjective.drill_id == drill_id)
+    )
+    total_flags = obj_result.scalar() or 0
+    if total_flags == 0 and drill is not None and drill.lab_id:
         flag_result = await db.execute(
             select(func.count(LabFlag.id)).where(
                 LabFlag.lab_id == drill.lab_id

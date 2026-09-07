@@ -586,7 +586,11 @@ class Drill(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
-    lab_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("labs.id", ondelete="SET NULL"))
+    # Read-only reference to the Learn catalog (Learn DB owns labs).
+    # No FK constraint so Learn tables can live in a separate database.
+    # New code should use scenario_id (Drill catalog, scenarios table).
+    lab_id: Mapped[Optional[int]] = mapped_column(Integer)
+    scenario_id: Mapped[Optional[int]] = mapped_column(Integer)
     status: Mapped[DrillStatus] = mapped_column(Enum(DrillStatus, name='drill_status', values_callable=lambda x: [e.value for e in x]), nullable=False, default=DrillStatus.SCHEDULED)
     drill_type: Mapped[str] = mapped_column(String(50), nullable=False, default="individual")
     scheduled_start_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
@@ -610,18 +614,24 @@ class Drill(Base):
 
 
 class DrillScenario(Base):
-    """Link drills to labs with overrides."""
+    """Link drills to scenarios with overrides.
+
+    lab_id is a read-only Learn-catalog reference (no FK — Learn DB owns
+    labs). scenario_id points at the Drill catalog (scenarios table);
+    new links should use scenario_id.
+    """
     __tablename__ = "drill_scenarios"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     drill_id: Mapped[int] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False)
-    lab_id: Mapped[int] = mapped_column(Integer, ForeignKey("labs.id", ondelete="CASCADE"), nullable=False)
+    lab_id: Mapped[Optional[int]] = mapped_column(Integer)
+    scenario_id: Mapped[Optional[int]] = mapped_column(Integer)
     scenario_config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
-        UniqueConstraint("drill_id", "lab_id", name="uq_drill_scenarios"),
+        Index("idx_drill_scenarios_drill", "drill_id"),
     )
 
 

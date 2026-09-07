@@ -69,6 +69,7 @@ async def create_drill(
     title: str,
     description: Optional[str] = None,
     lab_id: Optional[int] = None,
+    scenario_id: Optional[int] = None,
     drill_type: str = "individual",
     scheduled_start_at: Optional[datetime] = None,
     scheduled_end_at: Optional[datetime] = None,
@@ -97,6 +98,7 @@ async def create_drill(
         title=title,
         description=description,
         lab_id=lab_id,
+        scenario_id=scenario_id,
         drill_type=drill_type,
         status=DrillStatus.SCHEDULED,
         scheduled_start_at=scheduled_start_at,
@@ -435,23 +437,30 @@ async def list_drill_scenarios(db: AsyncSession, drill_id: int) -> list[DrillSce
 async def link_scenario(
     db: AsyncSession,
     drill_id: int,
-    lab_id: int,
+    lab_id: Optional[int] = None,
+    scenario_id: Optional[int] = None,
     scenario_config: Optional[dict] = None,
 ) -> DrillScenario:
-    """Link a lab scenario to a drill."""
-    # Check if already linked
-    existing = await db.execute(
-        select(DrillScenario).where(
-            DrillScenario.drill_id == drill_id,
-            DrillScenario.lab_id == lab_id
-        )
-    )
+    """Link a scenario to a drill.
+
+    Prefers scenario_id (Drill catalog). lab_id is a read-only
+    Learn-catalog reference for back-compat; no FK is enforced.
+    """
+    if scenario_id is None and lab_id is None:
+        raise ValueError("Either scenario_id or lab_id is required")
+    dup_q = select(DrillScenario).where(DrillScenario.drill_id == drill_id)
+    if scenario_id is not None:
+        dup_q = dup_q.where(DrillScenario.scenario_id == scenario_id)
+    else:
+        dup_q = dup_q.where(DrillScenario.lab_id == lab_id)
+    existing = await db.execute(dup_q)
     if existing.scalar_one_or_none():
-        raise ValueError("Lab is already linked to this drill")
-    
+        raise ValueError("Scenario is already linked to this drill")
+
     scenario = DrillScenario(
         drill_id=drill_id,
         lab_id=lab_id,
+        scenario_id=scenario_id,
         scenario_config=scenario_config or {},
     )
     db.add(scenario)
