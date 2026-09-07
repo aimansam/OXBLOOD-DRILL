@@ -92,9 +92,7 @@ class UI {
     }
 
     try {
-      // Map page names to file names
-      const pageFile = page === 'learning-path' ? 'learning' : page;
-      const response = await fetch(`/drill/pages/${pageFile}.html`);
+      const response = await fetch(`/drill/pages/${page}.html`);
       
       if (!response.ok) {
         throw new Error(`Failed to load page: ${page}`);
@@ -106,12 +104,8 @@ class UI {
       // Load page data
       switch (page) {
         case 'dashboard': await this.loadDashboard(); break;
-        case 'labs': await this.loadLabs(); break;
         case 'drills': await this.loadDrills(); break;
-        case 'teams': await this.loadTeams(); break;
-        case 'scoreboard': await this.loadScoreboard(); break;
         case 'reports': await this.loadReports(); break;
-        case 'learning-path': await this.loadLearningPath(); break;
         case 'settings': await this.loadSettings(); break;
       }
     } catch (error) {
@@ -124,12 +118,11 @@ class UI {
     try {
       const data = await API.getDashboard();
       
-      // Update KPI cards
+      // Update KPI cards (3 cards: completed / active / objective rate)
       const kpis = document.querySelectorAll('.kpi-value');
-      if (kpis[0]) kpis[0].textContent = data.totalLabs;
-      if (kpis[1]) kpis[1].textContent = data.completedLabs;
-      if (kpis[2]) kpis[2].textContent = data.activeDrills;
-      if (kpis[3]) kpis[3].textContent = `${data.successRate}%`;
+      if (kpis[0]) kpis[0].textContent = data.completedDrills;
+      if (kpis[1]) kpis[1].textContent = data.activeDrills;
+      if (kpis[2]) kpis[2].textContent = `${data.objectiveRate}%`;
 
       // Update active drill section
       const activeDrillSection = document.getElementById('active-drill-section');
@@ -153,65 +146,6 @@ class UI {
     } catch (error) {
       console.error('Failed to load dashboard:', error);
     }
-  }
-
-  async loadLabs() {
-    try {
-      const labs = await API.getLabs();
-      this._allLabs = labs;
-      this.applyLabFilters();
-      this.initLabFilters();
-    } catch (error) {
-      console.error('Failed to load labs:', error);
-    }
-  }
-
-  applyLabFilters() {
-    const search = document.getElementById('lab-search')?.value.toLowerCase() || '';
-    const category = document.getElementById('lab-category')?.value || 'all';
-    const difficulty = document.getElementById('lab-difficulty')?.value || 'all';
-
-    let filtered = this._allLabs || [];
-    if (search) filtered = filtered.filter(l => l.title.toLowerCase().includes(search));
-    if (category !== 'all') filtered = filtered.filter(l => l.category === category);
-    if (difficulty !== 'all') filtered = filtered.filter(l => l.difficulty === difficulty);
-
-    const grid = document.getElementById('lab-cards-grid');
-    if (grid) {
-      if (filtered.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); padding: var(--space-xl);">No labs found</div>';
-      } else {
-        grid.innerHTML = filtered.map(lab => {
-          const diffClass = lab.difficulty === 'beginner' ? 'success' : lab.difficulty === 'intermediate' ? 'warning' : 'danger';
-          return `
-            <div class="card" style="cursor: pointer;" onclick="app.startLab(${lab.id})">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-sm);">
-                <h3 style="font-size: 16px; font-weight: 600;">${this.sanitizeHTML(lab.title)}</h3>
-                <span class="badge badge-${diffClass}">${lab.difficulty}</span>
-              </div>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: var(--space-md);">
-                <span>${lab.category}</span> • <span>${lab.duration}</span>
-              </div>
-              <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
-                ${(lab.tags || []).slice(0, 3).map(tag => `<span class="badge" style="background: var(--bg-tertiary);">${tag}</span>`).join('')}
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
-    }
-  }
-
-  initLabFilters() {
-    ['lab-search', 'lab-category', 'lab-difficulty'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.removeEventListener('input', this._labFilterHandler);
-        el.removeEventListener('change', this._labFilterHandler);
-        this._labFilterHandler = () => this.applyLabFilters();
-        el.addEventListener(id === 'lab-search' ? 'input' : 'change', this._labFilterHandler);
-      }
-    });
   }
 
   async loadDrills() {
@@ -296,70 +230,6 @@ class UI {
     await this.playDrill(drillId);
   }
 
-  async loadTeams() {
-    try {
-      const teams = await API.getTeams();
-      const container = document.getElementById('teams');
-      if (!container) return;
-      const grid = container.querySelector('.card-grid') || container;
-      
-      if (teams.length === 0) {
-        grid.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">No teams available</div>';
-      } else {
-        grid.innerHTML = teams.map(team => `
-          <div class="card">
-            <div style="display: flex; align-items: center; gap: var(--space-md); margin-bottom: var(--space-md);">
-              <div class="user-avatar" style="width: 48px; height: 48px; font-size: 18px;">${(team.name || 'T')[0].toUpperCase()}</div>
-              <div>
-                <h3 style="font-size: 16px; font-weight: 600;">${team.name || 'Team'}</h3>
-                <div style="font-size: 12px; color: var(--text-secondary);">${team.member_count || 0} members</div>
-              </div>
-            </div>
-          </div>
-        `).join('');
-      }
-    } catch (error) {
-      console.error('Failed to load teams:', error);
-    }
-  }
-
-  async loadScoreboard() {
-    try {
-      const entries = await API.getScoreboard();
-      const container = document.getElementById('scoreboard');
-      if (!container) return;
-      
-      if (entries.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">No scores yet</div>';
-      } else {
-        container.innerHTML = `
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <th style="text-align: left; padding: var(--space-sm);">Rank</th>
-                <th style="text-align: left; padding: var(--space-sm);">User</th>
-                <th style="text-align: right; padding: var(--space-sm);">Points</th>
-                <th style="text-align: right; padding: var(--space-sm);">Solves</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${entries.map((entry, idx) => `
-                <tr style="border-bottom: 1px solid var(--border);">
-                  <td style="padding: var(--space-sm); font-family: var(--font-mono); font-weight: 700;">#${idx + 1}</td>
-                  <td style="padding: var(--space-sm); font-weight: 600;">${entry.username}</td>
-                  <td style="padding: var(--space-sm); text-align: right; font-family: var(--font-mono); font-weight: 700;">${entry.points}</td>
-                  <td style="padding: var(--space-sm); text-align: right; font-family: var(--font-mono);">${entry.solves}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      }
-    } catch (error) {
-      console.error('Failed to load scoreboard:', error);
-    }
-  }
-
   async loadReports() {
     try {
       const reports = await API.getReports();
@@ -386,12 +256,6 @@ class UI {
     }
   }
 
-  async loadLearningPath() {
-    const container = document.getElementById('learning-path');
-    if (!container) return;
-    container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">Learning paths coming soon</div>';
-  }
-
   async loadSettings() {
     const container = document.getElementById('settings');
     if (!container) return;
@@ -408,11 +272,6 @@ class UI {
         </div>
       </div>
     `;
-  }
-
-  async startLab(scenarioId) {
-    this.showToast('Starting lab...', 'info');
-    this.showToast('Lab feature coming soon', 'info');
   }
 
   // ============================================================================
@@ -483,34 +342,6 @@ class UI {
     if (textarea) textarea.value = '';
   }
 
-  showCreateTeamModal() {
-    const modal = document.getElementById('create-team-modal');
-    if (modal) modal.style.display = 'flex';
-  }
-
-  hideCreateTeamModal() {
-    const modal = document.getElementById('create-team-modal');
-    if (modal) modal.style.display = 'none';
-    const form = document.getElementById('create-team-form');
-    if (form) form.reset();
-  }
-
-  async createTeam() {
-    const name = document.getElementById('team-name').value.trim();
-    if (!name) {
-      this.showToast('Please enter a team name', 'error');
-      return;
-    }
-
-    try {
-      this.showToast('Creating team...', 'info');
-      this.showToast('Team feature coming soon', 'info');
-      this.hideCreateTeamModal();
-    } catch (error) {
-      console.error('Failed to create team:', error);
-      this.showToast('Failed to create team', 'error');
-    }
-  }
 }
 
 // ============================================================================

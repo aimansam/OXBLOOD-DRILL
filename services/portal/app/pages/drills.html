@@ -183,11 +183,10 @@
               </div>
             </div>
 
-            <!-- Teams -->
+            <!-- Teams (drill-scoped Red/Blue sides; persistent study teams live in Learn) -->
             <div class="card" style="margin-bottom: var(--space-lg);">
-              <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="card-header">
                 <h3 class="card-title">Teams</h3>
-                <button class="btn btn-primary btn-sm" onclick="app.showCreateTeamModal()">+ Create Team</button>
               </div>
               <div id="drill-teams" style="padding: var(--space-md);">
                 <div style="text-align: center; color: var(--text-secondary);">Loading teams...</div>
@@ -221,26 +220,6 @@
               </div>
               <div id="drill-reports" style="padding: var(--space-md);">
                 <div style="text-align: center; color: var(--text-secondary);">Loading reports...</div>
-              </div>
-            </div>
-
-            <!-- Create Team Modal -->
-            <div id="create-team-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
-              <div style="background: var(--bg-secondary); border-radius: 4px; border: 1px solid var(--border); width: 500px; max-width: 90vw;">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                  <h3 class="card-title">Create Team</h3>
-                  <button onclick="app.hideCreateTeamModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 20px;">&times;</button>
-                </div>
-                <div style="padding: var(--space-lg);">
-                  <div style="margin-bottom: var(--space-md);">
-                    <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Team Name *</label>
-                    <input type="text" id="team-name" required style="width: 100%; padding: var(--space-sm); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary);">
-                  </div>
-                </div>
-                <div style="padding: var(--space-md) var(--space-lg); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: var(--space-sm);">
-                  <button class="btn btn-secondary" onclick="app.hideCreateTeamModal()">Cancel</button>
-                  <button class="btn btn-primary" onclick="app.createTeam()">Create Team</button>
-                </div>
               </div>
             </div>
 

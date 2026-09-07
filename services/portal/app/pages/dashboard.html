@@ -1,13 +1,13 @@
           <div class="page-header">
             <h1 class="page-title">Welcome back, John</h1>
-            <div class="rank-badge">Rank: LVL 42</div>
+            <div class="rank-badge">OPERATOR</div>
           </div>
 
-          <!-- KPI Cards -->
-          <div class="grid grid-4" style="margin-bottom: var(--space-xl);">
+          <!-- KPI Cards: Drill live-ops only (no Learn skill/XP metrics) -->
+          <div class="grid grid-3" style="margin-bottom: var(--space-xl);">
             <div class="card">
               <div class="kpi-value">12</div>
-              <div class="kpi-label">Labs Completed</div>
+              <div class="kpi-label">Drills Completed</div>
             </div>
             <div class="card">
               <div class="kpi-value">3</div>
@@ -15,15 +15,11 @@
             </div>
             <div class="card">
               <div class="kpi-value">85%</div>
-              <div class="kpi-label">Success Rate</div>
-            </div>
-            <div class="card">
-              <div class="kpi-value">#2</div>
-              <div class="kpi-label">Team Ranking</div>
+              <div class="kpi-label">Objective Rate</div>
             </div>
           </div>
 
-          <!-- Active Drill & Skill Rating -->
+          <!-- Active Drill & Drill Stats (Red vs Blue live-ops; skill ratings live in Learn) -->
           <div class="grid grid-6-6" style="margin-bottom: var(--space-xl);">
             <div class="card">
               <div class="card-header">
@@ -53,42 +49,42 @@
 
             <div class="card">
               <div class="card-header">
-                <h3 class="card-title">Skill Rating</h3>
+                <h3 class="card-title">Drill Stats</h3>
               </div>
               <div style="margin-bottom: var(--space-md);">
                 <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-                  <span>Offensive</span>
-                  <span style="font-family: var(--font-mono);">80%</span>
+                  <span>Objectives</span>
+                  <span style="font-family: var(--font-mono);">2/5</span>
                 </div>
                 <div class="progress-bar">
-                  <div class="progress-fill" style="width: 80%;"></div>
+                  <div class="progress-fill" style="width: 40%;"></div>
                 </div>
               </div>
               <div style="margin-bottom: var(--space-md);">
                 <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-                  <span>Defensive</span>
-                  <span style="font-family: var(--font-mono);">60%</span>
+                  <span>Flags Captured</span>
+                  <span style="font-family: var(--font-mono);">1/4</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: 25%;"></div>
+                </div>
+              </div>
+              <div style="margin-bottom: var(--space-md);">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                  <span>Red Team Score</span>
+                  <span style="font-family: var(--font-mono);">450 pts</span>
                 </div>
                 <div class="progress-bar">
                   <div class="progress-fill" style="width: 60%;"></div>
                 </div>
               </div>
-              <div style="margin-bottom: var(--space-md);">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-                  <span>Web Security</span>
-                  <span style="font-family: var(--font-mono);">90%</span>
-                </div>
-                <div class="progress-bar">
-                  <div class="progress-fill" style="width: 90%;"></div>
-                </div>
-              </div>
               <div>
                 <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-                  <span>Network Security</span>
-                  <span style="font-family: var(--font-mono);">70%</span>
+                  <span>Blue Team Score</span>
+                  <span style="font-family: var(--font-mono);">400 pts</span>
                 </div>
                 <div class="progress-bar">
-                  <div class="progress-fill" style="width: 70%;"></div>
+                  <div class="progress-fill" style="width: 55%;"></div>
                 </div>
               </div>
             </div>
@@ -105,7 +101,7 @@
             </div>
             <div class="activity-item">
               <div class="activity-time">14:18</div>
-              <div class="activity-text">Lab started: Active Directory Basics</div>
+              <div class="activity-text">Drill started: Active Directory Baseline</div>
             </div>
             <div class="activity-item">
               <div class="activity-time">13:45</div>
@@ -117,5 +113,5 @@
             </div>
             <div class="activity-item">
               <div class="activity-time">11:15</div>
-              <div class="activity-text">Lab completed: Buffer Overflow Basics</div>
+              <div class="activity-text">Drill completed: Buffer Overflow Baseline</div>
             </div>

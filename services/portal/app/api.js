@@ -61,11 +61,10 @@ class API {
     return await response.json();
   }
 
-  // Dashboard data
+  // Dashboard data (Drill live-ops: drills completed/active + objective rate)
   static async getDashboard() {
-    const [me, labs, drills] = await Promise.all([
+    const [me, drills] = await Promise.all([
       Auth.getMe(),
-      this.get('/labs').catch(() => ({ labs: [] })),
       this.get('/drills').catch(() => ({ drills: [] }))
     ]);
 
@@ -75,38 +74,10 @@ class API {
 
     return {
       user: me,
-      totalLabs: (labs.labs || []).length,
-      completedLabs: completedDrills.length,
+      completedDrills: completedDrills.length,
       activeDrills: activeDrills.length,
-      successRate: allDrills.length > 0 ? Math.round((completedDrills.length / allDrills.length) * 100) : 0,
-      teamRank: 2 // Placeholder - would need leaderboard endpoint
+      objectiveRate: allDrills.length > 0 ? Math.round((completedDrills.length / allDrills.length) * 100) : 0,
     };
-  }
-
-  // Labs/Scenarios
-  static async getLabs() {
-    const labs = await this.get('/labs');
-    
-    // Category ID to name mapping (since API returns category_id)
-    const categoryMap = {
-      1: 'Web',
-      2: 'Network',
-      3: 'Active Directory',
-      4: 'Linux',
-      5: 'Windows',
-      6: 'Forensics',
-      7: 'Blue Team'
-    };
-    
-    return (labs.labs || []).map(lab => ({
-      id: lab.id,
-      title: lab.title || lab.name,
-      difficulty: lab.difficulty || 'beginner',
-      duration: lab.duration_minutes ? `${lab.duration_minutes} min` : '1h',
-      tags: lab.tags || [],
-      category: categoryMap[lab.category_id] || 'Web',
-      status: 'not_started'
-    }));
   }
 
   // Active drills
@@ -121,15 +92,11 @@ class API {
     return drills.drills || [];
   }
 
-  // Teams (simplified for v2)
-  static async getTeams() {
-    return [];
-  }
-
-  // Scoreboard (from v2 leaderboard)
-  static async getScoreboard() {
+  // Per-drill leaderboard (global XP rank lives in Learn;
+  // Drill Scoreboard page removed — scores render in drill active view)
+  static async getScoreboard(drillId = null) {
     try {
-      const leaderboard = await this.get('/leaderboard');
+      const leaderboard = await this.get(drillId ? `/leaderboard/drill/${drillId}` : '/leaderboard');
       const entries = leaderboard.leaderboard || [];
       
       // Enrich with user data
