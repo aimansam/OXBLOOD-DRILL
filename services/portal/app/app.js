@@ -193,11 +193,13 @@ class UI {
       const title = document.getElementById('dashboard-title');
       if (title && dashboard && dashboard.user) title.textContent = `Welcome back, ${dashboard.user.sub}`;
       let all = [];
+      let scheduled = [];
+      let nextUp = null;
       try { all = await API.getAllDrills().catch(() => []); } catch (e) { all = []; }
       const hero = document.getElementById('dashboard-hero');
       if (hero) {
-        const scheduled = all.filter((x) => (x.status || '').toLowerCase() === 'scheduled');
-        const nextUp = scheduled[0];
+        scheduled = all.filter((x) => (x.status || '').toLowerCase() === 'scheduled');
+        nextUp = scheduled[0] || null;
         if (!activeDrills.length) {
           hero.innerHTML = `<div class="card"><div class="row-between"><div><div class="label">Live operations</div><div class="value">No drill running</div>${nextUp ? `<div class="small muted" style="margin-top: 4px;">Next: ${this.sanitizeHTML(nextUp.title || 'Untitled')}</div>` : '<div class="small muted" style="margin-top: 4px;">No drill scheduled</div>'}</div><div style="display: flex; gap: var(--space-sm);">${nextUp ? `<button class="btn btn-primary btn-sm" onclick="app.startDrill(${nextUp.id}).then(() => app.loadDashboard())">Start now</button>` : ''}<button class="btn btn-secondary btn-sm" onclick="app.loadPage('drills')">Go to Drills</button></div></div></div>`;
         } else {
