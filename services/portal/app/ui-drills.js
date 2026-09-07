@@ -29,6 +29,7 @@ Object.assign(UI.prototype, {
       this.loadDrillSubmissions(drillId);
       this.loadDrillTeams(drillId);
       this.loadDrillAnnouncementsRich(drillId);
+      this.loadDrillScenarios(drillId);
       
       // Start timer if drill is active
       if (drill.status === 'active' && drill.started_at) {
@@ -406,6 +407,72 @@ Object.assign(UI.prototype, {
       }
     } catch (error) {
       console.error('Failed to load announcements:', error);
+    }
+  },
+
+  async loadDrillScenarios(drillId) {
+    try {
+      const data = await API.get(`/drills/${drillId}/scenarios`).catch(() => ({ scenarios: [] }));
+      const div = document.getElementById('drill-scenarios');
+      if (!div) return;
+      const rows = data.scenarios || [];
+      if (rows.length === 0) {
+        div.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">No scenarios linked — use + Link Scenario</div>';
+        return;
+      }
+      div.innerHTML = rows.map((s) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-sm); border-bottom: 1px solid var(--border);">
+          <span style="font-family: var(--font-mono); font-size: 13px;">${s.scenario_id ? 'Scenario #' + s.scenario_id : 'Learn ref #' + (s.lab_id || '?')}</span>
+          <span style="font-size: 12px; color: var(--text-secondary);">${s.is_active ? 'active' : 'inactive'}</span>
+        </div>`).join('');
+    } catch (error) {
+      console.error('Failed to load scenarios:', error);
+    }
+  },
+
+  showLinkScenarioModal() {
+    const modal = document.getElementById('link-scenario-modal');
+    if (modal) modal.style.display = 'flex';
+    try {
+      const sel = document.getElementById('link-scenario-select');
+      if (sel && sel.options.length <= 1) {
+        fetch('/api/v1/scenarios', { headers: Auth.getHeaders() }).then((res) => {
+          if (!res.ok) return;
+          return res.json();
+        }).then((data) => {
+          if (!data) return;
+          (data.scenarios || data.items || []).forEach((s) => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.title || s.name || `Scenario ${s.id}`;
+            sel.appendChild(opt);
+          });
+        }).catch(() => {});
+      }
+    } catch (e) { /* catalog optional */ }
+  },
+
+  hideLinkScenarioModal() {
+    const modal = document.getElementById('link-scenario-modal');
+    if (modal) modal.style.display = 'none';
+  },
+
+  async linkScenario() {
+    const sel = document.getElementById('link-scenario-select');
+    const scenarioId = sel && sel.value ? parseInt(sel.value) : null;
+    if (!scenarioId) {
+      this.showToast('Select a scenario', 'error');
+      return;
+    }
+    try {
+      this.showToast('Linking scenario...', 'info');
+      await API.post(`/drills/${this.currentDrillId}/scenarios`, { scenario_id: scenarioId });
+      this.showToast('Scenario linked!', 'success');
+      this.hideLinkScenarioModal();
+      this.loadDrillScenarios(this.currentDrillId);
+    } catch (error) {
+      console.error('Failed to link scenario:', error);
+      this.showToast('Failed to link scenario', 'error');
     }
   },
 

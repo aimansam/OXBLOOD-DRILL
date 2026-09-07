@@ -352,30 +352,59 @@ class UI {
   }
 
   async loadSettings() {
-    const container = document.getElementById('settings');
-    if (!container) return;
-    container.innerHTML = `
-      <div class="card">
-        <h3 class="card-title" style="margin-bottom: var(--space-lg);">User Settings</h3>
-        <div style="margin-bottom: var(--space-md);">
-          <div style="font-size: 12px; color: var(--text-secondary);">Username</div>
-          <div style="font-weight: 600;">${this.user?.sub || 'N/A'}</div>
-        </div>
-        <div style="margin-bottom: var(--space-md);">
-          <div style="font-size: 12px; color: var(--text-secondary);">Role</div>
-          <div style="font-weight: 600;">${this.user?.role || 'N/A'}</div>
-        </div>
-      </div>
-    `;
+    try {
+      const me = await fetch('/api/v1/me', { headers: Auth.getHeaders() }).then((r) => r.ok ? r.json() : null).catch(() => null);
+      const profile = document.getElementById('settings-profile');
+      if (profile && me) {
+        profile.innerHTML = '<div><div style="font-size: 12px; color: var(--text-secondary);">Username</div><div style="font-weight: 600;">' + this.sanitizeHTML(me.sub || 'N/A') + '</div></div>' + '<div><div style="font-size: 12px; color: var(--text-secondary);">Role</div><div style="font-weight: 600;">' + this.sanitizeHTML(me.role || 'N/A') + '</div></div>';
+      }
+      const ttl = document.getElementById('token-ttl');
+      if (ttl && me && me.ttl_remaining_s != null) {
+        ttl.textContent = Math.floor(me.ttl_remaining_s / 60) + ' min';
+      }
+      const statsDiv = document.getElementById('user-stats');
+      if (statsDiv) {
+        const drills = await API.getAllDrills().catch(() => []);
+        let total = 0;
+        const rows = await Promise.all(drills.slice(0, 10).map((d) => API.get('/drills/' + d.id + '/scores').then((r) => r.scores || []).catch(() => [])));
+        rows.forEach((scores) => { (scores || []).forEach((sc) => { total += sc.total_points || 0; }); });
+        statsDiv.innerHTML = '<div style="display: flex; gap: var(--space-xl);"><div><div style="font-size: 20px; font-weight: 700; font-family: var(--font-mono);">' + drills.length + '</div><div style="font-size: 12px; color: var(--text-secondary);">drills</div></div><div><div style="font-size: 20px; font-weight: 700; font-family: var(--font-mono);">' + total + '</div><div style="font-size: 12px; color: var(--text-secondary);">points (last 10 drills)</div></div></div>';
+      }
+      const actDiv = document.getElementById('user-activity');
+      if (actDiv) {
+        const feed = await API.getAuditLog(10).catch(() => []);
+        actDiv.innerHTML = feed.length > 0 ? feed.map((e) => '<div class="activity-item"><div class="activity-time">' + (e.at ? new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--') + '</div><div class="activity-text">' + this.sanitizeHTML(e.action || 'event') + (e.actor ? ' by ' + this.sanitizeHTML(e.actor) : '') + '</div></div>').join('') : '<div style="text-align: center; color: var(--text-secondary);">No activity</div>';
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
   }
 
-  // ============================================================================
   // Modals
   // ============================================================================
 
   showCreateDrillModal() {
     const modal = document.getElementById('create-drill-modal');
     if (modal) modal.style.display = 'flex';
+    // Populate scenario dropdown from Drill catalog (v1 scenarios)
+    try {
+      const sel = document.getElementById('drill-scenario');
+      if (sel && sel.options.length <= 1) {
+        fetch('/api/v1/scenarios', { headers: Auth.getHeaders() }).then((res) => {
+          if (!res.ok) return;
+          return res.json();
+        }).then((data) => {
+          if (!data) return;
+          const rows = data.scenarios || data.items || [];
+          rows.forEach((s) => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.title || s.name || `Scenario ${s.id}`;
+            sel.appendChild(opt);
+          });
+        }).catch(() => {});
+      }
+    } catch (e) { /* catalog optional */ }
   }
 
   hideCreateDrillModal() {
@@ -401,6 +430,8 @@ class UI {
     const type = document.getElementById('drill-type').value;
     const duration = document.getElementById('drill-duration').value;
     const maxParticipants = document.getElementById('drill-max-participants').value;
+    const scenarioSel = document.getElementById('drill-scenario');
+    const scenarioId = scenarioSel && scenarioSel.value ? parseInt(scenarioSel.value) : null;
 
     if (!title) {
       this.showToast('Please enter a title', 'error');
@@ -414,7 +445,8 @@ class UI {
         description,
         drill_type: type,
         duration_limit_minutes: duration ? parseInt(duration) : null,
-        max_participants: maxParticipants ? parseInt(maxParticipants) : null
+        max_participants: maxParticipants ? parseInt(maxParticipants) : null,
+        scenario_id: scenarioId
       });
       this.showToast('Drill created successfully!', 'success');
       this.hideCreateDrillModal();

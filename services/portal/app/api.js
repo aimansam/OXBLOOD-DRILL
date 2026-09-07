@@ -138,14 +138,12 @@ class API {
     }
   }
 
-  // Submit flag
+  // Submit flag: Drill-native identity is the token sub. The server resolves
+  // the numeric user id from the token (no Learn /users/me lookup).
   static async submitFlag(drillId, value) {
-    const meRes = await fetch('/api/v2/users/me', { headers: Auth.getHeaders() });
-    if (!meRes.ok) throw new Error(`Cannot resolve user id: ${meRes.status}`);
-    const me = await meRes.json();
-    return await this.post(`/submissions?user_id=${me.id}`, {
+    return await this.post(`/submissions?user_id=0`, {
       drill_id: drillId,
-      lab_flag_id: 0, // resolved server-side from drill objectives below
+      lab_flag_id: 0, // resolved server-side from drill objectives
       flag_value: value,
       hints_used: 0,
     });

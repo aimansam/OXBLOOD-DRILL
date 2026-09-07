@@ -52,6 +52,9 @@ services:
       DIVIDE_ENV: production
       DIVIDE_LOG_LEVEL: ${DIVIDE_LOG_LEVEL:-INFO}
       DIVIDE_DB_URL: postgresql+asyncpg://divide:${POSTGRES_PASSWORD}@postgres:5432/divide
+      # Learn product database (separate Postgres DB). See dev compose for
+      # the cutover runbook (export + split_learn_db.sql before setting).
+      DIVIDE_LEARN_DB_URL: ${DIVIDE_LEARN_DB_URL:-}
       DIVIDE_REDIS_URL: redis://redis:6379/0
       # R1: SSE across workers requires the Redis-backed bus.
       # Overriding the default in the dev compose.

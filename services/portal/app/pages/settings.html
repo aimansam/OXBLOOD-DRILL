@@ -8,16 +8,8 @@
               <div class="card-header">
                 <h3 class="card-title">Profile</h3>
               </div>
-              <div style="display: flex; flex-direction: column; gap: var(--space-md);">
-                <div>
-                  <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Username</label>
-                  <input type="text" value="john_doe" style="width: 100%;">
-                </div>
-                <div>
-                  <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Email</label>
-                  <input type="text" value="john@example.com" style="width: 100%;">
-                </div>
-                <button class="btn btn-primary" style="align-self: flex-start;">Save Changes</button>
+              <div id="settings-profile" style="display: flex; flex-direction: column; gap: var(--space-md);">
+                <div style="text-align: center; color: var(--text-secondary);">Loading profile...</div>
               </div>
             </div>
 
@@ -26,9 +18,8 @@
                 <h3 class="card-title">Security</h3>
               </div>
               <div style="display: flex; flex-direction: column; gap: var(--space-md);">
-                <button class="btn btn-secondary">Change Password</button>
-                <button class="btn btn-secondary">Enable Two-Factor Authentication</button>
-                <button class="btn btn-secondary">View Active Sessions</button>
+                <div style="font-size: 12px; color: var(--text-secondary);">Token expires in <span id="token-ttl" style="font-family: var(--font-mono);">—</span></div>
+                <button class="btn btn-secondary" onclick="Auth.logout()">Sign Out All Sessions</button>
               </div>
             </div>
 

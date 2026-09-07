@@ -73,18 +73,10 @@ class Auth {
 
       const user = await response.json();
 
-      // Also fetch database user ID from v2 endpoint
-      try {
-        const profileResponse = await fetch(`/api/v2/users/me`, {
-          headers: this.getHeaders()
-        });
-        if (profileResponse.ok) {
-          const profile = await profileResponse.json();
-          user.id = profile.id;
-        }
-      } catch (e) {
-        console.warn('Could not fetch user profile ID:', e);
-      }
+      // Drill-native identity: token sub IS the identity (verified server-side
+      // by /api/v1/me). No Learn /users/me lookup — that router is unmounted
+      // after the split. user.id stays null until a Drill-native mapping exists.
+      user.id = null;
 
       return user;
     } catch (error) {

@@ -5,7 +5,7 @@ Provides endpoints for flag submissions, evidence uploads, scoring, leaderboards
 from __future__ import annotations
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -147,7 +147,8 @@ def score_history_to_dict(sh) -> dict:
 @router.post("/submissions")
 async def post_submission(
     data: FlagSubmissionCreate,
-    user_id: int = Query(..., description="User ID"),
+    request: Request,
+    user_id: int = Query(..., description="User ID (0 = resolve from X-Divide-Token sub)"),
     session: AsyncSession = Depends(get_session),
 ):
     """Submit a flag.
@@ -157,6 +158,25 @@ async def post_submission(
     guesses flag IDs. Explicit lab_flag_id > 0 keeps working as before.
     """
     try:
+        # Drill-native identity: user_id=0 means "resolve from token sub".
+        # Creates the Drill users row on first submit (sub is the identity).
+        from app.db.models import User as _DrillUser
+        from app.core.auth import token_subject as _token_subject
+        if not user_id:
+            sub = _token_subject(request)
+            if not sub:
+                raise ValueError("Authentication required (missing X-Divide-Token)")
+            existing = await session.execute(
+                _select(_DrillUser).where(_DrillUser.sub == sub)
+            )
+            user = existing.scalar_one_or_none()
+            if user is None:
+                # password_hash NOT NULL — mark as token-provisioned; this row
+                # can never pass password login (no valid argon2 PHC string).
+                user = _DrillUser(sub=sub, password_hash="token-provisioned", role="blue")
+                session.add(user)
+                await session.flush()
+            user_id = user.id
         lab_flag_id = data.lab_flag_id
         if not lab_flag_id and data.drill_id:
             from app.services.drill_service import list_drill_objectives
