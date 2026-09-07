@@ -266,8 +266,8 @@ Object.assign(UI.prototype, {
           firstBloodsDiv.innerHTML = data.first_bloods.map(fb => `
             <div style="padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--border);">
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: 600;">${fb.flag_title || `Flag ${fb.flag_id}`}</span>
-                <span style="font-size: 12px; color: var(--text-secondary);">${fb.username || `User ${fb.user_id}`}</span>
+                <span style="font-weight: 600;"><span style="color: var(--gold);">&#128128;</span> ${fb.flag_title || `Flag ${fb.flag_id}`}</span>
+                <span class="fb-winner" style="font-size: 12px;">${fb.username || `User ${fb.user_id}`}</span>
               </div>
               <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${new Date(fb.solved_at).toLocaleString()}</div>
             </div>
@@ -326,7 +326,8 @@ Object.assign(UI.prototype, {
       if (result.is_correct && result.first_blood) {
         const banner = document.createElement('div');
         banner.className = 'first-blood-banner';
-        banner.textContent = `FIRST BLOOD — ${flagValue.slice(0, 40)} (+${result.points_earned} pts)`;
+        banner.setAttribute('role', 'alert');
+        banner.innerHTML = `<span class="fb-label">&#128128; First Blood</span><span class="fb-winner">${this.sanitizeHTML(flagValue.slice(0, 40))}</span> (+${result.points_earned} pts)`;
         const view = document.getElementById('drills-active-view');
         if (view) {
           view.insertBefore(banner, view.firstChild);

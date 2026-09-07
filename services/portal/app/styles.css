@@ -7,14 +7,32 @@
 
     :root {
       /* Colors */
-      --bg-primary: #0a0a0a;
-      --bg-secondary: #1a1a1a;
-      --bg-tertiary: #2a2a2a;
-      --border: #2a2a2a;
-      --text-primary: #e5e5e5;
-      --text-secondary: #a3a3a3;
-      --text-tertiary: #737373;
+      --bg-primary: #0b0b0d;
+      --bg-secondary: #141417;
+      --bg-tertiary: #1c1c21;
+      --bg-raised: #1c1c21;
+      --border: #26262c;
+      --border-strong: #3a3a44;
+      --text-primary: #ededf0;
+      --text-secondary: #a8a8b3;
+      --text-tertiary: #6e6e7a;
       --accent: #ffffff;
+
+      /* Signal — oxblood red: the one saturated color, reserved for
+         live/urgent/interactive. Everything else stays muted. */
+      --signal: #e63d2e;
+      --signal-dim: rgba(230,61,46,.12);
+      --ok: #4ade80;
+      --gold: #f5b301;
+      --primary: var(--signal);
+      --success: var(--ok);
+      --danger: var(--signal);
+      --warning: var(--gold);
+
+      /* Typography scale — three sizes, enforced via .label/.value */
+      --text-display: 28px;
+      --text-body: 13px;
+      --text-label: 11px;
       
       /* Severity */
       --critical: #dc2626;
@@ -92,6 +110,10 @@
       font-weight: 700;
       color: var(--accent);
       letter-spacing: -0.5px;
+    }
+
+    .logo .logo-mark {
+      color: var(--signal);
     }
 
     .search {
@@ -210,10 +232,14 @@
 
     /* Cards */
     .card {
-      background: var(--bg-secondary);
+      background: var(--bg-raised);
       border: 1px solid var(--border);
-      border-radius: 4px;
+      border-radius: 8px;
       padding: var(--space-lg);
+    }
+
+    .card-accent {
+      border-left: 3px solid var(--signal);
     }
 
     .card-header {
@@ -547,13 +573,19 @@
     }
     .score-pop { animation: scorePop 0.6s ease; }
     .first-blood-banner {
-      border: 1px solid var(--medium);
-      background: rgba(202,138,4,0.1);
-      border-radius: 4px;
+      border: 1px solid var(--gold);
+      background: linear-gradient(90deg, rgba(245,179,1,.14), rgba(245,179,1,.04));
+      border-radius: 8px;
       padding: var(--space-md) var(--space-lg);
       margin-bottom: var(--space-lg);
-      font-weight: 600;
+      font-weight: 700;
+      letter-spacing: .02em;
     }
+    .first-blood-banner .fb-label {
+      color: var(--gold); font-family: var(--font-mono); font-size: var(--text-label);
+      text-transform: uppercase; letter-spacing: .12em; display: block; margin-bottom: 2px;
+    }
+    .first-blood-banner .fb-winner { color: var(--gold); }
     .btn-loading {
       opacity: 0.6;
       pointer-events: none;
@@ -571,6 +603,43 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Hero live strip */
+    .hero-live {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--signal);
+      border-radius: 8px;
+      padding: var(--space-lg) var(--space-xl);
+      margin-bottom: var(--space-xl);
+      display: flex; align-items: center; gap: var(--space-xl); flex-wrap: wrap;
+    }
+    .hero-live .hero-title { font-size: 16px; font-weight: 700; }
+    .hero-live .hero-sub { font-size: var(--text-label); text-transform: uppercase; letter-spacing: .12em; color: var(--text-secondary); }
+    .rb-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--bg-tertiary); min-width: 180px; flex: 1; }
+    .rb-red { background: var(--signal); }
+    .rb-blue { background: #60a5fa; }
+
+    /* Card action hierarchy + overflow menu */
+    .card-actions { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+    .overflow-wrap { position: relative; }
+    .overflow-menu {
+      display: none; position: absolute; right: 0; top: calc(100% + 4px); z-index: 20;
+      background: var(--bg-raised); border: 1px solid var(--border-strong); border-radius: 8px;
+      min-width: 160px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    }
+    .overflow-menu.open { display: block; }
+    .overflow-menu button {
+      display: block; width: 100%; text-align: left; background: none; border: none;
+      color: var(--text-primary); padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: var(--text-body);
+    }
+    .overflow-menu button:hover { background: var(--bg-tertiary); }
+    .overflow-menu button.danger { color: #ff6b5e; }
+
+    /* Focus visibility (keyboard / a11y) */
+    .btn:focus-visible, .icon-btn:focus-visible, .nav-item:focus-visible, input:focus-visible {
+      outline: 2px solid var(--signal); outline-offset: 2px;
+    }
+
     /* Table scroll wrapper */
     .table-scroll { overflow-x: auto; }
     .table-scroll table { min-width: 560px; }
@@ -586,10 +655,13 @@
     /* Timer */
     .timer {
       font-family: var(--font-mono);
-      font-size: 18px;
+      font-size: var(--text-display);
       font-weight: 700;
       color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.5px;
     }
+    .timer-live { animation: livePulse 2s ease-in-out infinite; }
 
     /* Filter sidebar */
     .filter-section {

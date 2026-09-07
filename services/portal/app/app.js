@@ -67,6 +67,7 @@ class UI {
     this._escBound = true;
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
+      document.querySelectorAll('.overflow-menu.open').forEach((m) => m.classList.remove('open'));
       ['create-drill-modal', 'add-objective-modal', 'add-flag-modal', 'add-announcement-modal', 'link-scenario-modal'].forEach((id) => {
         const m = document.getElementById(id);
         if (m && (m.style.display === 'flex' || m.classList.contains('open'))) { m.style.display = 'none'; }
@@ -74,7 +75,28 @@ class UI {
     });
   }
 
+  _setupOverflowClose() {
+    if (this._overflowCloseBound) return;
+    this._overflowCloseBound = true;
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.overflow-menu.open').forEach((m) => m.classList.remove('open'));
+    });
+  }
+
+  async _refreshNavLiveDot() {
+    try {
+      const active = await API.getActiveDrills().catch(() => []);
+      const drillsNav = document.querySelector('.nav-item[data-page="drills"]');
+      if (!drillsNav) return;
+      let dot = drillsNav.querySelector('.nav-live-dot');
+      if (active && active.length) {
+        if (!dot) { dot = document.createElement('span'); dot.className = 'nav-live-dot'; dot.title = 'Drill live'; drillsNav.appendChild(dot); }
+      } else if (dot) { dot.remove(); }
+    } catch (e) { /* nav dot is best-effort */ }
+  }
+
   setupNavigation() {
+    this._setupOverflowClose();
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
       item.addEventListener('click', () => {
@@ -90,6 +112,7 @@ class UI {
     this.currentPage = page;
     
     // Update nav active state
+    this._refreshNavLiveDot();
     document.querySelectorAll('.nav-item').forEach(item => {
       item.classList.remove('active');
       if (item.getAttribute('data-page') === page) {
@@ -147,44 +170,48 @@ class UI {
       if (title && dashboard && dashboard.user) title.textContent = `Welcome back, ${dashboard.user.sub}`;
       const role = document.getElementById('dashboard-role');
       if (role && dashboard && dashboard.user) role.textContent = (dashboard.user.role || 'operator').toUpperCase();
-      const kpis = document.getElementById('dashboard-kpis');
-      if (kpis) {
-        kpis.innerHTML = !dashboard ? this._cardError('Could not load dashboard', 'app.loadDashboard()') : `
-          <div class="card"><div class="kpi-value">${dashboard.completedDrills}</div><div class="kpi-label">Drills Completed</div></div>
-          <div class="card"><div class="kpi-value">${dashboard.activeDrills}</div><div class="kpi-label">Active Drills</div></div>
-          <div class="card"><div class="kpi-value">${dashboard.objectiveRate}%</div><div class="kpi-label">Objective Rate</div></div>`;
-      }
-      const activeCard = document.getElementById('dashboard-active-drill');
-      if (activeCard) {
+      const hero = document.getElementById('dashboard-hero');
+      if (hero) {
         if (!activeDrills.length) {
-          activeCard.innerHTML = `<div class="card-header"><h3 class="card-title">Active Drill</h3></div><div class="empty-state"><div class="empty-icon">&#127919;</div><div class="empty-title">No active drill</div><div class="empty-hint">Create one to start live operations.</div><button class="btn btn-primary btn-sm" onclick="app.loadPage('drills')">Go to Drills</button></div>`;
+          hero.innerHTML = `<div class="card"><div class="row-between"><div><div class="label">Live operations</div><div class="value">No drill running</div></div><button class="btn btn-primary btn-sm" onclick="app.loadPage('drills')">Go to Drills</button></div></div>`;
         } else {
           const d = activeDrills[0];
-          activeCard.innerHTML = `
-            <div class="card-header"><h3 class="card-title">Active Drill</h3>${this._statusPill(d.status)}</div>
-            <div style="margin-bottom: var(--space-md);"><div class="label">Title</div><div class="value">${this.sanitizeHTML(d.title || 'Untitled')}</div></div>
-            <div class="row-between" style="margin-bottom: var(--space-md);"><span class="label" style="margin:0;">Type</span><span class="value-mono small">${this.sanitizeHTML(d.drill_type || '--')}</span></div>
-            <button class="btn btn-primary btn-sm" onclick="app.loadPage('drills').then(() => app.playDrill(${d.id}))">Open Drill</button>`;
+          let red = 0, blue = 0, timer = '--:--:--';
+          try {
+            const parts = await API.get(`/drills/${d.id}/participants`).catch(() => ({ participants: [] }));
+            const rows = parts.participants || [];
+            red = rows.filter((x) => (x.role || '').toLowerCase() === 'red').length;
+            blue = rows.filter((x) => (x.role || '').toLowerCase() === 'blue').length;
+            const t0 = d.actual_start_at || d.started_at;
+            if (t0) { const el = Math.max(0, Math.floor((Date.now() - new Date(t0).getTime()) / 1000)); const hh = String(Math.floor(el / 3600)).padStart(2, '0'), mm = String(Math.floor((el % 3600) / 60)).padStart(2, '0'), ss = String(el % 60).padStart(2, '0'); timer = `${hh}:${mm}:${ss}`; }
+          } catch (e) { /* hero degrades gracefully */ }
+          const total = Math.max(1, red + blue);
+          hero.innerHTML = `
+            <div class="hero-live" role="status" aria-label="Live drill">
+              <div><div class="hero-sub"><span style="color: var(--signal);">&#9679;</span> Live</div><div class="hero-title">${this.sanitizeHTML(d.title || 'Untitled')}</div></div>
+              <div class="rb-bar" aria-hidden="true"><div class="rb-red" style="width: ${(red / total) * 100}%;"></div><div class="rb-blue" style="width: ${(blue / total) * 100}%;"></div></div>
+              <div class="small"><span style="color:#ff6b5e; font-weight:700;">RED ${red}</span><span class="muted"> / </span><span style="color:#60a5fa; font-weight:700;">BLUE ${blue}</span></div>
+              <div class="timer timer-live" style="margin-left: auto;">${timer}</div>
+              <button class="btn btn-primary btn-sm" onclick="app.loadPage('drills').then(() => app.playDrill(${d.id}))">Open Live</button>
+            </div>`;
         }
       }
-      const statsCard = document.getElementById('dashboard-drill-stats');
-      if (statsCard) {
-        const first = activeDrills[0];
-        if (!first) {
-          statsCard.innerHTML = `<div class="card-header"><h3 class="card-title">Drill Stats</h3></div><div class="empty-state"><div class="empty-hint">Stats appear when a drill is active.</div></div>`;
-        } else {
-          try {
-            const stats = await API.get(`/drills/${first.id}/stats`);
-            const rows = [
-              ['Participants', stats.total_participants || 0],
-              ['Flags Captured', `${stats.correct_submissions || 0} / ${stats.total_flags || 0}`],
-              ['Success Rate', `${Math.round(stats.success_rate || 0)}%`],
-              ['First Bloods', (stats.first_bloods || []).length],
-            ];
-            statsCard.innerHTML = `<div class="card-header"><h3 class="card-title">Drill Stats</h3></div>` + rows.map(([k, v]) =>
-              `<div class="row-between small" style="padding: 6px 0; border-bottom: 1px solid var(--border);"><span class="muted">${k}</span><span class="value-mono">${v}</span></div>`).join('');
-          } catch (e) { statsCard.innerHTML = `<div class="card-header"><h3 class="card-title">Drill Stats</h3></div>` + this._cardError('Stats unavailable', 'app.loadDashboard()'); }
-        }
+      const rails = document.getElementById('dashboard-rails');
+      if (rails) {
+        let all = [];
+        try { all = await API.getAllDrills().catch(() => []); } catch (e) { all = []; }
+        const scheduled = all.filter((x) => (x.status || '').toLowerCase() === 'scheduled');
+        const done = all.filter((x) => ['completed', 'cancelled'].includes((x.status || '').toLowerCase()));
+        const next = scheduled[0];
+        const last = done[done.length - 1];
+        const attn = [];
+        if (scheduled.length > 1) attn.push(`${scheduled.length} drills scheduled, none running`);
+        if (!activeDrills.length && scheduled.length) attn.push('No live drill — start the next one');
+        if (!attn.length) attn.push('All clear');
+        rails.innerHTML = `
+          <div class="card"><div class="label">Next up</div><div class="value" style="margin-top: 4px;">${next ? this.sanitizeHTML(next.title || 'Untitled') : '&mdash;'}</div><div class="small muted">${next ? this.sanitizeHTML(next.drill_type || '') : 'No drill scheduled'}</div></div>
+          <div class="card"><div class="label">Last result</div><div class="value" style="margin-top: 4px;">${last ? this.sanitizeHTML(last.title || 'Untitled') : '&mdash;'}</div><div class="small muted">${last ? this._statusPill(last.status) : 'No completed drill yet'}</div></div>
+          <div class="card card-accent"><div class="label">Needs attention</div><div class="small" style="margin-top: 4px;">${attn.map((a) => `<div>${this.sanitizeHTML(a)}</div>`).join('')}</div></div>`;
       }
       const act = document.getElementById('dashboard-activity');
       if (act) {
@@ -232,20 +259,32 @@ class UI {
             ${live ? '<span style="color:#4ade80;">&#9679; live</span>' : ''}
           </div>
           <div class="small muted" style="margin-bottom: var(--space-md);">${short}</div>
-          <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
-            <button class="btn btn-primary btn-sm" onclick="app.playDrill(${drill.id})">${live ? 'Open Live' : 'Play Drill'}</button>
-            <button class="btn btn-secondary btn-sm" onclick="app.showEditDrillModal(${drill.id})">Edit</button>
-            <button class="btn btn-secondary btn-sm" onclick="app.duplicateDrill(${drill.id})">Duplicate</button>
-            <button class="btn btn-secondary btn-sm" onclick="app.deleteDrill(${drill.id})">Delete</button>
-          </div>
-          <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-sm); flex-wrap: wrap;">
-            <button class="btn btn-secondary btn-sm" onclick="app.startDrill(${drill.id})">Start</button>
-            <button class="btn btn-secondary btn-sm" onclick="app.pauseDrill(${drill.id})">Pause</button>
-            <button class="btn btn-secondary btn-sm" onclick="app.resumeDrill(${drill.id})">Resume</button>
-            <button class="btn btn-secondary btn-sm" onclick="app.stopDrill(${drill.id})">Stop</button>
+          <div class="card-actions">
+            <button class="btn btn-primary btn-sm" onclick="app.playDrill(${drill.id})">${live ? 'Open Live' : 'Open'}</button>
+            ${!live && st === 'scheduled' ? `<button class="btn btn-secondary btn-sm" onclick="app.startDrill(${drill.id})">Start</button>` : ''}
+            <span class="overflow-wrap">
+              <button class="btn btn-secondary btn-sm" aria-haspopup="menu" onclick="app.toggleOverflowMenu(event, ${drill.id})">&#8942;</button>
+              <span class="overflow-menu" id="overflow-${drill.id}" role="menu">
+                <button onclick="app.showEditDrillModal(${drill.id})" role="menuitem">Edit</button>
+                <button onclick="app.duplicateDrill(${drill.id})" role="menuitem">Duplicate</button>
+                ${!live && st !== 'scheduled' ? `<button onclick="app.startDrill(${drill.id})" role="menuitem">Restart</button>` : ''}
+                ${live ? `<button onclick="app.pauseDrill(${drill.id})" role="menuitem">Pause</button>` : ''}
+                ${st === 'paused' ? `<button onclick="app.resumeDrill(${drill.id})" role="menuitem">Resume</button>` : ''}
+                ${(live || st === 'paused') ? `<button onclick="app.stopDrill(${drill.id})" role="menuitem">Stop</button>` : ''}
+                <button class="danger" onclick="app.deleteDrill(${drill.id})" role="menuitem">Delete</button>
+              </span>
+            </span>
           </div>
         </div>`;
     }).join('');
+  }
+
+  toggleOverflowMenu(event, drillId) {
+    event.stopPropagation();
+    const menu = document.getElementById('overflow-' + drillId);
+    const wasOpen = menu && menu.classList.contains('open');
+    document.querySelectorAll('.overflow-menu.open').forEach((m) => m.classList.remove('open'));
+    if (menu && !wasOpen) menu.classList.add('open');
   }
 
   filterDrills(query) {
@@ -278,8 +317,8 @@ class UI {
       if (list) {
         list.innerHTML = !reports.length
           ? '<div class="empty-state"><div class="empty-icon">&#128196;</div><div class="empty-title">No reports yet</div><div class="empty-hint">Complete a drill to generate a debrief report.</div><button class="btn btn-primary btn-sm" onclick="app.loadPage(\'drills\')">Go to Drills</button></div>'
-          : `<div class="table-scroll"><table><thead><tr><th>Report</th><th>Result</th><th>Score</th><th></th></tr></thead><tbody>` +
-            reports.map((r) => `<tr><td class="value">${this.sanitizeHTML(r.scenario)}</td><td>${this._statusPill(r.result === 'Completed' ? 'completed' : 'scheduled')}</td><td class="value-mono">${r.score}</td><td><button class="btn btn-secondary btn-sm" onclick="app.openReport(${r.id})">Open</button></td></tr>`).join('') +
+          : `<div class="table-scroll"><table><thead><tr><th>Report</th><th>Result</th><th class="num">Score</th><th></th></tr></thead><tbody>` +
+            reports.map((r) => `<tr><td class="value">${this.sanitizeHTML(r.scenario)}</td><td>${this._statusPill(r.result === 'Completed' ? 'completed' : 'scheduled')}</td><td class="num">${r.score}</td><td><button class="btn btn-secondary btn-sm" onclick="app.openReport(${r.id})">Open</button></td></tr>`).join('') +
             `</tbody></table></div>`;
       }
     } catch (error) {

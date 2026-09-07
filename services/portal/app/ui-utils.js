@@ -27,6 +27,8 @@ Object.assign(UI.prototype, {
   showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    toast.setAttribute('aria-live', 'polite');
     toast.style.cssText = `
       position: fixed;
       bottom: 20px;
