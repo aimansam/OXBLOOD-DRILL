@@ -23,6 +23,7 @@ Object.assign(UI.prototype, {
       // Load all drill data
       this.loadDrillStats(drillId);
       this.loadDrillObjectives(drillId);
+      this.loadDrillFlags(drillId);
       this.loadDrillParticipantsExtended(drillId);
       this.loadDrillScores(drillId);
       this.loadDrillFirstBloods(drillId);
@@ -117,6 +118,89 @@ Object.assign(UI.prototype, {
     } catch (error) {
       console.error('Failed to load objectives:', error);
     }
+  },
+
+  async loadDrillFlags(drillId) {
+    try {
+      const data = await API.get(`/drills/${drillId}/flags`);
+      const div = document.getElementById('drill-flags');
+      if (!div) return;
+      const rows = (data && data.flags) || [];
+      if (rows.length === 0) {
+        div.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-md);">No flags yet \u2014 lead adds them via + Add Flag</div>';
+        return;
+      }
+      div.innerHTML = rows.map((f) => '<div style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--border);"><span style="font-weight: 600; font-family: var(--font-mono);">' + this.sanitizeHTML(f.name || ('Flag ' + f.id)) + '</span><span style="display: flex; gap: var(--space-sm); align-items: center;"><span style="font-family: var(--font-mono); font-weight: 600; color: var(--primary);">' + (f.points || 0) + ' pts</span><button class="btn btn-secondary btn-sm" style="color: var(--danger);" onclick="app.deleteFlag(' + f.id + ')">Delete</button></span></div>').join('');
+    } catch (error) {
+      console.error('Failed to load flags:', error);
+    }
+  },
+
+  showAddObjectiveModal() {
+    const m = document.getElementById('add-objective-modal');
+    if (m) m.style.display = 'flex';
+  },
+
+  hideAddObjectiveModal() {
+    const m = document.getElementById('add-objective-modal');
+    if (m) m.style.display = 'none';
+  },
+
+  async addObjective() {
+    const t = document.getElementById('objective-title');
+    const d = document.getElementById('objective-description');
+    const p = document.getElementById('objective-points');
+    const sd = document.getElementById('objective-side');
+    if (!t || !t.value.trim()) { this.showToast('Title required', 'error'); return; }
+    try {
+      await API.post(`/drills/${this.currentDrillId}/objectives`, { title: t.value.trim(), description: d ? d.value.trim() : '', points: p ? parseInt(p.value) || 0 : 0, side: sd ? (sd.value || null) : null });
+      this.showToast('Objective added', 'success');
+      this.hideAddObjectiveModal();
+      if (t) t.value = ''; if (d) d.value = '';
+      this.loadDrillObjectives(this.currentDrillId);
+    } catch (e) { console.error(e); this.showToast('Failed to add objective', 'error'); }
+  },
+
+  showAddFlagModal() {
+    const m = document.getElementById('add-flag-modal');
+    if (m) m.style.display = 'flex';
+    try {
+      const sel = document.getElementById('flag-objective');
+      if (sel) {
+        API.get(`/drills/${this.currentDrillId}/objectives`).then((data) => {
+          sel.innerHTML = '<option value="">No objective</option>' + ((data.objectives || []).map((o) => '<option value="' + o.id + '">' + this.sanitizeHTML(o.title) + '</option>').join(''));
+        }).catch(() => {});
+      }
+    } catch (e) {}
+  },
+
+  hideAddFlagModal() {
+    const m = document.getElementById('add-flag-modal');
+    if (m) m.style.display = 'none';
+  },
+
+  async addFlag() {
+    const v = document.getElementById('flag-value');
+    const n = document.getElementById('flag-name');
+    const p = document.getElementById('flag-points');
+    const o = document.getElementById('flag-objective');
+    if (!v || !v.value.trim()) { this.showToast('Secret value required', 'error'); return; }
+    try {
+      await API.post(`/drills/${this.currentDrillId}/flags`, { value: v.value.trim(), name: n ? (n.value.trim() || 'flag') : 'flag', points: p ? parseInt(p.value) || 0 : 0, objective_id: o && o.value ? parseInt(o.value) : null });
+      this.showToast('Flag added', 'success');
+      this.hideAddFlagModal();
+      if (v) v.value = '';
+      this.loadDrillFlags(this.currentDrillId);
+    } catch (e) { console.error(e); this.showToast('Failed to add flag', 'error'); }
+  },
+
+  async deleteFlag(flagId) {
+    if (!confirm('Delete this flag?')) return;
+    try {
+      await API.delete(`/drills/${this.currentDrillId}/flags/${flagId}`);
+      this.showToast('Flag deleted', 'success');
+      this.loadDrillFlags(this.currentDrillId);
+    } catch (e) { console.error(e); this.showToast('Failed to delete flag', 'error'); }
   },
 
   async loadDrillScores(drillId) {

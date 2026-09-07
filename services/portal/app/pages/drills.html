@@ -105,11 +105,73 @@
 
             <!-- Objectives -->
             <div class="card" style="margin-bottom: var(--space-lg);">
-              <div class="card-header">
+              <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 class="card-title">Objectives</h3>
+                <button class="btn btn-primary btn-sm" onclick="app.showAddObjectiveModal()">+ Add</button>
               </div>
               <div id="drill-objectives" style="padding: var(--space-md);">
                 <div style="text-align: center; color: var(--text-secondary);">Loading objectives...</div>
+              </div>
+            </div>
+
+            <!-- Flags (Drill-native; values secret, lead-managed) -->
+            <div class="card" style="margin-bottom: var(--space-lg);">
+              <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 class="card-title">Flags</h3>
+                <button class="btn btn-primary btn-sm" onclick="app.showAddFlagModal()">+ Add Flag</button>
+              </div>
+              <div id="drill-flags" style="padding: var(--space-md);">
+                <div style="text-align: center; color: var(--text-secondary);">Loading flags...</div>
+              </div>
+            </div>
+
+            <!-- Add Objective Modal -->
+            <div id="add-objective-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+              <div style="background: var(--bg-secondary); border-radius: 4px; border: 1px solid var(--border); width: 500px; max-width: 90vw;">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                  <h3 class="card-title">Add Objective</h3>
+                  <button onclick="app.hideAddObjectiveModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 20px;">&times;</button>
+                </div>
+                <div style="padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md);">
+                  <input type="text" id="objective-title" placeholder="Title *" style="width: 100%;">
+                  <textarea id="objective-description" rows="2" placeholder="Description" style="width: 100%;"></textarea>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+                    <input type="number" id="objective-points" min="0" value="100" style="width: 100%;">
+                    <select id="objective-side" style="width: 100%;">
+                      <option value="">Both sides</option>
+                      <option value="red">Red</option>
+                      <option value="blue">Blue</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="padding: var(--space-md) var(--space-lg); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: var(--space-sm);">
+                  <button class="btn btn-secondary" onclick="app.hideAddObjectiveModal()">Cancel</button>
+                  <button class="btn btn-primary" onclick="app.addObjective()">Add</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Add Flag Modal -->
+            <div id="add-flag-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+              <div style="background: var(--bg-secondary); border-radius: 4px; border: 1px solid var(--border); width: 500px; max-width: 90vw;">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                  <h3 class="card-title">Add Flag</h3>
+                  <button onclick="app.hideAddFlagModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 20px;">&times;</button>
+                </div>
+                <div style="padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md);">
+                  <input type="text" id="flag-name" value="flag" style="width: 100%;">
+                  <input type="text" id="flag-value" placeholder="FLAG{...} *" style="width: 100%; font-family: var(--font-mono);">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+                    <input type="number" id="flag-points" min="0" value="100" style="width: 100%;">
+                    <select id="flag-objective" style="width: 100%;">
+                      <option value="">No objective</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="padding: var(--space-md) var(--space-lg); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: var(--space-sm);">
+                  <button class="btn btn-secondary" onclick="app.hideAddFlagModal()">Cancel</button>
+                  <button class="btn btn-primary" onclick="app.addFlag()">Add</button>
+                </div>
               </div>
             </div>
 
