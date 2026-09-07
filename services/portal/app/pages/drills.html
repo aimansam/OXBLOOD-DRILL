@@ -126,7 +126,7 @@
             </div>
 
             <!-- Add Objective Modal -->
-            <div id="add-objective-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+            <div id="add-objective-modal" class="modal-overlay" onclick="if(event.target===this)app.hideAddObjectiveModal()">
               <div style="background: var(--bg-secondary); border-radius: 4px; border: 1px solid var(--border); width: 500px; max-width: 90vw;">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                   <h3 class="card-title">Add Objective</h3>
@@ -152,7 +152,7 @@
             </div>
 
             <!-- Add Flag Modal -->
-            <div id="add-flag-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+            <div id="add-flag-modal" class="modal-overlay" onclick="if(event.target===this)app.hideAddFlagModal()">
               <div style="background: var(--bg-secondary); border-radius: 4px; border: 1px solid var(--border); width: 500px; max-width: 90vw;">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                   <h3 class="card-title">Add Flag</h3>
@@ -228,7 +228,7 @@
             </div>
 
             <!-- Add Announcement Modal -->
-            <div id="add-announcement-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+            <div id="add-announcement-modal" class="modal-overlay" onclick="if(event.target===this)app.hideAddAnnouncementModal()">
               <div style="background: var(--bg-secondary); border-radius: 4px; border: 1px solid var(--border); width: 500px; max-width: 90vw;">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                   <h3 class="card-title">Add Announcement</h3>
@@ -257,7 +257,7 @@
             </div>
 
             <!-- Link Scenario Modal -->
-            <div id="link-scenario-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+            <div id="link-scenario-modal" class="modal-overlay" onclick="if(event.target===this)app.hideLinkScenarioModal()">
               <div style="background: var(--bg-secondary); border-radius: 4px; border: 1px solid var(--border); width: 500px; max-width: 90vw;">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                   <h3 class="card-title">Link Scenario</h3>
@@ -330,7 +330,7 @@
 
 
         <!-- Create Drill Modal -->
-        <div id="create-drill-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+        <div id="create-drill-modal" class="modal-overlay" onclick="if(event.target===this)app.hideCreateDrillModal()">
           <div style="background: var(--bg-secondary); border-radius: 4px; border: 1px solid var(--border); width: 600px; max-width: 90vw; max-height: 90vh; overflow-y: auto;">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <h3 class="card-title">Create New Drill</h3>

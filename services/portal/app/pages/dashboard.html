@@ -1,117 +1,41 @@
           <div class="page-header">
-            <h1 class="page-title">Welcome back, John</h1>
-            <div class="rank-badge">OPERATOR</div>
+            <h1 class="page-title" id="dashboard-title">Dashboard</h1>
+            <div class="rank-badge" id="dashboard-role">OPERATOR</div>
           </div>
 
-          <!-- KPI Cards: Drill live-ops only (no Learn skill/XP metrics) -->
-          <div class="grid grid-3" style="margin-bottom: var(--space-xl);">
-            <div class="card">
-              <div class="kpi-value">12</div>
-              <div class="kpi-label">Drills Completed</div>
-            </div>
-            <div class="card">
-              <div class="kpi-value">3</div>
-              <div class="kpi-label">Active Drills</div>
-            </div>
-            <div class="card">
-              <div class="kpi-value">85%</div>
-              <div class="kpi-label">Objective Rate</div>
-            </div>
+          <!-- KPI Cards: rendered live by loadDashboard() -->
+          <div class="grid grid-3" style="margin-bottom: var(--space-xl);" id="dashboard-kpis">
+            <div class="card"><div class="skeleton" style="height: 28px; width: 60px; margin-bottom: 8px;"></div><div class="skeleton" style="height: 12px; width: 120px;"></div></div>
+            <div class="card"><div class="skeleton" style="height: 28px; width: 60px; margin-bottom: 8px;"></div><div class="skeleton" style="height: 12px; width: 120px;"></div></div>
+            <div class="card"><div class="skeleton" style="height: 28px; width: 60px; margin-bottom: 8px;"></div><div class="skeleton" style="height: 12px; width: 120px;"></div></div>
           </div>
 
-          <!-- Active Drill & Drill Stats (Red vs Blue live-ops; skill ratings live in Learn) -->
+          <!-- Active Drill & Drill Stats (live) -->
           <div class="grid grid-6-6" style="margin-bottom: var(--space-xl);">
-            <div class="card">
+            <div class="card" id="dashboard-active-drill">
               <div class="card-header">
                 <h3 class="card-title">Active Drill</h3>
-                <span class="badge badge-hard">Hard</span>
               </div>
-              <div style="margin-bottom: var(--space-md);">
-                <div style="color: var(--text-secondary); font-size: 12px; margin-bottom: 4px;">Scenario</div>
-                <div style="font-weight: 600;">Ransomware Simulation</div>
-              </div>
-              <div style="margin-bottom: var(--space-md);">
-                <div style="color: var(--text-secondary); font-size: 12px; margin-bottom: 4px;">Time Elapsed</div>
-                <div class="timer">01:23:45</div>
-              </div>
-              <div style="margin-bottom: var(--space-md);">
-                <div style="color: var(--text-secondary); font-size: 12px; margin-bottom: 4px;">Team</div>
-                <div style="font-weight: 600;">Alpha</div>
-              </div>
-              <div>
-                <div style="color: var(--text-secondary); font-size: 12px; margin-bottom: 4px;">Progress</div>
-                <div class="progress-bar">
-                  <div class="progress-fill" style="width: 40%;"></div>
-                </div>
-                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">2/5 objectives completed</div>
-              </div>
+              <div class="skeleton" style="height: 14px; margin-bottom: 8px;"></div>
+              <div class="skeleton" style="height: 14px; width: 70%;"></div>
             </div>
 
-            <div class="card">
+            <div class="card" id="dashboard-drill-stats">
               <div class="card-header">
                 <h3 class="card-title">Drill Stats</h3>
               </div>
-              <div style="margin-bottom: var(--space-md);">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-                  <span>Objectives</span>
-                  <span style="font-family: var(--font-mono);">2/5</span>
-                </div>
-                <div class="progress-bar">
-                  <div class="progress-fill" style="width: 40%;"></div>
-                </div>
-              </div>
-              <div style="margin-bottom: var(--space-md);">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-                  <span>Flags Captured</span>
-                  <span style="font-family: var(--font-mono);">1/4</span>
-                </div>
-                <div class="progress-bar">
-                  <div class="progress-fill" style="width: 25%;"></div>
-                </div>
-              </div>
-              <div style="margin-bottom: var(--space-md);">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-                  <span>Red Team Score</span>
-                  <span style="font-family: var(--font-mono);">450 pts</span>
-                </div>
-                <div class="progress-bar">
-                  <div class="progress-fill" style="width: 60%;"></div>
-                </div>
-              </div>
-              <div>
-                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-                  <span>Blue Team Score</span>
-                  <span style="font-family: var(--font-mono);">400 pts</span>
-                </div>
-                <div class="progress-bar">
-                  <div class="progress-fill" style="width: 55%;"></div>
-                </div>
-              </div>
+              <div class="skeleton" style="height: 14px; margin-bottom: 8px;"></div>
+              <div class="skeleton" style="height: 14px; width: 70%;"></div>
             </div>
           </div>
 
-          <!-- Recent Activity -->
+          <!-- Recent Activity (live audit feed) -->
           <div class="card">
             <div class="card-header">
               <h3 class="card-title">Recent Activity</h3>
             </div>
-            <div class="activity-item">
-              <div class="activity-time">14:23</div>
-              <div class="activity-text">Flag captured: WEB-001 (SQL Injection)</div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-time">14:18</div>
-              <div class="activity-text">Drill started: Active Directory Baseline</div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-time">13:45</div>
-              <div class="activity-text">Team Alpha completed drill: Ransomware Simulation</div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-time">12:30</div>
-              <div class="activity-text">Achievement unlocked: First Blood</div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-time">11:15</div>
-              <div class="activity-text">Drill completed: Buffer Overflow Baseline</div>
+            <div id="dashboard-activity">
+              <div class="skeleton" style="height: 14px; margin-bottom: 8px;"></div>
+              <div class="skeleton" style="height: 14px; margin-bottom: 8px;"></div>
+              <div class="skeleton" style="height: 14px; width: 60%;"></div>
             </div>

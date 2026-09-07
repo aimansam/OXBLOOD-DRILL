@@ -35,6 +35,7 @@ class UI {
     this.user = user;
     this.updateUserInfo();
     this.setupNavigation();
+    this._setupModalEsc();
     this.loadPage('dashboard');
   }
 
@@ -59,6 +60,18 @@ class UI {
     if (rankBadge) {
       rankBadge.textContent = this.user.role.toUpperCase();
     }
+  }
+
+  _setupModalEsc() {
+    if (this._escBound) return;
+    this._escBound = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      ['create-drill-modal', 'add-objective-modal', 'add-flag-modal', 'add-announcement-modal', 'link-scenario-modal'].forEach((id) => {
+        const m = document.getElementById(id);
+        if (m && (m.style.display === 'flex' || m.classList.contains('open'))) { m.style.display = 'none'; }
+      });
+    });
   }
 
   setupNavigation() {
@@ -114,85 +127,70 @@ class UI {
     }
   }
 
+  _statusPill(status) {
+    const st = (status || 'scheduled').toLowerCase();
+    return `<span class="status-pill status-pill-${st}">${this.sanitizeHTML(st)}</span>`;
+  }
+
+  _cardError(msg, retry) {
+    return `<div class="card-error"><div>${this.sanitizeHTML(msg)}</div>${retry ? `<button class="btn btn-secondary btn-sm" style="margin-top: var(--space-sm);" onclick="${retry}">Retry</button>` : ''}</div>`;
+  }
+
   async loadDashboard() {
     try {
-      const data = await API.getDashboard();
-
-      // Update KPI cards (3 cards: completed / active / objective rate)
-      const kpis = document.querySelectorAll('.kpi-value');
-      if (kpis[0]) kpis[0].textContent = data.completedDrills;
-      if (kpis[1]) kpis[1].textContent = data.activeDrills;
-      if (kpis[2]) kpis[2].textContent = `${data.objectiveRate}%`;
-
-      // Live active-drill panel + stats + recent activity
-      const activeDrills = await API.getActiveDrills();
-      const drill = activeDrills.length > 0 ? activeDrills[0] : null;
-      let stats = null;
-      if (drill) {
-        stats = await API.get(`/drills/${drill.id}/stats`).catch(() => null);
+      const [dashboard, activeDrills, auditLog] = await Promise.all([
+        API.getDashboard().catch(() => null),
+        API.getActiveDrills().catch(() => []),
+        API.getAuditLog(8).catch(() => []),
+      ]);
+      const title = document.getElementById('dashboard-title');
+      if (title && dashboard && dashboard.user) title.textContent = `Welcome back, ${dashboard.user.sub}`;
+      const role = document.getElementById('dashboard-role');
+      if (role && dashboard && dashboard.user) role.textContent = (dashboard.user.role || 'operator').toUpperCase();
+      const kpis = document.getElementById('dashboard-kpis');
+      if (kpis) {
+        kpis.innerHTML = !dashboard ? this._cardError('Could not load dashboard', 'app.loadDashboard()') : `
+          <div class="card"><div class="kpi-value">${dashboard.completedDrills}</div><div class="kpi-label">Drills Completed</div></div>
+          <div class="card"><div class="kpi-value">${dashboard.activeDrills}</div><div class="kpi-label">Active Drills</div></div>
+          <div class="card"><div class="kpi-value">${dashboard.objectiveRate}%</div><div class="kpi-label">Objective Rate</div></div>`;
       }
-      const grid = document.querySelector('#content .grid.grid-6-6');
-      if (grid && grid.children.length >= 2) {
-        const activeCard = grid.children[0];
-        const statsCard = grid.children[1];
-        if (drill) {
-          const done = stats ? stats.correct_submissions || 0 : 0;
-          const total = stats ? stats.total_flags || 0 : 0;
-          activeCard.querySelector('.card-title').textContent = this.sanitizeHTML(drill.title);
-          const rows = activeCard.querySelectorAll(':scope > div');
-          activeCard.innerHTML = `
-            <div class="card-header">
-              <h3 class="card-title">${this.sanitizeHTML(drill.title)}</h3>
-              <span class="badge badge-hard">${this.sanitizeHTML(drill.status || 'active')}</span>
-            </div>
-            <div style="margin-bottom: var(--space-md);">
-              <div style="color: var(--text-secondary); font-size: 12px; margin-bottom: 4px;">Status</div>
-              <div style="font-weight: 600;">${this.sanitizeHTML(drill.status || 'active')}</div>
-            </div>
-            <div>
-              <div style="color: var(--text-secondary); font-size: 12px; margin-bottom: 4px;">Progress</div>
-              <div class="progress-bar"><div class="progress-fill" style="width: ${total > 0 ? Math.round((done / total) * 100) : 0}%;"></div></div>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">${done}/${total} flags captured</div>
-            </div>
-            <button class="btn btn-primary btn-sm" style="margin-top: var(--space-md);" onclick="app.playDrill(${drill.id})">Open Drill →</button>`;
-          void rows;
+      const activeCard = document.getElementById('dashboard-active-drill');
+      if (activeCard) {
+        if (!activeDrills.length) {
+          activeCard.innerHTML = `<div class="card-header"><h3 class="card-title">Active Drill</h3></div><div class="empty-state"><div class="empty-icon">&#127919;</div><div class="empty-title">No active drill</div><div class="empty-hint">Create one to start live operations.</div><button class="btn btn-primary btn-sm" onclick="app.loadPage('drills')">Go to Drills</button></div>`;
         } else {
-          activeCard.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-lg);">No active drills</div>';
-        }
-        if (statsCard) {
-          const done = stats ? stats.correct_submissions || 0 : 0;
-          const total = stats ? stats.total_flags || 0 : 0;
-          const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-          statsCard.innerHTML = `
-            <div class="card-header"><h3 class="card-title">Drill Stats</h3></div>
-            <div style="margin-bottom: var(--space-md);">
-              <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-                <span>Flags Captured</span><span style="font-family: var(--font-mono);">${done}/${total}</span>
-              </div>
-              <div class="progress-bar"><div class="progress-fill" style="width: ${pct}%;"></div></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 12px;">
-              <span>Participants</span><span style="font-family: var(--font-mono);">${stats ? stats.total_participants || 0 : 0}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-top: 4px;">
-              <span>First Bloods</span><span style="font-family: var(--font-mono);">${stats ? stats.first_bloods_claimed || 0 : 0}</span>
-            </div>`;
+          const d = activeDrills[0];
+          activeCard.innerHTML = `
+            <div class="card-header"><h3 class="card-title">Active Drill</h3>${this._statusPill(d.status)}</div>
+            <div style="margin-bottom: var(--space-md);"><div class="label">Title</div><div class="value">${this.sanitizeHTML(d.title || 'Untitled')}</div></div>
+            <div class="row-between" style="margin-bottom: var(--space-md);"><span class="label" style="margin:0;">Type</span><span class="value-mono small">${this.sanitizeHTML(d.drill_type || '--')}</span></div>
+            <button class="btn btn-primary btn-sm" onclick="app.loadPage('drills').then(() => app.playDrill(${d.id}))">Open Drill</button>`;
         }
       }
-
-      // Recent activity from audit feed
-      const feed = await API.getAuditLog(5).catch(() => []);
-      const activityCard = document.querySelector('#content .card:last-child');
-      if (activityCard && feed.length > 0) {
-        const items = feed.map((e) => `
-          <div class="activity-item">
-            <div class="activity-time">${e.at ? new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}</div>
-            <div class="activity-text">${this.sanitizeHTML(e.action || 'event')}${e.actor ? ' by ' + this.sanitizeHTML(e.actor) : ''}</div>
-          </div>`).join('');
-        const header = activityCard.querySelector('.card-header');
-        activityCard.innerHTML = '';
-        if (header) activityCard.appendChild(header);
-        activityCard.insertAdjacentHTML('beforeend', items);
+      const statsCard = document.getElementById('dashboard-drill-stats');
+      if (statsCard) {
+        const first = activeDrills[0];
+        if (!first) {
+          statsCard.innerHTML = `<div class="card-header"><h3 class="card-title">Drill Stats</h3></div><div class="empty-state"><div class="empty-hint">Stats appear when a drill is active.</div></div>`;
+        } else {
+          try {
+            const stats = await API.get(`/drills/${first.id}/stats`);
+            const rows = [
+              ['Participants', stats.total_participants || 0],
+              ['Flags Captured', `${stats.correct_submissions || 0} / ${stats.total_flags || 0}`],
+              ['Success Rate', `${Math.round(stats.success_rate || 0)}%`],
+              ['First Bloods', (stats.first_bloods || []).length],
+            ];
+            statsCard.innerHTML = `<div class="card-header"><h3 class="card-title">Drill Stats</h3></div>` + rows.map(([k, v]) =>
+              `<div class="row-between small" style="padding: 6px 0; border-bottom: 1px solid var(--border);"><span class="muted">${k}</span><span class="value-mono">${v}</span></div>`).join('');
+          } catch (e) { statsCard.innerHTML = `<div class="card-header"><h3 class="card-title">Drill Stats</h3></div>` + this._cardError('Stats unavailable', 'app.loadDashboard()'); }
+        }
+      }
+      const act = document.getElementById('dashboard-activity');
+      if (act) {
+        act.innerHTML = !auditLog.length
+          ? '<div class="empty-state"><div class="empty-hint">No recent activity.</div></div>'
+          : auditLog.map((e) => `<div class="activity-item"><div class="activity-time">${this.sanitizeHTML((e.created_at || e.at || '').slice(11, 16) || '--:--')}</div><div class="activity-text">${this.sanitizeHTML(e.action || e.event_type || 'event')}${e.actor ? ' by ' + this.sanitizeHTML(e.actor) : ''}</div></div>`).join('');
       }
     } catch (error) {
       console.error('Failed to load dashboard:', error);
@@ -202,66 +200,57 @@ class UI {
   async loadDrills() {
     try {
       const drills = await API.getAllDrills();
-      const container = document.getElementById('drills-list-view');
-      if (!container) return;
-      
-      const grid = container.querySelector('.card-grid') || container;
-      if (drills.length === 0) {
-        grid.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">No drills yet. Create your first drill!</div>';
-        return;
-      }
-
-      grid.innerHTML = drills.map(drill => {
-        const statusClass = drill.status === 'active' ? 'success' : drill.status === 'scheduled' ? 'medium' : 'high';
-        const statusText = drill.status.charAt(0).toUpperCase() + drill.status.slice(1);
-        const duration = drill.duration_limit_minutes ? `${drill.duration_limit_minutes} min` : 'No limit';
-        const type = drill.drill_type ? drill.drill_type.charAt(0).toUpperCase() + drill.drill_type.slice(1) : 'Unknown';
-        
-        let actionButton = '';
-        if (drill.status === 'scheduled') {
-          actionButton = `<button class="btn btn-primary btn-sm" onclick="app.startDrill(${drill.id})">Start</button>`;
-        } else if (drill.status === 'active') {
-          actionButton = `<button class="btn btn-primary btn-sm" onclick="app.playDrill(${drill.id})">Play</button>`;
-        } else if (drill.status === 'completed' || drill.status === 'stopped') {
-          actionButton = `<button class="btn btn-secondary btn-sm" onclick="app.viewDrill(${drill.id})">View</button>`;
-        }
-        
-        actionButton += ` <button class="btn btn-secondary btn-sm" onclick="app.editDrill(${drill.id})" title="Edit">✏️</button>`;
-        actionButton += ` <button class="btn btn-secondary btn-sm" onclick="app.deleteDrill(${drill.id})" title="Delete" style="color: var(--danger);">🗑️</button>`;
-
-        return `
-          <div class="card">
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-md);">
-              <h3 style="font-size: 16px; font-weight: 600; flex: 1;">${this.sanitizeHTML(drill.title || 'Untitled Drill')}</h3>
-              <span class="badge badge-${statusClass}">${statusText}</span>
-            </div>
-            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: var(--space-md);">
-              ${this.sanitizeHTML(drill.description || 'No description available')}
-            </div>
-            <div style="display: flex; gap: var(--space-lg); margin-bottom: var(--space-md); font-size: 12px;">
-              <div>
-                <div style="color: var(--text-secondary);">Type</div>
-                <div style="font-weight: 600;">${type}</div>
-              </div>
-              <div>
-                <div style="color: var(--text-secondary);">Duration</div>
-                <div style="font-weight: 600;">${duration}</div>
-              </div>
-              <div>
-                <div style="color: var(--text-secondary);">Max Participants</div>
-                <div style="font-weight: 600;">${drill.max_participants || 'Unlimited'}</div>
-              </div>
-            </div>
-            <div style="display: flex; justify-content: flex-end;">
-              ${actionButton}
-            </div>
-          </div>
-        `;
-      }).join('');
+      this._allDrills = drills;
+      this.renderDrillsGrid(drills);
     } catch (error) {
       console.error('Failed to load drills:', error);
       this.showToast('Failed to load drills', 'error');
     }
+  }
+
+  renderDrillsGrid(drills) {
+    const grid = document.getElementById('drills-grid');
+    if (!grid) return;
+    if (!drills.length) {
+      grid.innerHTML = '<div class="empty-state"><div class="empty-icon">&#127919;</div><div class="empty-title">No drills found</div><div class="empty-hint">Create your first drill to get started.</div></div>';
+      return;
+    }
+    grid.innerHTML = drills.map((drill) => {
+      const st = (drill.status || 'scheduled').toLowerCase();
+      const live = st === 'active';
+      const desc = this.sanitizeHTML(drill.description || 'No description');
+      const short = desc.length > 140 ? desc.slice(0, 140) + '...' : desc;
+      return `
+        <div class="card lab-card">
+          <div class="row-between" style="margin-bottom: var(--space-sm);">
+            <div class="lab-title" style="margin:0;">${this.sanitizeHTML(drill.title)}</div>
+            ${this._statusPill(drill.status)}
+          </div>
+          <div class="lab-meta">
+            <span>${this.sanitizeHTML(drill.drill_type || 'individual')}</span>
+            <span>${drill.max_participants ? drill.max_participants + ' seats' : ''}</span>
+            ${live ? '<span style="color:#4ade80;">&#9679; live</span>' : ''}
+          </div>
+          <div class="small muted" style="margin-bottom: var(--space-md);">${short}</div>
+          <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
+            <button class="btn btn-primary btn-sm" onclick="app.playDrill(${drill.id})">${live ? 'Open Live' : 'Play Drill'}</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.showEditDrillModal(${drill.id})">Edit</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.deleteDrill(${drill.id})">Delete</button>
+          </div>
+          <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-sm); flex-wrap: wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="app.startDrill(${drill.id})">Start</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.pauseDrill(${drill.id})">Pause</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.resumeDrill(${drill.id})">Resume</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.stopDrill(${drill.id})">Stop</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  filterDrills(query) {
+    const q = (query || '').toLowerCase().trim();
+    const rows = this._allDrills || [];
+    this.renderDrillsGrid(!q ? rows : rows.filter((d) => `${d.title || ''} ${d.description || ''} ${d.status || ''}`.toLowerCase().includes(q)));
   }
 
   async startDrill(drillId) {
@@ -284,70 +273,52 @@ class UI {
   async loadReports() {
     try {
       const reports = await API.getReports();
-      const container = document.getElementById('content');
-      if (!container) return;
-
-      if (reports.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">No reports yet — complete a drill to generate one</div>';
-        return;
+      const list = document.getElementById('reports-list');
+      if (list) {
+        list.innerHTML = !reports.length
+          ? '<div class="empty-state"><div class="empty-icon">&#128196;</div><div class="empty-title">No reports yet</div><div class="empty-hint">Complete a drill to generate a debrief report.</div><button class="btn btn-primary btn-sm" onclick="app.loadPage(\'drills\')">Go to Drills</button></div>'
+          : `<div class="table-scroll"><table><thead><tr><th>Report</th><th>Result</th><th>Score</th><th></th></tr></thead><tbody>` +
+            reports.map((r) => `<tr><td class="value">${this.sanitizeHTML(r.scenario)}</td><td>${this._statusPill(r.result === 'Completed' ? 'completed' : 'scheduled')}</td><td class="value-mono">${r.score}</td><td><button class="btn btn-secondary btn-sm" onclick="app.openReport(${r.id})">Open</button></td></tr>`).join('') +
+            `</tbody></table></div>`;
       }
-      const cards = reports.map((report) => `
-        <div class="card" style="margin-bottom: var(--space-md); cursor: pointer;" onclick="app.viewReport(${report.id})">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-sm);">
-            <h3 style="font-size: 16px; font-weight: 600;">${this.sanitizeHTML(report.scenario)}</h3>
-            <span class="badge badge-${report.result === 'Completed' ? 'success' : 'warning'}">${this.sanitizeHTML(report.result)}</span>
-          </div>
-          <div style="font-size: 13px; color: var(--text-secondary);">
-            Score: ${report.score}/100 ${report.drill_id ? `• Drill #${report.drill_id}` : ''}
-          </div>
-        </div>`).join('');
-      container.innerHTML = `
-        <div class="page-header"><h1 class="page-title">Reports</h1></div>
-        <div id="reports-list">${cards}</div>
-        <div id="report-detail"></div>`;
     } catch (error) {
       console.error('Failed to load reports:', error);
+      const list = document.getElementById('reports-list');
+      if (list) list.innerHTML = this._cardError('Could not load reports', 'app.loadReports()');
     }
   }
 
-  async viewReport(reportId) {
+  backToReportsList() {
+    document.getElementById('reports-detail-view').style.display = 'none';
+    document.getElementById('reports-list-view').style.display = 'block';
+  }
+
+  async openReport(reportId) {
     try {
+      document.getElementById('reports-list-view').style.display = 'none';
+      const detailView = document.getElementById('reports-detail-view');
+      detailView.style.display = 'block';
       const detail = document.getElementById('report-detail');
-      if (detail) detail.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">Loading report...</div>';
-      const [report, findings] = await Promise.all([
-        API.get(`/reports/${reportId}`).catch(() => null),
-        API.get(`/reports/${reportId}/findings`).catch(() => ({ findings: [] })),
-      ]);
-      if (!report) {
-        this.showToast('Report not found', 'error');
-        return;
-      }
-      const list = (findings.findings || []).map((f) => `
-        <tr>
-          <td><span class="badge badge-${this.sanitizeHTML(f.severity || 'medium')}">${this.sanitizeHTML(f.severity || 'medium')}</span></td>
-          <td style="font-weight: 600;">${this.sanitizeHTML(f.title || '')}</td>
-          <td style="font-size: 12px; color: var(--text-secondary);">${this.sanitizeHTML(f.category || '')}</td>
-        </tr>`).join('');
-      let debriefHtml = '';
-      if (report.drill_id) {
-        try {
-          const md = await API.getDebrief(report.drill_id);
-          debriefHtml = `<div class="card" style="margin-top: var(--space-lg);"><div class="card-header"><h3 class="card-title">Debrief</h3></div><div style="padding: var(--space-md); font-size: 13px;">${this.renderMarkdown(md.slice(0, 4000))}</div></div>`;
-        } catch (e) { /* debrief optional */ }
-      }
+      if (detail) detail.innerHTML = '<div class="skeleton" style="height: 14px;"></div>';
+      const report = await API.get(`/reports/${reportId}`);
+      const findings = await API.get(`/reports/${reportId}/findings`).catch(() => ({ findings: [] }));
+      let debrief = '';
+      if (report.drill_id) debrief = await API.getDebrief(report.drill_id).catch(() => '');
       if (detail) {
         detail.innerHTML = `
-          <div class="card" style="margin-top: var(--space-lg);">
-            <div class="card-header"><h3 class="card-title">${this.sanitizeHTML(report.title || 'Report')}</h3></div>
-            <div style="padding: var(--space-md); font-size: 13px; color: var(--text-secondary);">${this.sanitizeHTML(report.summary || '')}</div>
-            <table><thead><tr><th>Severity</th><th>Finding</th><th>Category</th></tr></thead>
-            <tbody>${list || '<tr><td colspan="3" style="text-align:center; color: var(--text-secondary);">No findings</td></tr>'}</tbody></table>
-          </div>${debriefHtml}`;
-        detail.scrollIntoView({ behavior: 'smooth' });
+          <div class="card" style="margin-bottom: var(--space-xl);">
+            <div class="card-header"><h3 class="card-title">${this.sanitizeHTML(report.title || 'Report')}</h3>${this._statusPill(report.status === 'graded' ? 'completed' : 'scheduled')}</div>
+            <div class="small muted">${this.sanitizeHTML(report.summary || 'No summary')}</div>
+          </div>
+          <div class="card" style="margin-bottom: var(--space-xl);">
+            <div class="card-header"><h3 class="card-title">Findings (${(findings.findings || []).length})</h3></div>
+            ${(findings.findings || []).length ? `<div class="table-scroll"><table><thead><tr><th>Severity</th><th>Finding</th></tr></thead><tbody>` + findings.findings.map((f) => `<tr><td>${this.sanitizeHTML(f.severity || '--')}</td><td>${this.sanitizeHTML(f.title || f.description || '--')}</td></tr>`).join('') + `</tbody></table></div>` : '<div class="empty-state"><div class="empty-hint">No findings recorded.</div></div>'}
+          </div>
+          ${debrief ? `<div class="card"><div class="card-header"><h3 class="card-title">Debrief</h3></div><div class="small" style="white-space: pre-wrap;">${this.sanitizeHTML(debrief)}</div></div>` : ''}`;
       }
     } catch (error) {
-      console.error('Failed to load report:', error);
-      this.showToast('Failed to load report', 'error');
+      console.error('Failed to open report:', error);
+      this.showToast('Failed to open report', 'error');
     }
   }
 

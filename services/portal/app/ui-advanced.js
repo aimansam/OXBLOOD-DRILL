@@ -6,24 +6,23 @@
 Object.assign(UI.prototype, {
   async loadDrillTeams(drillId) {
     try {
-      const data = await API.get(`/drills/${drillId}/teams`);
       const teamsDiv = document.getElementById('drill-teams');
-      if (teamsDiv && data && data.teams) {
-        if (data.teams.length === 0) {
-          teamsDiv.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">No teams created yet</div>';
-        } else {
-          teamsDiv.innerHTML = data.teams.map(team => `
-            <div style="display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md); border-bottom: 1px solid var(--border);">
-              <div class="user-avatar" style="width: 40px; height: 40px; font-size: 16px;">${(team.name || 'T')[0].toUpperCase()}</div>
-              <div style="flex: 1;">
-                <div style="font-weight: 600;">${team.name || 'Team'}</div>
-                <div style="font-size: 12px; color: var(--text-secondary);">${team.member_count || 0} members</div>
-              </div>
-              ${team.score !== undefined ? `<span style="font-family: var(--font-mono); font-weight: 600;">${team.score} pts</span>` : ''}
-            </div>
-          `).join('');
-        }
+      if (!teamsDiv) return;
+      // Teams table was removed from Drill (sides are participant roles now).
+      // Render Red vs Blue roster from participants instead of the deleted /teams endpoint.
+      const data = await API.get(`/drills/${drillId}/participants`).catch(() => ({ participants: [] }));
+      const rows = data.participants || [];
+      if (!rows.length) {
+        teamsDiv.innerHTML = '<div class="empty-state"><div class="empty-hint">No participants yet — invite operators to form Red / Blue sides.</div></div>';
+        return;
       }
+      const red = rows.filter((p) => (p.role || '').toLowerCase() === 'red').length;
+      const blue = rows.filter((p) => (p.role || '').toLowerCase() === 'blue').length;
+      const other = rows.length - red - blue;
+      teamsDiv.innerHTML = `
+        <div class="row-between small" style="padding: 6px 0; border-bottom: 1px solid var(--border);"><span style="color:#f87171; font-weight:700;">RED</span><span class="value-mono">${red} operators</span></div>
+        <div class="row-between small" style="padding: 6px 0; border-bottom: 1px solid var(--border);"><span style="color:#60a5fa; font-weight:700;">BLUE</span><span class="value-mono">${blue} operators</span></div>
+        ${other ? `<div class="row-between small" style="padding: 6px 0;"><span class="muted">Unassigned</span><span class="value-mono">${other}</span></div>` : ''}`;
     } catch (error) {
       console.error('Failed to load teams:', error);
     }

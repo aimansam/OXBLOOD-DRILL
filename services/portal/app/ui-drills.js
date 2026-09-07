@@ -17,7 +17,7 @@ Object.assign(UI.prototype, {
       // Populate drill info
       document.getElementById('active-drill-title').textContent = drill.title || 'Untitled Drill';
       document.getElementById('active-drill-description').innerHTML = this.renderMarkdown(drill.description || 'No description');
-      document.getElementById('active-drill-status').textContent = drill.status || 'unknown';
+      document.getElementById('active-drill-status').innerHTML = this._statusPill(drill.status);
       document.getElementById('active-drill-duration').textContent = this.formatDuration(drill.duration_limit_minutes);
       
       // Load all drill data
@@ -36,6 +36,7 @@ Object.assign(UI.prototype, {
       if (drill.status === 'active' && drill.started_at) {
         this._startDrillTimer(drill);
       }
+      this._startDrillPolling(drillId);
     } catch (error) {
       console.error('Failed to load drill:', error);
       this.showToast('Failed to load drill', 'error');
@@ -45,7 +46,8 @@ Object.assign(UI.prototype, {
   _startDrillTimer(drill) {
     if (this._drillTimerInterval) clearInterval(this._drillTimerInterval);
     
-    const startTime = new Date(drill.started_at).getTime();
+    const startRaw = drill.actual_start_at || drill.started_at;
+    const startTime = new Date(startRaw).getTime();
     const durationLimit = drill.duration_limit_minutes ? drill.duration_limit_minutes * 60 * 1000 : null;
     
     const updateTimer = () => {
@@ -73,7 +75,33 @@ Object.assign(UI.prototype, {
     }
   },
 
-  async loadDrillStats(drillId) {
+  backToDrillList() {
+    this.stopDrillPolling();
+    document.getElementById('drills-active-view').style.display = 'none';
+    document.getElementById('drills-list-view').style.display = 'block';
+  },
+
+  stopDrillPolling() {
+    if (this._drillPollInterval) {
+      clearInterval(this._drillPollInterval);
+      this._drillPollInterval = null;
+    }
+    this.stopDrillAutoRefresh();
+  },
+
+  _startDrillPolling(drillId) {
+    this.stopDrillPolling();
+    this._drillPollInterval = setInterval(() => {
+      const view = document.getElementById('drills-active-view');
+      if (!view || view.style.display === 'none') return;
+      this.loadDrillScores(drillId, true);
+      this.loadDrillSubmissions(drillId, true);
+      this.loadDrillStats(drillId, true);
+      this.loadDrillFirstBloods(drillId, true);
+    }, 8000);
+  },
+
+  async loadDrillStats(drillId, silent = false) {
     try {
       const stats = await API.get(`/drills/${drillId}/stats`);
       const statsDiv = document.getElementById('drill-stats');
@@ -203,7 +231,7 @@ Object.assign(UI.prototype, {
     } catch (e) { console.error(e); this.showToast('Failed to delete flag', 'error'); }
   },
 
-  async loadDrillScores(drillId) {
+  async loadDrillScores(drillId, silent = false) {
     try {
       const data = await API.get(`/drills/${drillId}/scores`);
       const scoresDiv = document.getElementById('drill-scores');
@@ -227,7 +255,7 @@ Object.assign(UI.prototype, {
     }
   },
 
-  async loadDrillFirstBloods(drillId) {
+  async loadDrillFirstBloods(drillId, silent = false) {
     try {
       const data = await API.get(`/drills/${drillId}/first-blood`);
       const firstBloodsDiv = document.getElementById('drill-first-bloods');
@@ -251,7 +279,7 @@ Object.assign(UI.prototype, {
     }
   },
 
-  async loadDrillSubmissions(drillId) {
+  async loadDrillSubmissions(drillId, silent = false) {
     try {
       const data = await API.get(`/drills/${drillId}/submissions`);
       const submissionsDiv = document.getElementById('drill-submissions');
@@ -278,6 +306,7 @@ Object.assign(UI.prototype, {
   async submitFlag() {
     const flagInput = document.getElementById('flag-input');
     if (!flagInput) return;
+    const btn = document.getElementById('flag-submit-btn');
 
     const flagValue = flagInput.value.trim();
     if (!flagValue) {
@@ -285,19 +314,44 @@ Object.assign(UI.prototype, {
       return;
     }
 
+    const orig = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.classList.add('btn-loading');
+      btn.innerHTML = '<span class="spinner"></span>Checking...';
+    }
     try {
-      this.showToast('Submitting flag...', 'info');
       const result = await API.submitFlag(this.currentDrillId, flagValue);
       this.showToast(result.is_correct ? `Correct! +${result.points_earned} pts` : 'Incorrect flag', result.is_correct ? 'success' : 'error');
       flagInput.value = '';
+      if (result.is_correct && result.first_blood) {
+        const banner = document.createElement('div');
+        banner.className = 'first-blood-banner';
+        banner.textContent = `FIRST BLOOD — ${flagValue.slice(0, 40)} (+${result.points_earned} pts)`;
+        const view = document.getElementById('drills-active-view');
+        if (view) {
+          view.insertBefore(banner, view.firstChild);
+          setTimeout(() => banner.remove(), 8000);
+        }
+      }
       // Refresh live drill data
       this.loadDrillSubmissions(this.currentDrillId);
       this.loadDrillScores(this.currentDrillId);
       this.loadDrillFirstBloods(this.currentDrillId);
       this.loadDrillStats(this.currentDrillId);
+      const statsEl = document.getElementById('drill-stats');
+      if (statsEl && result.is_correct) {
+        statsEl.classList.remove('score-pop');
+        void statsEl.offsetWidth;
+        statsEl.classList.add('score-pop');
+      }
     } catch (error) {
       console.error('Failed to submit flag:', error);
       this.showToast('Failed to submit flag: ' + (error.message || 'Unknown error'), 'error');
+    } finally {
+      if (btn) {
+        btn.classList.remove('btn-loading');
+        btn.innerHTML = orig;
+      }
     }
   },
 
@@ -327,7 +381,7 @@ Object.assign(UI.prototype, {
   },
 
   backToDrillList() {
-    this.stopDrillAutoRefresh();
+    this.stopDrillPolling();
     document.getElementById('drills-list-view').style.display = 'block';
     document.getElementById('drills-active-view').style.display = 'none';
     this.currentDrillId = null;

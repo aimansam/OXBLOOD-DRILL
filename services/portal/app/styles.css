@@ -439,6 +439,142 @@
       color: var(--low);
     }
 
+    /* Design tokens (toast + progress + accents) */
+    :root {
+      --primary: #e5e5e5;
+      --success: var(--low);
+      --danger: var(--critical);
+      --warning: var(--medium);
+    }
+
+    /* Label / value utilities (replace inline styles) */
+    .label {
+      color: var(--text-secondary);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .value {
+      font-weight: 600;
+    }
+    .value-mono {
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+    .row-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .muted { color: var(--text-secondary); }
+    .small { font-size: 12px; }
+
+    /* Skeleton shimmer */
+    .skeleton {
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      min-height: 14px;
+    }
+    .skeleton::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+      animation: shimmer 1.4s infinite;
+    }
+    @keyframes shimmer {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(100%); }
+    }
+
+    /* Status pills */
+    .status-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+    .status-pill-active { color: #4ade80; border-color: #4ade80; background: rgba(74,222,128,0.08); }
+    .status-pill-scheduled { color: #60a5fa; border-color: #60a5fa; background: rgba(96,165,250,0.08); }
+    .status-pill-completed { color: var(--text-secondary); }
+    .status-pill-cancelled { color: var(--critical); border-color: var(--critical); background: rgba(220,38,38,0.08); }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: var(--space-2xl) var(--space-lg);
+      color: var(--text-secondary);
+    }
+    .empty-state .empty-icon { font-size: 32px; margin-bottom: var(--space-sm); }
+    .empty-state .empty-title { font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+    .empty-state .empty-hint { font-size: 12px; margin-bottom: var(--space-md); }
+
+    /* Card error state */
+    .card-error {
+      text-align: center;
+      padding: var(--space-lg);
+      color: var(--text-secondary);
+    }
+
+    /* Modal overlay */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9000;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      width: 520px;
+      max-width: calc(100vw - 32px);
+      max-height: calc(100vh - 64px);
+      overflow-y: auto;
+    }
+
+    /* Flag feedback */
+    @keyframes scorePop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.25); color: #4ade80; }
+      100% { transform: scale(1); }
+    }
+    .score-pop { animation: scorePop 0.6s ease; }
+    .first-blood-banner {
+      border: 1px solid var(--medium);
+      background: rgba(202,138,4,0.1);
+      border-radius: 4px;
+      padding: var(--space-md) var(--space-lg);
+      margin-bottom: var(--space-lg);
+      font-weight: 600;
+    }
+    .btn-loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--text-tertiary);
+      border-top-color: var(--text-primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: -2px;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Table scroll wrapper */
+    .table-scroll { overflow-x: auto; }
+    .table-scroll table { min-width: 560px; }
+
     .status-idle {
       color: var(--medium);
     }
