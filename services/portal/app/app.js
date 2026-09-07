@@ -159,6 +159,18 @@ class UI {
     return `<div class="card-error"><div>${this.sanitizeHTML(msg)}</div>${retry ? `<button class="btn btn-secondary btn-sm" style="margin-top: var(--space-sm);" onclick="${retry}">Retry</button>` : ''}</div>`;
   }
 
+  _relTime(iso) {
+    if (!iso) return '--';
+    const t = new Date(iso).getTime();
+    if (Number.isNaN(t)) return '--';
+    const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    const d = Math.floor(s / 86400);
+    return d === 1 ? 'yesterday' : `${d}d ago`;
+  }
+
   async loadDashboard() {
     try {
       const [dashboard, activeDrills, auditLog] = await Promise.all([
@@ -168,12 +180,14 @@ class UI {
       ]);
       const title = document.getElementById('dashboard-title');
       if (title && dashboard && dashboard.user) title.textContent = `Welcome back, ${dashboard.user.sub}`;
-      const role = document.getElementById('dashboard-role');
-      if (role && dashboard && dashboard.user) role.textContent = (dashboard.user.role || 'operator').toUpperCase();
       const hero = document.getElementById('dashboard-hero');
       if (hero) {
+        let all = [];
+        try { all = await API.getAllDrills().catch(() => []); } catch (e) { all = []; }
+        const scheduled = all.filter((x) => (x.status || '').toLowerCase() === 'scheduled');
+        const nextUp = scheduled[0];
         if (!activeDrills.length) {
-          hero.innerHTML = `<div class="card"><div class="row-between"><div><div class="label">Live operations</div><div class="value">No drill running</div></div><button class="btn btn-primary btn-sm" onclick="app.loadPage('drills')">Go to Drills</button></div></div>`;
+          hero.innerHTML = `<div class="card"><div class="row-between"><div><div class="label">Live operations</div><div class="value">No drill running</div>${nextUp ? `<div class="small muted" style="margin-top: 4px;">Next: ${this.sanitizeHTML(nextUp.title || 'Untitled')}</div>` : '<div class="small muted" style="margin-top: 4px;">No drill scheduled</div>'}</div><div style="display: flex; gap: var(--space-sm);">${nextUp ? `<button class="btn btn-primary btn-sm" onclick="app.startDrill(${nextUp.id}).then(() => app.loadDashboard())">Start now</button>` : ''}<button class="btn btn-secondary btn-sm" onclick="app.loadPage('drills')">Go to Drills</button></div></div></div>`;
         } else {
           const d = activeDrills[0];
           let red = 0, blue = 0, timer = '--:--:--';
@@ -198,11 +212,8 @@ class UI {
       }
       const rails = document.getElementById('dashboard-rails');
       if (rails) {
-        let all = [];
-        try { all = await API.getAllDrills().catch(() => []); } catch (e) { all = []; }
-        const scheduled = all.filter((x) => (x.status || '').toLowerCase() === 'scheduled');
         const done = all.filter((x) => ['completed', 'cancelled'].includes((x.status || '').toLowerCase()));
-        const next = scheduled[0];
+        const next = nextUp;
         const last = done[done.length - 1];
         const attn = [];
         if (scheduled.length > 1) attn.push(`${scheduled.length} drills scheduled, none running`);
@@ -210,14 +221,23 @@ class UI {
         if (!attn.length) attn.push('All clear');
         rails.innerHTML = `
           <div class="card"><div class="label">Next up</div><div class="value" style="margin-top: 4px;">${next ? this.sanitizeHTML(next.title || 'Untitled') : '&mdash;'}</div><div class="small muted">${next ? this.sanitizeHTML(next.drill_type || '') : 'No drill scheduled'}</div></div>
-          <div class="card"><div class="label">Last result</div><div class="value" style="margin-top: 4px;">${last ? this.sanitizeHTML(last.title || 'Untitled') : '&mdash;'}</div><div class="small muted">${last ? this._statusPill(last.status) : 'No completed drill yet'}</div></div>
+          <div class="card"><div class="label">Last result</div><div class="value" style="margin-top: 4px;">${last ? this.sanitizeHTML(last.title || 'Untitled') : '&mdash;'}</div><div class="small muted">${last ? `${this._statusPill(last.status)} <span id="last-result-score">…</span>` : 'No completed drill yet'}</div></div>
           <div class="card card-accent"><div class="label">Needs attention</div><div class="small" style="margin-top: 4px;">${attn.map((a) => `<div>${this.sanitizeHTML(a)}</div>`).join('')}</div></div>`;
+        if (last) {
+          try {
+            const ls = await API.get(`/drills/${last.id}/stats`);
+            const el = document.getElementById('last-result-score');
+            if (el) el.textContent = `${ls.correct_submissions || 0}/${ls.total_flags || 0} flags`;
+          } catch (e) { const el = document.getElementById('last-result-score'); if (el) el.textContent = ''; }
+        }
       }
       const act = document.getElementById('dashboard-activity');
       if (act) {
-        act.innerHTML = !auditLog.length
+        const HIDE = [/pve_sync/i, /status_synced/i, /\.timeout$/i];
+        const feed = (auditLog || []).filter((e) => !HIDE.some((rx) => rx.test(e.action || e.event_type || ''))).slice(0, 8);
+        act.innerHTML = !feed.length
           ? '<div class="empty-state"><div class="empty-hint">No recent activity.</div></div>'
-          : auditLog.map((e) => `<div class="activity-item"><div class="activity-time">${this.sanitizeHTML((e.created_at || e.at || '').slice(11, 16) || '--:--')}</div><div class="activity-text">${this.sanitizeHTML(e.action || e.event_type || 'event')}${e.actor ? ' by ' + this.sanitizeHTML(e.actor) : ''}</div></div>`).join('');
+          : feed.map((e) => `<div class="activity-item"><div class="activity-time">${this._relTime(e.created_at || e.at || '')}</div><div class="activity-text">${this.sanitizeHTML(e.action || e.event_type || 'event')}${e.actor && !/system|watchdog/i.test(e.actor) ? ' by ' + this.sanitizeHTML(e.actor) : ''}</div></div>`).join('');
       }
     } catch (error) {
       console.error('Failed to load dashboard:', error);
