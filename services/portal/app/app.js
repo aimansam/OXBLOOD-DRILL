@@ -159,6 +159,18 @@ class UI {
     return `<div class="card-error"><div>${this.sanitizeHTML(msg)}</div>${retry ? `<button class="btn btn-secondary btn-sm" style="margin-top: var(--space-sm);" onclick="${retry}">Retry</button>` : ''}</div>`;
   }
 
+  _FEED_HIDE() { return [/pve_sync/i, /status_synced/i, /\.timeout$/i]; }
+
+  _filterFeed(feed, limit = 8) {
+    const HIDE = this._FEED_HIDE();
+    return (feed || []).filter((e) => !HIDE.some((rx) => rx.test(e.action || e.event_type || ''))).slice(0, limit);
+  }
+
+  _feedRow(e) {
+    const actor = (e.actor && !/system|watchdog/i.test(e.actor)) ? ' by ' + this.sanitizeHTML(e.actor) : '';
+    return `<div class="activity-item"><div class="activity-time">${this._relTime(e.created_at || e.at || '')}</div><div class="activity-text">${this.sanitizeHTML(e.action || e.event_type || 'event')}${actor}</div></div>`;
+  }
+
   _relTime(iso) {
     if (!iso) return '--';
     const t = new Date(iso).getTime();
@@ -180,10 +192,10 @@ class UI {
       ]);
       const title = document.getElementById('dashboard-title');
       if (title && dashboard && dashboard.user) title.textContent = `Welcome back, ${dashboard.user.sub}`;
+      let all = [];
+      try { all = await API.getAllDrills().catch(() => []); } catch (e) { all = []; }
       const hero = document.getElementById('dashboard-hero');
       if (hero) {
-        let all = [];
-        try { all = await API.getAllDrills().catch(() => []); } catch (e) { all = []; }
         const scheduled = all.filter((x) => (x.status || '').toLowerCase() === 'scheduled');
         const nextUp = scheduled[0];
         if (!activeDrills.length) {
@@ -233,11 +245,10 @@ class UI {
       }
       const act = document.getElementById('dashboard-activity');
       if (act) {
-        const HIDE = [/pve_sync/i, /status_synced/i, /\.timeout$/i];
-        const feed = (auditLog || []).filter((e) => !HIDE.some((rx) => rx.test(e.action || e.event_type || ''))).slice(0, 8);
+        const feed = this._filterFeed(auditLog, 8);
         act.innerHTML = !feed.length
           ? '<div class="empty-state"><div class="empty-hint">No recent activity.</div></div>'
-          : feed.map((e) => `<div class="activity-item"><div class="activity-time">${this._relTime(e.created_at || e.at || '')}</div><div class="activity-text">${this.sanitizeHTML(e.action || e.event_type || 'event')}${e.actor && !/system|watchdog/i.test(e.actor) ? ' by ' + this.sanitizeHTML(e.actor) : ''}</div></div>`).join('');
+          : feed.map((e) => this._feedRow(e)).join('');
       }
     } catch (error) {
       console.error('Failed to load dashboard:', error);
@@ -372,7 +383,7 @@ class UI {
           </div>
           <div class="card" style="margin-bottom: var(--space-xl);">
             <div class="card-header"><h3 class="card-title">Findings (${(findings.findings || []).length})</h3></div>
-            ${(findings.findings || []).length ? `<div class="table-scroll"><table><thead><tr><th>Severity</th><th>Finding</th></tr></thead><tbody>` + findings.findings.map((f) => `<tr><td>${this.sanitizeHTML(f.severity || '--')}</td><td>${this.sanitizeHTML(f.title || f.description || '--')}</td></tr>`).join('') + `</tbody></table></div>` : '<div class="empty-state"><div class="empty-hint">No findings recorded.</div></div>'}
+            ${(findings.findings || []).length ? `<div class="table-scroll"><table><thead><tr><th>Severity</th><th>Finding</th></tr></thead><tbody>` + findings.findings.map((f) => `<tr><td><span class="severity severity-${(f.severity || 'info').toLowerCase()}">${this.sanitizeHTML((f.severity || 'info').toUpperCase())}</span></td><td>${this.sanitizeHTML(f.title || f.description || '--')}</td></tr>`).join('') + `</tbody></table></div>` : '<div class="empty-state"><div class="empty-hint">No findings recorded.</div></div>'}
           </div>
           ${debrief ? `<div class="card"><div class="card-header"><h3 class="card-title">Debrief</h3></div><div class="small" style="white-space: pre-wrap;">${this.sanitizeHTML(debrief)}</div></div>` : ''}`;
       }
@@ -403,8 +414,9 @@ class UI {
       }
       const actDiv = document.getElementById('user-activity');
       if (actDiv) {
-        const feed = await API.getAuditLog(10).catch(() => []);
-        actDiv.innerHTML = feed.length > 0 ? feed.map((e) => '<div class="activity-item"><div class="activity-time">' + (e.at ? new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--') + '</div><div class="activity-text">' + this.sanitizeHTML(e.action || 'event') + (e.actor ? ' by ' + this.sanitizeHTML(e.actor) : '') + '</div></div>').join('') : '<div style="text-align: center; color: var(--text-secondary);">No activity</div>';
+        const rawFeed = await API.getAuditLog(10).catch(() => []);
+        const feed = this._filterFeed(rawFeed, 10);
+        actDiv.innerHTML = feed.length > 0 ? feed.map((e) => this._feedRow(e)).join('') : '<div style="text-align: center; color: var(--text-secondary);">No activity</div>';
       }
     } catch (error) {
       console.error('Failed to load settings:', error);

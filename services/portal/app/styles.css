@@ -628,10 +628,12 @@
     /* Card action hierarchy + overflow menu */
     .card-actions { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
     .overflow-wrap { position: relative; }
+    .lab-card { overflow: visible; }
     .overflow-menu {
-      display: none; position: absolute; right: 0; top: calc(100% + 4px); z-index: 20;
+      display: none; position: absolute; left: 0; top: calc(100% + 4px); z-index: 50;
       background: var(--bg-raised); border: 1px solid var(--border-strong); border-radius: 8px;
-      min-width: 160px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      min-width: 160px; max-width: 220px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      white-space: nowrap;
     }
     .overflow-menu.open { display: block; }
     .overflow-menu button {
