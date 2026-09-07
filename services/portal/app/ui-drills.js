@@ -355,9 +355,10 @@ Object.assign(UI.prototype, {
     }
   },
 
-  async pauseDrill() {
+  async pauseDrill(drillId) {
+    const id = drillId || this.currentDrillId;
     try {
-      await API.post(`/drills/${this.currentDrillId}/pause`, {});
+      await API.post(`/drills/${id}/pause`, {});
       this.showToast('Drill paused', 'success');
       setTimeout(() => this.playDrill(this.currentDrillId), 500);
     } catch (error) {
@@ -366,13 +367,28 @@ Object.assign(UI.prototype, {
     }
   },
 
-  async stopDrill() {
-    if (!confirm('Are you sure you want to stop this drill?')) return;
-    
+  async resumeDrill(drillId) {
+    const id = drillId || this.currentDrillId;
     try {
-      await API.post(`/drills/${this.currentDrillId}/stop`, {});
+      await API.post(`/drills/${id}/resume`, {});
+      this.showToast('Drill resumed', 'success');
+      if (id === this.currentDrillId) setTimeout(() => this.playDrill(id), 500);
+      else setTimeout(() => this.loadDrills(), 500);
+    } catch (error) {
+      console.error('Failed to resume drill:', error);
+      this.showToast('Failed to resume drill', 'error');
+    }
+  },
+
+  async stopDrill(drillId) {
+    const id = drillId || this.currentDrillId;
+    if (!confirm('Are you sure you want to stop this drill?')) return;
+    try {
+      await API.post(`/drills/${id}/stop`, {});
       this.showToast('Drill stopped', 'success');
+      this.stopDrillPolling();
       this.stopDrillAutoRefresh();
+      if (id === this.currentDrillId) { this.currentDrillId = null; this.currentDrill = null; }
       setTimeout(() => this.loadDrills(), 500);
     } catch (error) {
       console.error('Failed to stop drill:', error);

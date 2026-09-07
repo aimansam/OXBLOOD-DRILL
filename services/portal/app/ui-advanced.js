@@ -214,46 +214,8 @@ Object.assign(UI.prototype, {
   },
 
   async loadDrillHintsWithUnlock(drillId) {
-    try {
-      const data = await API.get(`/drills/${drillId}/hints`);
-      const hintsDiv = document.getElementById('drill-hints');
-      if (hintsDiv && data && data.hints) {
-        if (data.hints.length === 0) {
-          hintsDiv.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-md);">No hints available</div>';
-        } else {
-          hintsDiv.innerHTML = data.hints.map((hint, idx) => `
-            <div style="padding: var(--space-md); border-bottom: 1px solid var(--border);">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
-                <span style="font-weight: 600;">Hint ${idx + 1}</span>
-                ${hint.cost > 0 ? `<span style="font-family: var(--font-mono); color: var(--warning);">-${hint.cost} pts</span>` : '<span style="color: var(--success);">Free</span>'}
-              </div>
-              <div style="font-size: 14px; line-height: 1.6; color: ${hint.unlocked ? 'var(--text-primary)' : 'var(--text-secondary)'};">
-                ${hint.unlocked ? this.renderMarkdown(hint.content) : '<em>Unlock to view this hint</em>'}
-              </div>
-              ${!hint.unlocked ? `<button class="btn btn-secondary btn-sm" style="margin-top: var(--space-sm);" onclick="app.unlockHint(${drillId}, ${hint.id})">Unlock Hint</button>` : ''}
-            </div>
-          `).join('');
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load hints:', error);
-    }
-  },
-
-  async unlockHint(drillId, hintId) {
-    if (!confirm('Unlock this hint? Points will be deducted from your score.')) {
-      return;
-    }
-
-    try {
-      this.showToast('Unlocking hint...', 'info');
-      await API.post(`/drills/${drillId}/hints/${hintId}/unlock`, {});
-      this.showToast('Hint unlocked!', 'success');
-      this.loadDrillHintsWithUnlock(drillId);
-    } catch (error) {
-      console.error('Failed to unlock hint:', error);
-      this.showToast('Failed to unlock hint', 'error');
-    }
+    const hintsDiv = document.getElementById('drill-hints');
+    if (hintsDiv) hintsDiv.innerHTML = '<div class="empty-state"><div class="empty-hint">Hints are not available in Drill &mdash; use Objectives and Flags.</div></div>';
   },
 
   async duplicateDrill(drillId) {

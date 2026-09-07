@@ -235,6 +235,7 @@ class UI {
           <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
             <button class="btn btn-primary btn-sm" onclick="app.playDrill(${drill.id})">${live ? 'Open Live' : 'Play Drill'}</button>
             <button class="btn btn-secondary btn-sm" onclick="app.showEditDrillModal(${drill.id})">Edit</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.duplicateDrill(${drill.id})">Duplicate</button>
             <button class="btn btn-secondary btn-sm" onclick="app.deleteDrill(${drill.id})">Delete</button>
           </div>
           <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-sm); flex-wrap: wrap;">
