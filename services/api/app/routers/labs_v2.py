@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_session
+from app.db.session import get_learn_session as get_session
 from app.db.models_oxblood import LabStatus, LabDifficulty
 from app.services.lab_service import (
     list_labs, get_lab, create_lab, update_lab, publish_lab, archive_lab,

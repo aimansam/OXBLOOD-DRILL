@@ -1,4 +1,26 @@
-"""ORM models for OxBlood - Comprehensive 50-table schema.
+"""ORM models for OxBlood — see module map below.
+
+PRODUCT SPLIT (Drill vs Learn, separate DBs):
+- DRILL tables (stay in the Drill DB, DIVIDE_DB_URL): drills,
+  drill_scenarios, drill_participants, drill_teams, drill_objectives,
+  drill_announcements, submissions, flag_submissions, evidence_submissions,
+  report_submissions, submission_attempts, scores, score_history,
+  first_bloods, benchmarks, benchmark_history, reports, report_findings,
+  evidence, audit_logs, security_events, lab_environment_logs.
+- LEARN tables (move to the Learn DB, DIVIDE_LEARN_DB_URL): users,
+  user_profiles, sessions, password_reset_tokens, user_activity_logs,
+  badges, user_badges, teams, team_memberships, team_invitations,
+  team_statistics, lab_categories, tags, labs, lab_tags, target_machines,
+  lab_objectives, lab_flags, lab_hints, lab_files, learning_paths,
+  learning_path_modules, learning_path_labs, user_learning_progress,
+  lab_skills, system_notifications, user_notifications, platform_settings.
+  NOTE: drills.lab_id and drill_scenarios.lab_id currently FK to labs.id —
+  Drill keeps a read-only lab reference (id/title) until drills are
+  re-pointed at scenarios/exercises; do NOT hard-delete labs from Drill
+  until that FK is removed.
+- SHARED DURING MIGRATION: while DIVIDE_LEARN_DB_URL is unset, Learn
+  routers (labs_v2, learning_paths_v2, user_profiles) run on the Drill
+  engine via get_learn_session(). Set the env var to split.
 
 This module defines SQLAlchemy models for all 50 tables in the OxBlood database,
 organized into 10 modules:
