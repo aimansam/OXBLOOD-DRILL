@@ -75,8 +75,18 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     if (platform === 'drill') {
       window.location.href = '/drill/';
     } else if (platform === 'learn') {
-      // For now, redirect to drill since learn is coming soon
-      window.location.href = '/drill/';
+      // Learn is a separate product — deep-link it when configured,
+      // otherwise tell the user instead of silently landing on Drill.
+      const learnUrl = window.OXBLOOD_LEARN_URL || '';
+      if (learnUrl) {
+        window.location.href = learnUrl;
+      } else {
+        errorDiv.textContent = 'OxBlood Learn is a separate product and is not configured on this host.';
+        errorDiv.classList.add('show');
+        loginButton.disabled = false;
+        loginButton.textContent = 'Sign In to Learn';
+        return;
+      }
     }
   } catch (error) {
     console.error('Login error:', error);

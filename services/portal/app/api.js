@@ -98,31 +98,12 @@ class API {
     try {
       const leaderboard = await this.get(drillId ? `/leaderboard/drill/${drillId}` : '/leaderboard');
       const entries = leaderboard.leaderboard || [];
-      
-      // Enrich with user data
-      const enriched = await Promise.all(
-        entries.map(async (entry) => {
-          try {
-            const user = await this.get(`/users/${entry.user_id}/profile`);
-            return {
-              username: user.full_name || user.sub || `User ${entry.user_id}`,
-              points: entry.total_points,
-              solves: entry.flags_captured,
-              time: 'N/A',
-              badges: []
-            };
-          } catch (e) {
-            return {
-              username: `User ${entry.user_id}`,
-              points: entry.total_points,
-              solves: entry.flags_captured,
-              time: 'N/A',
-              badges: []
-            };
-          }
-        })
-      );
-      return enriched;
+      return entries.map((entry) => ({
+        username: `User ${entry.user_id}`,
+        user_id: entry.user_id,
+        points: entry.total_points,
+        solves: entry.flags_captured,
+      }));
     } catch (error) {
       console.error('Get scoreboard error:', error);
       return [];
@@ -134,17 +115,23 @@ class API {
     const reports = await this.get('/reports');
     return (reports.reports || []).map(report => ({
       id: report.id,
+      drill_id: report.drill_id,
       scenario: report.title || 'Unknown',
-      duration: 'N/A',
       result: report.status === 'graded' ? 'Completed' : 'In Progress',
       score: report.quality_score ? Math.round(report.quality_score) : 0
     }));
   }
 
-  // Audit log (for activity feed)
+  // Audit log (Drill activity feed via v1 global audit search)
   static async getAuditLog(limit = 20) {
     try {
-      return [];
+      const data = await fetch(`/api/v1/audit?limit=${limit}`, {
+        headers: Auth.getHeaders(),
+      }).then((r) => {
+        if (!r.ok) throw new Error(`API error: ${r.status}`);
+        return r.json();
+      });
+      return data.items || [];
     } catch (error) {
       console.error('Get audit log error:', error);
       return [];
@@ -152,8 +139,25 @@ class API {
   }
 
   // Submit flag
-  static async submitFlag(runId, flagId, value) {
-    return await this.post(`/drills/${runId}/flags/${flagId}`, { value });
+  static async submitFlag(drillId, value) {
+    const meRes = await fetch('/api/v2/users/me', { headers: Auth.getHeaders() });
+    if (!meRes.ok) throw new Error(`Cannot resolve user id: ${meRes.status}`);
+    const me = await meRes.json();
+    return await this.post(`/submissions?user_id=${me.id}`, {
+      drill_id: drillId,
+      lab_flag_id: 0, // resolved server-side from drill objectives below
+      flag_value: value,
+      hints_used: 0,
+    });
+  }
+
+  // Drill debrief (v1 markdown play-by-play for leadership hand-off)
+  static async getDebrief(drillId) {
+    const res = await fetch(`/api/v1/drills/${drillId}/debrief.md`, {
+      headers: Auth.getHeaders(),
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return await res.text();
   }
 }
 

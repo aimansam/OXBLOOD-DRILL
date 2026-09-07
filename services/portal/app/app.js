@@ -117,31 +117,82 @@ class UI {
   async loadDashboard() {
     try {
       const data = await API.getDashboard();
-      
+
       // Update KPI cards (3 cards: completed / active / objective rate)
       const kpis = document.querySelectorAll('.kpi-value');
       if (kpis[0]) kpis[0].textContent = data.completedDrills;
       if (kpis[1]) kpis[1].textContent = data.activeDrills;
       if (kpis[2]) kpis[2].textContent = `${data.objectiveRate}%`;
 
-      // Update active drill section
-      const activeDrillSection = document.getElementById('active-drill-section');
-      if (activeDrillSection) {
-        const activeDrills = await API.getActiveDrills();
-        if (activeDrills.length > 0) {
-          const drill = activeDrills[0];
-          activeDrillSection.innerHTML = `
-            <div class="card">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
-                <h3 style="font-size: 16px; font-weight: 600;">${this.sanitizeHTML(drill.title)}</h3>
-                <button class="btn btn-primary btn-sm" onclick="app.playDrill(${drill.id})">Continue</button>
-              </div>
-              <div style="font-size: 13px; color: var(--text-secondary);">${this.sanitizeHTML(drill.description || 'No description')}</div>
+      // Live active-drill panel + stats + recent activity
+      const activeDrills = await API.getActiveDrills();
+      const drill = activeDrills.length > 0 ? activeDrills[0] : null;
+      let stats = null;
+      if (drill) {
+        stats = await API.get(`/drills/${drill.id}/stats`).catch(() => null);
+      }
+      const grid = document.querySelector('#content .grid.grid-6-6');
+      if (grid && grid.children.length >= 2) {
+        const activeCard = grid.children[0];
+        const statsCard = grid.children[1];
+        if (drill) {
+          const done = stats ? stats.correct_submissions || 0 : 0;
+          const total = stats ? stats.total_flags || 0 : 0;
+          activeCard.querySelector('.card-title').textContent = this.sanitizeHTML(drill.title);
+          const rows = activeCard.querySelectorAll(':scope > div');
+          activeCard.innerHTML = `
+            <div class="card-header">
+              <h3 class="card-title">${this.sanitizeHTML(drill.title)}</h3>
+              <span class="badge badge-hard">${this.sanitizeHTML(drill.status || 'active')}</span>
             </div>
-          `;
+            <div style="margin-bottom: var(--space-md);">
+              <div style="color: var(--text-secondary); font-size: 12px; margin-bottom: 4px;">Status</div>
+              <div style="font-weight: 600;">${this.sanitizeHTML(drill.status || 'active')}</div>
+            </div>
+            <div>
+              <div style="color: var(--text-secondary); font-size: 12px; margin-bottom: 4px;">Progress</div>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${total > 0 ? Math.round((done / total) * 100) : 0}%;"></div></div>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">${done}/${total} flags captured</div>
+            </div>
+            <button class="btn btn-primary btn-sm" style="margin-top: var(--space-md);" onclick="app.playDrill(${drill.id})">Open Drill →</button>`;
+          void rows;
         } else {
-          activeDrillSection.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-lg);">No active drills</div>';
+          activeCard.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-lg);">No active drills</div>';
         }
+        if (statsCard) {
+          const done = stats ? stats.correct_submissions || 0 : 0;
+          const total = stats ? stats.total_flags || 0 : 0;
+          const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+          statsCard.innerHTML = `
+            <div class="card-header"><h3 class="card-title">Drill Stats</h3></div>
+            <div style="margin-bottom: var(--space-md);">
+              <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                <span>Flags Captured</span><span style="font-family: var(--font-mono);">${done}/${total}</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${pct}%;"></div></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px;">
+              <span>Participants</span><span style="font-family: var(--font-mono);">${stats ? stats.total_participants || 0 : 0}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-top: 4px;">
+              <span>First Bloods</span><span style="font-family: var(--font-mono);">${stats ? stats.first_bloods_claimed || 0 : 0}</span>
+            </div>`;
+        }
+      }
+
+      // Recent activity from audit feed
+      const feed = await API.getAuditLog(5).catch(() => []);
+      const activityCard = document.querySelector('#content .card:last-child');
+      if (activityCard && feed.length > 0) {
+        const items = feed.map((e) => `
+          <div class="activity-item">
+            <div class="activity-time">${e.at ? new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}</div>
+            <div class="activity-text">${this.sanitizeHTML(e.action || 'event')}${e.actor ? ' by ' + this.sanitizeHTML(e.actor) : ''}</div>
+          </div>`).join('');
+        const header = activityCard.querySelector('.card-header');
+        activityCard.innerHTML = '';
+        if (header) activityCard.appendChild(header);
+        activityCard.insertAdjacentHTML('beforeend', items);
       }
     } catch (error) {
       console.error('Failed to load dashboard:', error);
@@ -233,26 +284,70 @@ class UI {
   async loadReports() {
     try {
       const reports = await API.getReports();
-      const container = document.getElementById('reports');
+      const container = document.getElementById('content');
       if (!container) return;
-      
+
       if (reports.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">No reports available</div>';
-      } else {
-        container.innerHTML = reports.map(report => `
-          <div class="card" style="margin-bottom: var(--space-md);">
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-sm);">
-              <h3 style="font-size: 16px; font-weight: 600;">${report.scenario}</h3>
-              <span class="badge badge-${report.result === 'Completed' ? 'success' : 'warning'}">${report.result}</span>
-            </div>
-            <div style="font-size: 13px; color: var(--text-secondary);">
-              Duration: ${report.duration} • Score: ${report.score}/100
-            </div>
-          </div>
-        `).join('');
+        container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-xl);">No reports yet — complete a drill to generate one</div>';
+        return;
       }
+      const cards = reports.map((report) => `
+        <div class="card" style="margin-bottom: var(--space-md); cursor: pointer;" onclick="app.viewReport(${report.id})">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-sm);">
+            <h3 style="font-size: 16px; font-weight: 600;">${this.sanitizeHTML(report.scenario)}</h3>
+            <span class="badge badge-${report.result === 'Completed' ? 'success' : 'warning'}">${this.sanitizeHTML(report.result)}</span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-secondary);">
+            Score: ${report.score}/100 ${report.drill_id ? `• Drill #${report.drill_id}` : ''}
+          </div>
+        </div>`).join('');
+      container.innerHTML = `
+        <div class="page-header"><h1 class="page-title">Reports</h1></div>
+        <div id="reports-list">${cards}</div>
+        <div id="report-detail"></div>`;
     } catch (error) {
       console.error('Failed to load reports:', error);
+    }
+  }
+
+  async viewReport(reportId) {
+    try {
+      const detail = document.getElementById('report-detail');
+      if (detail) detail.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">Loading report...</div>';
+      const [report, findings] = await Promise.all([
+        API.get(`/reports/${reportId}`).catch(() => null),
+        API.get(`/reports/${reportId}/findings`).catch(() => ({ findings: [] })),
+      ]);
+      if (!report) {
+        this.showToast('Report not found', 'error');
+        return;
+      }
+      const list = (findings.findings || []).map((f) => `
+        <tr>
+          <td><span class="badge badge-${this.sanitizeHTML(f.severity || 'medium')}">${this.sanitizeHTML(f.severity || 'medium')}</span></td>
+          <td style="font-weight: 600;">${this.sanitizeHTML(f.title || '')}</td>
+          <td style="font-size: 12px; color: var(--text-secondary);">${this.sanitizeHTML(f.category || '')}</td>
+        </tr>`).join('');
+      let debriefHtml = '';
+      if (report.drill_id) {
+        try {
+          const md = await API.getDebrief(report.drill_id);
+          debriefHtml = `<div class="card" style="margin-top: var(--space-lg);"><div class="card-header"><h3 class="card-title">Debrief</h3></div><div style="padding: var(--space-md); font-size: 13px;">${this.renderMarkdown(md.slice(0, 4000))}</div></div>`;
+        } catch (e) { /* debrief optional */ }
+      }
+      if (detail) {
+        detail.innerHTML = `
+          <div class="card" style="margin-top: var(--space-lg);">
+            <div class="card-header"><h3 class="card-title">${this.sanitizeHTML(report.title || 'Report')}</h3></div>
+            <div style="padding: var(--space-md); font-size: 13px; color: var(--text-secondary);">${this.sanitizeHTML(report.summary || '')}</div>
+            <table><thead><tr><th>Severity</th><th>Finding</th><th>Category</th></tr></thead>
+            <tbody>${list || '<tr><td colspan="3" style="text-align:center; color: var(--text-secondary);">No findings</td></tr>'}</tbody></table>
+          </div>${debriefHtml}`;
+        detail.scrollIntoView({ behavior: 'smooth' });
+      }
+    } catch (error) {
+      console.error('Failed to load report:', error);
+      this.showToast('Failed to load report', 'error');
     }
   }
 

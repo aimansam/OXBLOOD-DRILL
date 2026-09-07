@@ -10,7 +10,8 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_learn_session as get_session
-from app.db.models import User
+from app.db.models_oxblood import User as LearnUser
+from app.db.models import User as DrillUser
 from app.core.auth import current_token
 from sqlalchemy import select
 from app.services.user_profile_service import (
@@ -73,12 +74,17 @@ async def get_current_user(
     db: AsyncSession = Depends(get_session),
     token=Depends(current_token),
 ):
-    """Get current user's database ID based on JWT token."""
+    """Get current user's database ID based on JWT token.
+
+    Looks in the Learn users table first, then the Drill users table
+    (back-compat while both products share auth).
+    """
     if token is None:
         raise HTTPException(status_code=401, detail="Authentication required")
-    
-    stmt = select(User).where(User.sub == token.sub)
-    user = (await db.execute(stmt)).scalar_one_or_none()
+
+    user = (await db.execute(select(LearnUser).where(LearnUser.sub == token.sub))).scalar_one_or_none()
+    if user is None:
+        user = (await db.execute(select(DrillUser).where(DrillUser.sub == token.sub))).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return {

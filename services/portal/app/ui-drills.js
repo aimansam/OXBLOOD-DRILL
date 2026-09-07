@@ -193,25 +193,26 @@ Object.assign(UI.prototype, {
   async submitFlag() {
     const flagInput = document.getElementById('flag-input');
     if (!flagInput) return;
-    
+
     const flagValue = flagInput.value.trim();
     if (!flagValue) {
       this.showToast('Please enter a flag', 'error');
       return;
     }
-    
+
     try {
       this.showToast('Submitting flag...', 'info');
-      // Note: This would need the actual flag_id from the drill
-      // For now, we'll use a placeholder
-      await API.submitFlag(this.currentDrillId, 1, flagValue);
-      this.showToast('Flag submitted!', 'success');
+      const result = await API.submitFlag(this.currentDrillId, flagValue);
+      this.showToast(result.is_correct ? `Correct! +${result.points_earned} pts` : 'Incorrect flag', result.is_correct ? 'success' : 'error');
       flagInput.value = '';
-      // Reload submissions
+      // Refresh live drill data
       this.loadDrillSubmissions(this.currentDrillId);
+      this.loadDrillScores(this.currentDrillId);
+      this.loadDrillFirstBloods(this.currentDrillId);
+      this.loadDrillStats(this.currentDrillId);
     } catch (error) {
       console.error('Failed to submit flag:', error);
-      this.showToast('Failed to submit flag', 'error');
+      this.showToast('Failed to submit flag: ' + (error.message || 'Unknown error'), 'error');
     }
   },
 

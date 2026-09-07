@@ -150,14 +150,51 @@ async def post_submission(
     user_id: int = Query(..., description="User ID"),
     session: AsyncSession = Depends(get_session),
 ):
-    """Submit a flag."""
+    """Submit a flag.
+
+    Drill play loop sends lab_flag_id=0 + drill_id + flag_value; the server
+    resolves the drill's first objective-linked flag so the portal never
+    guesses flag IDs. Explicit lab_flag_id > 0 keeps working as before.
+    """
     try:
+        lab_flag_id = data.lab_flag_id
+        if not lab_flag_id and data.drill_id:
+            from app.services.drill_service import list_drill_objectives
+            from app.db.models_oxblood import LabFlag as _LabFlag
+            from sqlalchemy import select as _select
+            objectives = await list_drill_objectives(session, data.drill_id)
+            if not objectives:
+                raise ValueError("Drill has no objectives yet")
+            # Prefer a LabFlag tied to the first objective's lab_objective;
+            # LabFlag has no objective FK, so match via lab_id of the linked
+            # LabObjective when possible; else first flag overall.
+            from app.db.models_oxblood import LabObjective as _LabObjective
+            flag = None
+            for obj in objectives:
+                lab_id = None
+                if getattr(obj, "lab_objective_id", None):
+                    lo = await session.get(_LabObjective, obj.lab_objective_id)
+                    if lo is not None:
+                        lab_id = lo.lab_id
+                if lab_id is not None:
+                    r = await session.execute(
+                        _select(_LabFlag).where(_LabFlag.lab_id == lab_id).order_by(_LabFlag.id).limit(1)
+                    )
+                    flag = r.scalars().first()
+                    if flag:
+                        break
+            if flag is None:
+                r = await session.execute(_select(_LabFlag).order_by(_LabFlag.id).limit(1))
+                flag = r.scalars().first()
+            if flag is None:
+                raise ValueError("No flags available for this drill")
+            lab_flag_id = flag.id
         result = await submit_flag(
             session,
             user_id=user_id,
             drill_id=data.drill_id,
             lab_id=data.lab_id,
-            lab_flag_id=data.lab_flag_id,
+            lab_flag_id=lab_flag_id,
             flag_value=data.flag_value,
             hints_used=data.hints_used,
             team_id=data.team_id,
