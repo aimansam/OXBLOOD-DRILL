@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models_oxblood import (
     Submission, FlagSubmission, EvidenceSubmission, Score, ScoreHistory,
     FirstBlood, LabFlag, Lab, Drill, DrillParticipant, DrillObjective,
-    SubmissionStatus, EvidenceType,
+    DrillFlag, SubmissionStatus, EvidenceType,
 )
 
 
@@ -30,15 +30,34 @@ async def submit_flag(
     flag_value: str,
     hints_used: int = 0,
     team_id: Optional[int] = None,
+    drill_flag=None,
 ) -> dict:
-    """Submit a flag and calculate points."""
-    # Get the flag
-    flag_result = await db.execute(
-        select(LabFlag).where(LabFlag.id == lab_flag_id)
-    )
-    lab_flag = flag_result.scalar_one_or_none()
-    if not lab_flag:
-        raise ValueError("Flag not found")
+    """Submit a flag and calculate points.
+
+    Drill-native path: pass drill_flag (a DrillFlag row) and validation
+    runs against drill_flags. Learn LabFlag path is kept as a fallback
+    for pre-split historical drills.
+    """
+    lab_flag = None
+    if drill_flag is None:
+        flag_result = await db.execute(
+            select(DrillFlag).where(DrillFlag.id == lab_flag_id)
+        )
+        drill_flag = flag_result.scalar_one_or_none()
+    if drill_flag is not None:
+        flag_value_expected = drill_flag.value
+        decay_window = drill_flag.decay_window_seconds
+        is_drill_flag = True
+    else:
+        flag_result = await db.execute(
+            select(LabFlag).where(LabFlag.id == lab_flag_id)
+        )
+        lab_flag = flag_result.scalar_one_or_none()
+        if not lab_flag:
+            raise ValueError("Flag not found")
+        flag_value_expected = lab_flag.value
+        decay_window = lab_flag.decay_window_seconds
+        is_drill_flag = False
     
     # Get drill start time for time decay calculation
     elapsed_seconds = 0
@@ -65,7 +84,7 @@ async def submit_flag(
     submission = Submission(
         user_id=user_id,
         drill_id=drill_id,
-        lab_id=lab_id or lab_flag.lab_id,
+        lab_id=lab_id or (lab_flag.lab_id if lab_flag else None),
         team_id=team_id,
         submission_type="flag",
         status=SubmissionStatus.CORRECT if is_correct else SubmissionStatus.INCORRECT,

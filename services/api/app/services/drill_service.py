@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_oxblood import (
     Drill, DrillStatus, DrillParticipant, DrillTeam, DrillAnnouncement,
-    DrillObjective, DrillScenario, Lab, Team, User,
+    DrillObjective, DrillFlag, DrillScenario, Lab, Team, User,
 )
 import re
 
@@ -418,6 +418,65 @@ async def create_drill_objective(
     await db.commit()
     await db.refresh(objective)
     return objective
+
+
+# ============================================================================
+# Drill Flags (Drill-native; replaces Learn LabFlag dependency)
+# ============================================================================
+
+async def list_drill_flags(db: AsyncSession, drill_id: int) -> list[DrillFlag]:
+    """List all flags for a drill."""
+    result = await db.execute(
+        select(DrillFlag)
+        .where(DrillFlag.drill_id == drill_id)
+        .order_by(DrillFlag.sort_order, DrillFlag.id)
+    )
+    return list(result.scalars().all())
+
+
+async def create_drill_flag(
+    db: AsyncSession,
+    drill_id: int,
+    value: str,
+    name: str = "flag",
+    points: int = 100,
+    objective_id: Optional[int] = None,
+    decay_window_seconds: int = 1800,
+    sort_order: int = 0,
+) -> DrillFlag:
+    """Create a Drill-native flag. Value is the secret (never returned by list)."""
+    if not value or not value.strip():
+        raise ValueError("Flag value cannot be empty")
+    if points < 0:
+        raise ValueError("Points cannot be negative")
+    flag = DrillFlag(
+        drill_id=drill_id,
+        objective_id=objective_id,
+        name=_sanitize_text(name) if name else "flag",
+        value=value.strip(),
+        points=points,
+        decay_window_seconds=decay_window_seconds,
+        sort_order=sort_order,
+    )
+    db.add(flag)
+    await db.commit()
+    await db.refresh(flag)
+    return flag
+
+
+async def delete_drill_flag(db: AsyncSession, drill_id: int, flag_id: int) -> bool:
+    """Delete a Drill flag."""
+    result = await db.execute(
+        select(DrillFlag).where(
+            DrillFlag.id == flag_id, DrillFlag.drill_id == drill_id
+        )
+    )
+    flag = result.scalar_one_or_none()
+    if flag is None:
+        return False
+    await db.delete(flag)
+    await db.commit()
+    return True
 
 
 # ============================================================================

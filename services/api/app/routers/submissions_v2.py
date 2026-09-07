@@ -7,10 +7,11 @@ from __future__ import annotations
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.db.models_oxblood import EvidenceType
+from app.db.models_oxblood import DrillFlag, EvidenceType
 from app.services.submission_service import (
     submit_flag, list_user_submissions, get_submission, get_flag_submission,
     upload_evidence, list_submission_evidence,
@@ -178,37 +179,23 @@ async def post_submission(
                 await session.flush()
             user_id = user.id
         lab_flag_id = data.lab_flag_id
+        drill_flag = None
         if not lab_flag_id and data.drill_id:
-            from app.services.drill_service import list_drill_objectives
-            from app.db.models_oxblood import LabFlag as _LabFlag
-            from sqlalchemy import select as _select
-            objectives = await list_drill_objectives(session, data.drill_id)
-            if not objectives:
-                raise ValueError("Drill has no objectives yet")
-            # Prefer a LabFlag tied to the first objective's lab_objective;
-            # LabFlag has no objective FK, so match via lab_id of the linked
-            # LabObjective when possible; else first flag overall.
-            from app.db.models_oxblood import LabObjective as _LabObjective
-            flag = None
-            for obj in objectives:
-                lab_id = None
-                if getattr(obj, "lab_objective_id", None):
-                    lo = await session.get(_LabObjective, obj.lab_objective_id)
-                    if lo is not None:
-                        lab_id = lo.lab_id
-                if lab_id is not None:
-                    r = await session.execute(
-                        _select(_LabFlag).where(_LabFlag.lab_id == lab_id).order_by(_LabFlag.id).limit(1)
-                    )
-                    flag = r.scalars().first()
-                    if flag:
-                        break
-            if flag is None:
-                r = await session.execute(_select(_LabFlag).order_by(_LabFlag.id).limit(1))
-                flag = r.scalars().first()
-            if flag is None:
-                raise ValueError("No flags available for this drill")
-            lab_flag_id = flag.id
+            # Drill-native flags (drill_flags table). No Learn lookup.
+            r = await session.execute(
+                select(DrillFlag)
+                .where(DrillFlag.drill_id == data.drill_id)
+                .order_by(DrillFlag.sort_order, DrillFlag.id)
+                .limit(1)
+            )
+            drill_flag = r.scalars().first()
+            if drill_flag is None:
+                raise ValueError("Drill has no flags yet — add one via POST /drills/{id}/flags")
+            lab_flag_id = drill_flag.id
+        elif lab_flag_id and data.drill_id:
+            drill_flag = await session.get(DrillFlag, lab_flag_id)
+            if drill_flag is not None and drill_flag.drill_id != data.drill_id:
+                raise ValueError("Flag does not belong to this drill")
         result = await submit_flag(
             session,
             user_id=user_id,
@@ -217,6 +204,7 @@ async def post_submission(
             lab_flag_id=lab_flag_id,
             flag_value=data.flag_value,
             hints_used=data.hints_used,
+            drill_flag=drill_flag,
             team_id=data.team_id,
         )
         return result

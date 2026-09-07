@@ -669,18 +669,46 @@ class DrillTeam(Base):
 
 
 class DrillObjective(Base):
-    """Objectives specific to drill instances."""
+    """Objectives specific to drill instances.
+
+    lab_objective_id is a read-only Learn-catalog reference (no FK — Learn
+    DB owns lab_objectives). New objectives are Drill-native.
+    """
     __tablename__ = "drill_objectives"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     drill_id: Mapped[int] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False)
-    lab_objective_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("lab_objectives.id", ondelete="SET NULL"))
+    lab_objective_id: Mapped[Optional[int]] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
     points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     side: Mapped[Optional[str]] = mapped_column(String(20))
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class DrillFlag(Base):
+    """Drill-native flags (owned by the Drill DB).
+
+    Replaces the Learn LabFlag dependency for flag submit: a DrillFlag
+    belongs to a drill (+ optional objective) and carries the secret value,
+    points, and decay window. Learn lab_flags stay in the Learn DB.
+    """
+    __tablename__ = "drill_flags"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    drill_id: Mapped[int] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False)
+    objective_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("drill_objectives.id", ondelete="SET NULL"))
+    name: Mapped[str] = mapped_column(String(255), nullable=False, default="flag")
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    points: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    decay_window_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=1800)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_drill_flags_drill", "drill_id"),
+    )
 
 
 class DrillAnnouncement(Base):

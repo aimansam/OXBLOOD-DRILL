@@ -19,6 +19,7 @@ from app.services.drill_service import (
     list_drill_teams, add_team, remove_team,
     list_drill_announcements, create_announcement,
     list_drill_objectives, create_drill_objective,
+    list_drill_flags, create_drill_flag, delete_drill_flag,
     list_drill_scenarios, link_scenario,
 )
 
@@ -479,6 +480,79 @@ async def post_objective(
         return {"message": "Objective created", "objective_id": objective.id}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================================
+# Flags (Drill-native; values never returned by list)
+# ============================================================================
+
+class FlagCreate(BaseModel):
+    value: str
+    name: str = "flag"
+    points: int = 100
+    objective_id: Optional[int] = None
+    decay_window_seconds: int = 1800
+    sort_order: int = 0
+
+
+@router.get("/{drill_id}/flags")
+async def get_flags(
+    drill_id: int,
+    db: AsyncSession = Depends(get_session),
+):
+    """List flags for a drill (metadata only — values are secret)."""
+    drill = await get_drill(db, drill_id)
+    if not drill:
+        raise HTTPException(status_code=404, detail="Drill not found")
+    flags = await list_drill_flags(db, drill_id)
+    return {
+        "flags": [
+            {
+                "id": f.id,
+                "name": f.name,
+                "points": f.points,
+                "objective_id": f.objective_id,
+                "sort_order": f.sort_order,
+            }
+            for f in flags
+        ]
+    }
+
+
+@router.post("/{drill_id}/flags")
+async def post_flag(
+    drill_id: int,
+    data: FlagCreate,
+    db: AsyncSession = Depends(get_session),
+):
+    """Create a Drill-native flag."""
+    drill = await get_drill(db, drill_id)
+    if not drill:
+        raise HTTPException(status_code=404, detail="Drill not found")
+    try:
+        flag = await create_drill_flag(
+            db, drill_id, data.value, data.name, data.points,
+            data.objective_id, data.decay_window_seconds, data.sort_order,
+        )
+        return {"message": "Flag created", "flag_id": flag.id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{drill_id}/flags/{flag_id}")
+async def remove_flag(
+    drill_id: int,
+    flag_id: int,
+    db: AsyncSession = Depends(get_session),
+):
+    """Delete a Drill flag."""
+    drill = await get_drill(db, drill_id)
+    if not drill:
+        raise HTTPException(status_code=404, detail="Drill not found")
+    ok = await delete_drill_flag(db, drill_id, flag_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Flag not found")
+    return {"message": "Flag deleted"}
 
 
 # ============================================================================

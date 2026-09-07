@@ -55,4 +55,38 @@ CREATE INDEX IF NOT EXISTS idx_drills_scenario ON drills (scenario_id);
 --  WHERE contype='f' AND conrelid::regclass::text IN ('drills','drill_scenarios')
 --    AND confrelid::regclass::text = 'labs';
 
+
+-- 5. Drill-native flags (new table; Drill no longer reads Learn lab_flags
+--    for submit). Idempotent.
+CREATE TABLE IF NOT EXISTS drill_flags (
+    id SERIAL PRIMARY KEY,
+    drill_id INTEGER NOT NULL REFERENCES drills(id) ON DELETE CASCADE,
+    objective_id INTEGER REFERENCES drill_objectives(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL DEFAULT 'flag',
+    value VARCHAR(255) NOT NULL,
+    points INTEGER NOT NULL DEFAULT 100,
+    decay_window_seconds INTEGER NOT NULL DEFAULT 1800,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_drill_flags_drill ON drill_flags (drill_id);
+
+-- 6. Drop drill_objectives->lab_objectives FK (dynamic name; the column
+--    stays as a read-only Learn ref).
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN
+        SELECT conname
+        FROM pg_constraint
+        WHERE contype = 'f'
+          AND conrelid = 'drill_objectives'::regclass
+          AND confrelid = 'lab_objectives'::regclass
+    LOOP
+        RAISE NOTICE 'dropping FK % on drill_objectives', r.conname;
+        EXECUTE format('ALTER TABLE drill_objectives DROP CONSTRAINT %I', r.conname);
+    END LOOP;
+END $$;
+
 COMMIT;
