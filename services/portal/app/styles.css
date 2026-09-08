@@ -16,12 +16,17 @@
       --text-primary: #ededf0;
       --text-secondary: #a8a8b3;
       --text-tertiary: #6e6e7a;
-      --accent: #ffffff;
+      --accent: #a31616;
 
-      /* Signal — oxblood red: the one saturated color, reserved for
-         live/urgent/interactive. Everything else stays muted. */
-      --signal: #e63d2e;
-      --signal-dim: rgba(230,61,46,.12);
+      /* Oxblood — dark blood-red brand. Interactive/brand surfaces use the
+         deep shades; live/urgent keeps a brighter red so it stays visible
+         on the dark background. */
+      --oxblood: #6b1010;
+      --oxblood-bright: #8f1a1a;
+      --oxblood-deep: #3d0909;
+      --oxblood-dim: rgba(107,16,16,.35);
+      --signal: #c22a1e;
+      --signal-dim: rgba(194,42,30,.12);
       --ok: #4ade80;
       --gold: #f5b301;
       --primary: var(--signal);
@@ -108,12 +113,12 @@
       font-family: var(--font-mono);
       font-size: 16px;
       font-weight: 700;
-      color: var(--accent);
+      color: var(--text-primary);
       letter-spacing: -0.5px;
     }
 
     .logo .logo-mark {
-      color: var(--signal);
+      color: var(--oxblood-bright);
     }
 
     .search {
@@ -199,9 +204,9 @@
     }
 
     .nav-item.active {
-      background: var(--bg-tertiary);
-      color: var(--accent);
-      border-left-color: var(--accent);
+      background: var(--oxblood-dim);
+      color: var(--text-primary);
+      border-left-color: var(--oxblood-bright);
     }
 
     .nav-icon {
@@ -245,7 +250,7 @@
     }
 
     .card-accent {
-      border-left: 3px solid var(--signal);
+      border-left: 3px solid var(--oxblood-bright);
     }
 
     .card-header {
@@ -307,12 +312,14 @@
     }
 
     .btn-primary {
-      background: var(--accent);
-      color: var(--bg-primary);
+      background: var(--oxblood);
+      color: #f5e9e9;
+      border: 1px solid var(--oxblood-bright);
     }
 
     .btn-primary:hover {
-      background: #d4d4d4;
+      background: var(--oxblood-bright);
+      color: #ffffff;
     }
 
     .btn-secondary {
@@ -340,8 +347,8 @@
       font-size: 13px;
     }
     .input:focus {
-      outline: 1px solid var(--signal);
-      border-color: var(--signal);
+      outline: 1px solid var(--oxblood-bright);
+      border-color: var(--oxblood-bright);
     }
     .input::placeholder { color: var(--text-tertiary); }
 
@@ -400,7 +407,7 @@
 
     .progress-fill {
       height: 100%;
-      background: var(--accent);
+      background: var(--oxblood-bright);
       transition: width 0.3s ease;
     }
 
@@ -445,7 +452,7 @@
     input[type="text"]:focus,
     input[type="search"]:focus {
       outline: none;
-      border-color: var(--accent);
+      border-color: var(--oxblood-bright);
     }
 
     /* Activity feed */
@@ -626,9 +633,9 @@
 
     /* Hero live strip */
     .hero-live {
-      background: var(--bg-raised);
-      border: 1px solid var(--border);
-      border-left: 3px solid var(--signal);
+      background: linear-gradient(90deg, var(--oxblood-deep), var(--bg-raised) 55%);
+      border: 1px solid var(--oxblood-dim);
+      border-left: 3px solid var(--oxblood-bright);
       border-radius: 8px;
       padding: var(--space-lg) var(--space-xl);
       margin-bottom: var(--space-xl);
@@ -660,7 +667,7 @@
 
     /* Focus visibility (keyboard / a11y) */
     .btn:focus-visible, .icon-btn:focus-visible, .nav-item:focus-visible, input:focus-visible {
-      outline: 2px solid var(--signal); outline-offset: 2px;
+      outline: 2px solid var(--oxblood-bright); outline-offset: 2px;
     }
 
     /* Table scroll wrapper */
@@ -680,7 +687,7 @@
       font-family: var(--font-mono);
       font-size: var(--text-display);
       font-weight: 700;
-      color: var(--accent);
+      color: var(--text-primary);
       font-variant-numeric: tabular-nums;
       letter-spacing: -0.5px;
     }
