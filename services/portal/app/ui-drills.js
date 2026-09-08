@@ -36,8 +36,10 @@ Object.assign(UI.prototype, {
       this.loadDrillAnnouncementsRich(drillId);
       this.loadDrillScenarios(drillId);
       
+      this.loadDrillBriefing(drill);
+      this.loadDrillTimeline(drillId);
       // Start timer if drill is active
-      if (drill.status === 'active' && drill.started_at) {
+      if (drill.status === 'active' && (drill.actual_start_at || drill.started_at)) {
         this._startDrillTimer(drill);
       }
       this._startDrillPolling(drillId);
@@ -55,12 +57,24 @@ Object.assign(UI.prototype, {
     const durationLimit = drill.duration_limit_minutes ? drill.duration_limit_minutes * 60 * 1000 : null;
     
     const updateTimer = () => {
+      // Pause-aware: freeze elapsed while paused.
+      if (this.currentDrill && this.currentDrill.status === 'paused') return;
       const now = Date.now();
       const elapsed = Math.floor((now - startTime) / 1000);
-      document.getElementById('active-drill-elapsed').textContent = this.formatElapsedTime(elapsed);
-      
+      const el = document.getElementById('active-drill-elapsed');
+      if (el) el.textContent = this.formatElapsedTime(elapsed);
       if (durationLimit) {
         const remaining = Math.max(0, Math.floor((durationLimit - (now - startTime)) / 1000));
+        const key = String((drill && drill.id) || 'drill');
+        this._drillWarned = this._drillWarned || {};
+        if (remaining <= 900 && remaining > 300 && !this._drillWarned[key + ':15']) {
+          this._drillWarned[key + ':15'] = true;
+          this.showToast('15 minutes remaining', 'warning');
+        }
+        if (remaining <= 300 && remaining > 0 && !this._drillWarned[key + ':5']) {
+          this._drillWarned[key + ':5'] = true;
+          this.showToast('5 minutes remaining', 'warning');
+        }
         if (remaining === 0) {
           clearInterval(this._drillTimerInterval);
           this.showToast('Drill time limit reached!', 'warning');
@@ -102,6 +116,8 @@ Object.assign(UI.prototype, {
       this.loadDrillSubmissions(drillId, true);
       this.loadDrillStats(drillId, true);
       this.loadDrillFirstBloods(drillId, true);
+      this.loadDrillTimeline(drillId, true);
+      this.loadDrillObjectives(drillId);
     }, 8000);
   },
 
@@ -136,20 +152,91 @@ Object.assign(UI.prototype, {
         if (data.objectives.length === 0) {
           objectivesDiv.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-md);">No objectives defined</div>';
         } else {
-          objectivesDiv.innerHTML = data.objectives.map(obj => `
+          const done = data.objectives.filter((o) => (o.status || 'pending') === 'completed').length;
+          const pct = data.objectives.length ? Math.round((done / data.objectives.length) * 100) : 0;
+          objectivesDiv.innerHTML = `<div class="small muted" style="padding: 4px 0 8px;">${done}/${data.objectives.length} objectives complete (${pct}%)</div>` + data.objectives.map(obj => {
+            const st = obj.status || 'pending';
+            const pill = st === 'completed' ? 'completed' : (st === 'in-progress' ? 'active' : 'scheduled');
+            return `
             <div style="padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--border);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm);">
                 <span style="font-weight: 600;">${this.sanitizeHTML(obj.title)}</span>
-                <span style="font-family: var(--font-mono); font-weight: 600; color: var(--primary);">${obj.points || 0} pts</span>
+                <span style="display: flex; gap: var(--space-sm); align-items: center;">
+                  ${this._statusPill(pill)}
+                  <span style="font-family: var(--font-mono); font-weight: 600; color: var(--primary);">${obj.points || 0} pts</span>
+                </span>
               </div>
               ${obj.description ? `<div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">${this.sanitizeHTML(obj.description)}</div>` : ''}
+              <div style="display: flex; gap: var(--space-sm); margin-top: 6px;">
+                ${st !== 'in-progress' ? `<button class="btn btn-secondary btn-sm" onclick="app.setObjectiveStatus(${obj.id}, 'in-progress')">Start</button>` : ''}
+                ${st !== 'completed' ? `<button class="btn btn-secondary btn-sm" onclick="app.setObjectiveStatus(${obj.id}, 'completed')">Complete</button>` : `<button class="btn btn-secondary btn-sm" onclick="app.setObjectiveStatus(${obj.id}, 'pending')">Reopen</button>`}
+              </div>
             </div>
-          `).join('');
+          `; }).join('');
         }
       }
     } catch (error) {
       console.error('Failed to load objectives:', error);
     }
+  },
+
+  async setObjectiveStatus(objectiveId, status) {
+    try {
+      await API.patch(`/drills/${this.currentDrillId}/objectives/${objectiveId}`, { status });
+      this.showToast('Objective ' + status, 'success');
+      this.loadDrillObjectives(this.currentDrillId);
+      this.loadDrillTimeline(this.currentDrillId);
+    } catch (e) { console.error(e); this.showToast('Failed to update objective', 'error'); }
+  },
+
+  loadDrillBriefing(drill) {
+    const div = document.getElementById('drill-briefing');
+    if (!div) return;
+    const rules = drill.rules && typeof drill.rules === 'object' ? drill.rules : null;
+    const roe = rules ? (rules.roe || rules.engagement || '') : '';
+    div.innerHTML = `
+      <div class="small muted" style="margin-bottom: 6px;">Scenario briefing</div>
+      <div style="font-size: 13px; line-height: 1.6;">${this.renderMarkdown(drill.description || 'No briefing provided.')}</div>
+      ${roe ? `<div class="small" style="margin-top: 8px;"><span class="label">Rules of engagement:</span> ${this.sanitizeHTML(String(roe))}</div>` : ''}
+      <div class="row-between small muted" style="margin-top: 8px;">
+        <span>Type: ${this.sanitizeHTML(drill.drill_type || drill.type || '--')}</span>
+        <span>Duration: ${drill.duration_limit_minutes ? drill.duration_limit_minutes + ' min' : '--'}</span>
+      </div>`;
+  },
+
+  async loadDrillTimeline(drillId, silent = false) {
+    try {
+      const data = await API.get(`/drills/${drillId}/timeline?limit=100`);
+      const div = document.getElementById('drill-timeline');
+      if (!div) return;
+      const rows = data.events || [];
+      if (!rows.length) {
+        div.innerHTML = '<div class="empty-state"><div class="empty-hint">No exercise events yet — start the drill.</div></div>';
+        return;
+      }
+      const icon = { 'lifecycle': '&#9679;', 'flag': '&#9873;', 'first-blood': '&#128128;', 'announcement': '&#128226;', 'objective': '&#9673;', 'note': '&#9998;' };
+      div.innerHTML = rows.map((e) => `
+        <div style="display: flex; gap: var(--space-md); padding: 6px 0; border-bottom: 1px solid var(--border);">
+          <span style="width: 22px; text-align: center;">${icon[e.kind] || '&#183;'}</span>
+          <div style="flex: 1;">
+            <div style="font-size: 13px; font-weight: 600;">${this.sanitizeHTML(e.title)}</div>
+            ${e.detail ? `<div class="small muted">${this.sanitizeHTML(e.detail)}</div>` : ''}
+            <div class="small muted">${e.actor ? this.sanitizeHTML(e.actor) + ' &middot; ' : ''}${e.created_at ? new Date(e.created_at).toLocaleString() : ''}</div>
+          </div>
+        </div>`).join('');
+    } catch (e) { if (!silent) console.error('Failed to load timeline:', e); }
+  },
+
+  async addTimelineNote() {
+    const t = document.getElementById('timeline-note-title');
+    const d = document.getElementById('timeline-note-detail');
+    if (!t || !t.value.trim()) { this.showToast('Note title required', 'error'); return; }
+    try {
+      await API.post(`/drills/${this.currentDrillId}/timeline`, { title: t.value.trim(), detail: d ? d.value.trim() : '' });
+      t.value = ''; if (d) d.value = '';
+      this.showToast('Note recorded', 'success');
+      this.loadDrillTimeline(this.currentDrillId);
+    } catch (e) { console.error(e); this.showToast('Failed to record note', 'error'); }
   },
 
   async loadDrillFlags(drillId) {
@@ -343,6 +430,7 @@ Object.assign(UI.prototype, {
       this.loadDrillScores(this.currentDrillId);
       this.loadDrillFirstBloods(this.currentDrillId);
       this.loadDrillStats(this.currentDrillId);
+      this.loadDrillTimeline(this.currentDrillId);
       const statsEl = document.getElementById('drill-stats');
       if (statsEl && result.is_correct) {
         statsEl.classList.remove('score-pop');
@@ -391,6 +479,12 @@ Object.assign(UI.prototype, {
     try {
       await API.post(`/drills/${id}/stop`, {});
       this.showToast('Drill stopped', 'success');
+      if (id === this.currentDrillId && confirm('Drill completed. Open Reports to write the after-action debrief?')) {
+        this.currentDrillId = null; this.currentDrill = null;
+        this.stopDrillPolling();
+        this.loadPage('reports');
+        return;
+      }
       this.stopDrillPolling();
       this.stopDrillAutoRefresh();
       if (id === this.currentDrillId) { this.currentDrillId = null; this.currentDrill = null; }

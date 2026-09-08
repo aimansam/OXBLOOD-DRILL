@@ -93,6 +93,31 @@
               </div>
             </div>
 
+            <!-- Briefing (scenario briefing + ROE) -->
+            <div class="card" style="margin-bottom: var(--space-lg);">
+              <div class="card-header">
+                <h3 class="card-title">Briefing</h3>
+              </div>
+              <div id="drill-briefing" style="padding: var(--space-md);">
+                <div style="text-align: center; color: var(--text-secondary);">Loading briefing...</div>
+              </div>
+            </div>
+
+            <!-- Exercise Timeline (unified live feed) -->
+            <div class="card" style="margin-bottom: var(--space-lg);">
+              <div class="card-header">
+                <h3 class="card-title">Exercise Timeline</h3>
+              </div>
+              <div id="drill-timeline" style="padding: var(--space-md); max-height: 320px; overflow-y: auto;">
+                <div style="text-align: center; color: var(--text-secondary);">Loading timeline...</div>
+              </div>
+              <div style="padding: var(--space-md); border-top: 1px solid var(--border); display: flex; gap: var(--space-sm);">
+                <input type="text" id="timeline-note-title" placeholder="Lead note..." style="flex: 1;">
+                <input type="text" id="timeline-note-detail" placeholder="Detail (optional)" style="flex: 2;">
+                <button class="btn btn-secondary btn-sm" onclick="app.addTimelineNote()">Add</button>
+              </div>
+            </div>
+
             <!-- Drill Stats -->
             <div class="card" style="margin-bottom: var(--space-lg);">
               <div class="card-header">

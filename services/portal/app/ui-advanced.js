@@ -16,13 +16,17 @@ Object.assign(UI.prototype, {
         teamsDiv.innerHTML = '<div class="empty-state"><div class="empty-hint">No participants yet — invite operators to form Red / Blue sides.</div></div>';
         return;
       }
-      const red = rows.filter((p) => (p.role || '').toLowerCase() === 'red').length;
-      const blue = rows.filter((p) => (p.role || '').toLowerCase() === 'blue').length;
-      const other = rows.length - red - blue;
-      teamsDiv.innerHTML = `
-        <div class="row-between small" style="padding: 6px 0; border-bottom: 1px solid var(--border);"><span style="color:#f87171; font-weight:700;">RED</span><span class="value-mono">${red} operators</span></div>
-        <div class="row-between small" style="padding: 6px 0; border-bottom: 1px solid var(--border);"><span style="color:#60a5fa; font-weight:700;">BLUE</span><span class="value-mono">${blue} operators</span></div>
-        ${other ? `<div class="row-between small" style="padding: 6px 0;"><span class="muted">Unassigned</span><span class="value-mono">${other}</span></div>` : ''}`;
+      const side = (r) => (r.role || '').toLowerCase() === 'red' ? 'red' : ((r.role || '').toLowerCase() === 'blue' ? 'blue' : 'unassigned');
+      const redRows = rows.filter((p) => side(p) === 'red');
+      const blueRows = rows.filter((p) => side(p) === 'blue');
+      const otherRows = rows.filter((p) => side(p) === 'unassigned');
+      const name = (p) => this.sanitizeHTML(p.username || p.sub || ('User ' + (p.user_id || p.id)));
+      const col = (title, color, list) => `
+        <div style="flex: 1; min-width: 0;">
+          <div class="small" style="font-weight: 700; color: ${color}; margin-bottom: 6px;">${title} (${list.length})</div>
+          ${list.length ? list.map((p) => `<div class="row-between small" style="padding: 4px 0; border-bottom: 1px solid var(--border);"><span>${name(p)}</span><button class="btn btn-secondary btn-sm" style="color: var(--danger);" onclick="app.removeParticipant(${drillId}, ${p.user_id || p.id})">Remove</button></div>`).join('') : '<div class="small muted">—</div>'}
+        </div>`;
+      teamsDiv.innerHTML = `<div style="display: flex; gap: var(--space-lg);">${col('RED', '#f87171', redRows)}${col('BLUE', '#60a5fa', blueRows)}</div>${otherRows.length ? `<div class="small muted" style="margin-top: 8px;">Unassigned: ${otherRows.map(name).join(', ')}</div>` : ''}`;
     } catch (error) {
       console.error('Failed to load teams:', error);
     }
@@ -164,6 +168,11 @@ Object.assign(UI.prototype, {
           <select id="participant-user-select" style="width: 100%; padding: var(--space-sm); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary);">
             <option value="">Select a user...</option>
           </select>
+          <label style="display: block; margin: var(--space-md) 0 var(--space-sm); font-weight: 600;">Side</label>
+          <select id="participant-role-select" style="width: 100%; padding: var(--space-sm); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary);">
+            <option value="red">Red (attack)</option>
+            <option value="blue">Blue (defend)</option>
+          </select>
         </div>
         <div style="display: flex; gap: var(--space-md); justify-content: flex-end;">
           <button class="btn btn-secondary" onclick="document.getElementById('add-participant-modal').style.display='none'">Cancel</button>
@@ -184,9 +193,10 @@ Object.assign(UI.prototype, {
 
     try {
       this.showToast('Adding participant...', 'info');
+      const roleSel = document.getElementById('participant-role-select');
       await API.post(`/drills/${this.currentDrillId}/participants`, {
         user_id: parseInt(select.value),
-        role: 'participant'
+        role: roleSel && roleSel.value ? roleSel.value : 'red'
       });
       this.showToast('Participant added!', 'success');
       document.getElementById('add-participant-modal').style.display = 'none';

@@ -376,9 +376,21 @@ class UI {
       const report = await API.get(`/reports/${reportId}`);
       const findings = await API.get(`/reports/${reportId}/findings`).catch(() => ({ findings: [] }));
       let debrief = '';
-      if (report.drill_id) debrief = await API.getDebrief(report.drill_id).catch(() => '');
+      let scoreBox = '';
+      if (report.drill_id) {
+        debrief = await API.getDebrief(report.drill_id).catch(() => '');
+        try {
+          const [stats, board] = await Promise.all([
+            API.get(`/drills/${report.drill_id}/stats`).catch(() => null),
+            API.get(`/leaderboard/drill/${report.drill_id}`).catch(() => ({ leaderboard: [] })),
+          ]);
+          const top = (board.leaderboard || []).slice(0, 3);
+          scoreBox = `<div class="card" style="margin-bottom: var(--space-xl);"><div class="card-header"><h3 class="card-title">Exercise result</h3></div><div class="small">${stats ? `${stats.correct_submissions || 0}/${stats.total_flags || 0} flags &middot; ${stats.total_participants || 0} operators &middot; ${stats.first_bloods_claimed || 0} first bloods` : 'Score data unavailable'}</div>${top.length ? `<div class="small" style="margin-top: 6px;">Top 3: ${top.map((t, i) => `#${i + 1} User ${t.user_id} (${t.total_points} pts)`).join(' &middot; ')}</div>` : ''}</div>`;
+        } catch (e) { /* score summary optional */ }
+      }
       if (detail) {
         detail.innerHTML = `
+          ${scoreBox}
           <div class="card" style="margin-bottom: var(--space-xl);">
             <div class="card-header"><h3 class="card-title">${this.sanitizeHTML(report.title || 'Report')}</h3>${this._statusPill(report.status === 'graded' ? 'completed' : 'scheduled')}</div>
             <div class="small muted">${this.sanitizeHTML(report.summary || 'No summary')}</div>

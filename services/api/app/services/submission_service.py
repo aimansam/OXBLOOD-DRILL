@@ -98,11 +98,12 @@ async def submit_flag(
     db.add(flag_submission)
     
     # Update score if correct
+    first_blood = None
     if is_correct and drill_id:
         await update_user_score(db, user_id, drill_id, points_earned, "flag_capture", team_id)
         
         # Check for first blood
-        await check_and_record_first_blood(db, drill_id, lab_flag_id, user_id, team_id)
+        first_blood = await check_and_record_first_blood(db, drill_id, lab_flag_id, user_id, team_id)
     
     await db.commit()
     await db.refresh(submission)
@@ -114,6 +115,7 @@ async def submit_flag(
         "points_earned": points_earned,
         "time_decay_factor": float(time_decay_factor),
         "attempt_number": attempt_number,
+        "first_blood": first_blood is not None,
     }
 
 

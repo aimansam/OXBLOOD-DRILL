@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.db.models_oxblood import DrillFlag, EvidenceType
+from app.services.drill_service import record_drill_event
 from app.services.submission_service import (
     submit_flag, list_user_submissions, get_submission, get_flag_submission,
     upload_evidence, list_submission_evidence,
@@ -207,6 +208,29 @@ async def post_submission(
             drill_flag=drill_flag,
             team_id=data.team_id,
         )
+        if result.get("is_correct") and data.drill_id:
+            actor = (token.sub if token else None) or ("user-%s" % user_id)
+            try:
+                if result.get("first_blood"):
+                    await record_drill_event(
+                        session, data.drill_id, "first-blood",
+                        "First blood: %s (+%s pts)" % (
+                            (drill_flag.name if drill_flag else "flag"),
+                            result.get("points_earned", 0),
+                        ),
+                        actor=actor,
+                    )
+                else:
+                    await record_drill_event(
+                        session, data.drill_id, "flag",
+                        "Flag captured: %s (+%s pts)" % (
+                            (drill_flag.name if drill_flag else "flag"),
+                            result.get("points_earned", 0),
+                        ),
+                        actor=actor,
+                    )
+            except ValueError:
+                pass
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

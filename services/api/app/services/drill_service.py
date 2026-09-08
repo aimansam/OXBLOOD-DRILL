@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_oxblood import (
     Drill, DrillStatus, DrillParticipant, DrillAnnouncement,
-    DrillObjective, DrillFlag, DrillScenario, Drill, User,
+    DrillObjective, DrillFlag, DrillScenario, Drill, DrillEvent, User,
 )
 import re
 
@@ -153,6 +153,7 @@ async def start_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
         raise ValueError(f"Cannot start drill in {drill.status} state")
     drill.status = DrillStatus.ACTIVE
     drill.actual_start_at = datetime.now(timezone.utc)
+    db.add(DrillEvent(drill_id=drill.id, kind="lifecycle", title="Drill started"))
     await db.commit()
     await db.refresh(drill)
     return drill
@@ -166,6 +167,7 @@ async def pause_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
     if drill.status != DrillStatus.ACTIVE:
         raise ValueError(f"Cannot pause drill in {drill.status} state")
     drill.status = DrillStatus.PAUSED
+    db.add(DrillEvent(drill_id=drill.id, kind="lifecycle", title="Drill paused"))
     await db.commit()
     await db.refresh(drill)
     return drill
@@ -179,6 +181,7 @@ async def resume_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
     if drill.status != DrillStatus.PAUSED:
         raise ValueError(f"Cannot resume drill in {drill.status} state")
     drill.status = DrillStatus.ACTIVE
+    db.add(DrillEvent(drill_id=drill.id, kind="lifecycle", title="Drill resumed"))
     await db.commit()
     await db.refresh(drill)
     return drill
@@ -193,6 +196,7 @@ async def stop_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
         raise ValueError(f"Cannot stop drill in {drill.status} state")
     drill.status = DrillStatus.COMPLETED
     drill.actual_end_at = datetime.now(timezone.utc)
+    db.add(DrillEvent(drill_id=drill.id, kind="lifecycle", title="Drill completed"))
     await db.commit()
     await db.refresh(drill)
     return drill
@@ -302,6 +306,11 @@ async def create_announcement(
         published_by=published_by,
     )
     db.add(announcement)
+    db.add(DrillEvent(
+        drill_id=drill_id, kind="announcement",
+        title="Announcement: %s" % title[:200],
+        detail=content[:500] if content else None,
+    ))
     await db.commit()
     await db.refresh(announcement)
     return announcement
@@ -427,6 +436,74 @@ async def delete_drill_flag(db: AsyncSession, drill_id: int, flag_id: int) -> bo
     await db.delete(flag)
     await db.commit()
     return True
+
+
+OBJECTIVE_STATUSES = ("pending", "in-progress", "completed")
+
+
+async def set_objective_status(
+    db: AsyncSession, drill_id: int, objective_id: int, status: str,
+) -> DrillObjective:
+    """Lead marks an objective pending / in-progress / completed."""
+    status = (status or "").strip().lower()
+    if status not in OBJECTIVE_STATUSES:
+        raise ValueError("Invalid objective status: %r" % (status,))
+    result = await db.execute(
+        select(DrillObjective).where(
+            DrillObjective.id == objective_id,
+            DrillObjective.drill_id == drill_id,
+        )
+    )
+    objective = result.scalar_one_or_none()
+    if objective is None:
+        raise ValueError("Objective not found")
+    objective.status = status
+    await db.commit()
+    await db.refresh(objective)
+    return objective
+
+
+EVENT_KINDS = (
+    "lifecycle", "flag", "first-blood", "announcement", "objective", "note",
+)
+
+
+async def record_drill_event(
+    db: AsyncSession, drill_id: int, kind: str, title: str,
+    detail: str | None = None, side: str | None = None,
+    actor: str | None = None,
+) -> DrillEvent:
+    """Append one row to the per-drill exercise timeline."""
+    kind = (kind or "").strip().lower()
+    if kind not in EVENT_KINDS:
+        raise ValueError("Invalid event kind: %r" % (kind,))
+    if not title or not title.strip():
+        raise ValueError("Event title cannot be empty")
+    event = DrillEvent(
+        drill_id=drill_id,
+        kind=kind,
+        title=_sanitize_text(title)[:255],
+        detail=_sanitize_text(detail) if detail else None,
+        side=(side or "").strip().lower() or None,
+        actor=_sanitize_text(actor) if actor else None,
+    )
+    db.add(event)
+    await db.commit()
+    await db.refresh(event)
+    return event
+
+
+async def list_drill_events(
+    db: AsyncSession, drill_id: int, limit: int = 100,
+) -> list[DrillEvent]:
+    """Chronological exercise timeline for one drill."""
+    result = await db.execute(
+        select(DrillEvent)
+        .where(DrillEvent.drill_id == drill_id)
+        .order_by(DrillEvent.created_at.asc(), DrillEvent.id.asc())
+        .limit(max(1, min(limit, 500)))
+    )
+    return list(result.scalars().all())
 
 
 # ============================================================================

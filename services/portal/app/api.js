@@ -32,6 +32,19 @@ class API {
     return await response.json();
   }
 
+  static async patch(endpoint, data) {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'PATCH',
+      headers: Auth.getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(`API error: ${response.status} ${text}`);
+    }
+    return await response.json();
+  }
+
   static async put(endpoint, data) {
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method: 'PUT',

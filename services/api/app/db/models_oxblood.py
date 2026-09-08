@@ -1,7 +1,8 @@
 """Drill ORM models — Drill product only (Learn lives in its own repo/DB).
 
 Tables: users (token-sub identity), drills, drill_scenarios, drill_participants,
-drill_objectives, drill_flags, drill_announcements, submissions, flag_submissions,
+drill_events (unified exercise timeline), drill_objectives (with status),
+drill_flags, drill_announcements, submissions, flag_submissions,
 evidence_submissions, report_submissions, submission_attempts, scores, score_history,
 first_bloods, benchmarks, benchmark_history, reports, report_findings, evidence.
 lab_id / team_id columns are plain-integer history refs (Learn tables removed).
@@ -251,6 +252,31 @@ class DrillParticipant(Base):
     )
 
 
+class DrillEvent(Base):
+    """Unified per-drill exercise timeline.
+
+    One chronological feed for the active view: lifecycle transitions,
+    correct flag captures, announcements, and lead notes. Stored
+    Drill-side so the portal never stitches audit + announcements
+    client-side.
+    """
+    __tablename__ = "drill_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    drill_id: Mapped[int] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    detail: Mapped[Optional[str]] = mapped_column(Text)
+    side: Mapped[Optional[str]] = mapped_column(String(20))
+    actor: Mapped[Optional[str]] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_drill_events_drill", "drill_id"),
+        Index("idx_drill_events_kind", "kind"),
+    )
+
+
 class DrillObjective(Base):
     """Objectives specific to drill instances.
 
@@ -266,6 +292,7 @@ class DrillObjective(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
     points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     side: Mapped[Optional[str]] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

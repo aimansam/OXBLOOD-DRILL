@@ -17,9 +17,10 @@ from app.services.drill_service import (
     start_drill, pause_drill, resume_drill, stop_drill,
     list_drill_participants, add_participant, remove_participant,
     list_drill_announcements, create_announcement,
-    list_drill_objectives, create_drill_objective,
+    list_drill_objectives, create_drill_objective, set_objective_status,
     list_drill_flags, create_drill_flag, delete_drill_flag,
     list_drill_scenarios, link_scenario,
+    list_drill_events, record_drill_event,
 )
 
 router = APIRouter(prefix="/api/v2/drills", tags=["Drills v2"])
@@ -390,6 +391,7 @@ async def get_objectives(
                 "description": o.description,
                 "points": o.points,
                 "side": o.side,
+                "status": getattr(o, "status", "pending") or "pending",
                 "sort_order": o.sort_order,
             }
             for o in objectives
@@ -531,5 +533,94 @@ async def post_scenario(
     try:
         scenario = await link_scenario(db, drill_id, data.lab_id, data.scenario_id, data.scenario_config)
         return {"message": "Scenario linked", "scenario_id": scenario.id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================================
+# Objective status (exercise flow: pending/in-progress/completed)
+# ============================================================================
+
+class ObjectiveStatusUpdate(BaseModel):
+    status: str
+
+
+@router.patch("/{drill_id}/objectives/{objective_id}")
+async def patch_objective_status(
+    drill_id: int,
+    objective_id: int,
+    data: ObjectiveStatusUpdate,
+    db: AsyncSession = Depends(get_session),
+):
+    """Lead marks an objective pending / in-progress / completed."""
+    drill = await get_drill(db, drill_id)
+    if not drill:
+        raise HTTPException(status_code=404, detail="Drill not found")
+    try:
+        objective = await set_objective_status(db, drill_id, objective_id, data.status)
+        try:
+            await record_drill_event(
+                db, drill_id, "objective",
+                "Objective %s: %s" % (objective.status, objective.title),
+            )
+        except ValueError:
+            pass
+        return {"message": "Objective updated", "objective_id": objective.id, "status": objective.status}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================================
+# Exercise timeline (unified per-drill event feed)
+# ============================================================================
+
+class TimelineNote(BaseModel):
+    title: str
+    detail: Optional[str] = None
+    side: Optional[str] = None
+
+
+@router.get("/{drill_id}/timeline")
+async def get_timeline(
+    drill_id: int,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_session),
+):
+    """Chronological exercise timeline for one drill."""
+    drill = await get_drill(db, drill_id)
+    if not drill:
+        raise HTTPException(status_code=404, detail="Drill not found")
+    events = await list_drill_events(db, drill_id, limit)
+    return {
+        "events": [
+            {
+                "id": e.id,
+                "kind": e.kind,
+                "title": e.title,
+                "detail": e.detail,
+                "side": e.side,
+                "actor": e.actor,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in events
+        ]
+    }
+
+
+@router.post("/{drill_id}/timeline")
+async def post_timeline_note(
+    drill_id: int,
+    data: TimelineNote,
+    db: AsyncSession = Depends(get_session),
+):
+    """Lead appends an exercise note to the drill timeline."""
+    drill = await get_drill(db, drill_id)
+    if not drill:
+        raise HTTPException(status_code=404, detail="Drill not found")
+    try:
+        event = await record_drill_event(
+            db, drill_id, "note", data.title, data.detail, data.side,
+        )
+        return {"message": "Note recorded", "event_id": event.id}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
