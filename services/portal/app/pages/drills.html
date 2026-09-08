@@ -17,10 +17,10 @@
               <button class="btn btn-secondary btn-sm" onclick="app.backToDrillList()">&larr; Back to Drills</button>
             </div>
 
-            <div class="grid grid-6-6" style="margin-bottom: var(--space-xl);">
-              <!-- Left Column -->
-              <div>
-                <div class="card" style="margin-bottom: var(--space-lg);">
+            <div class="ops-grid" style="margin-bottom: var(--space-xl);">
+              <!-- Left rail: context (sticky) -->
+              <div class="ops-rail">
+                <div class="card">
                   <div class="card-header">
                     <h3 class="card-title" id="active-drill-title">Drill Overview</h3>
                   </div>
@@ -67,11 +67,8 @@
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Right Column -->
-              <div>
-                <div class="card" style="margin-bottom: var(--space-lg);">
+                <div class="card">
                   <div class="card-header">
                     <h3 class="card-title">Actions</h3>
                   </div>
@@ -80,7 +77,10 @@
                     <button id="btn-stop-drill" class="btn btn-secondary" style="color: var(--danger);" onclick="app.stopDrill()">Stop Drill</button>
                   </div>
                 </div>
+              </div>
 
+              <!-- Right stream: live operate -->
+              <div class="ops-stream">
                 <div class="card">
                   <div class="card-header">
                     <h3 class="card-title">Flag Submission</h3>
@@ -88,10 +88,8 @@
                   <div style="margin-bottom: var(--space-md);">
                     <input type="text" id="flag-input" placeholder="FLAG{...}" style="width: 100%; font-family: var(--font-mono);">
                   </div>
-                  <button class="btn btn-primary" style="width: 100%;" onclick="app.submitFlag()">Submit Flag</button>
+                  <button id="flag-submit-btn" class="btn btn-primary" style="width: 100%;" onclick="app.submitFlag()">Submit Flag</button>
                 </div>
-              </div>
-            </div>
 
             <!-- Briefing (scenario briefing + ROE) -->
             <div class="card" style="margin-bottom: var(--space-lg);">
@@ -149,6 +147,8 @@
                 <div style="text-align: center; color: var(--text-secondary);">Loading flags...</div>
               </div>
             </div>
+              </div><!-- /ops-stream -->
+            </div><!-- /ops-grid -->
 
             <!-- Add Objective Modal -->
             <div id="add-objective-modal" class="modal-overlay" onclick="if(event.target===this)app.hideAddObjectiveModal()">

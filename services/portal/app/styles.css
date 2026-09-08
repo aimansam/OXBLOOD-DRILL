@@ -332,6 +332,13 @@
       background: var(--bg-tertiary);
     }
 
+    .btn-danger {
+      background: transparent;
+      color: #ff6b5e;
+      border: 1px solid var(--signal);
+    }
+    .btn-danger:hover { background: var(--signal-dim); }
+
     .btn-sm {
       padding: 6px 12px;
       font-size: 12px;
@@ -773,4 +780,127 @@
       .grid-2 {
         grid-template-columns: 1fr;
       }
+    }
+
+    /* Toast stack (top-right, replaces single fixed toast) */
+    #toast-stack {
+      position: fixed;
+      top: 60px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      z-index: 10000;
+      max-width: min(360px, calc(100vw - 32px));
+    }
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-sm);
+      padding: var(--space-sm) var(--space-md);
+      background: var(--bg-raised);
+      border: 1px solid var(--border-strong);
+      border-left: 3px solid var(--oxblood-bright);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .toast-success { border-left-color: var(--ok); }
+    .toast-error { border-left-color: var(--signal); }
+    .toast-warning { border-left-color: var(--gold); }
+    .toast-info { border-left-color: var(--oxblood-bright); }
+    .toast-icon {
+      font-weight: 700;
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .toast-success .toast-icon { color: var(--ok); }
+    .toast-error .toast-icon { color: var(--signal); }
+    .toast-warning .toast-icon { color: var(--gold); }
+    .toast-info .toast-icon { color: var(--oxblood-bright); }
+    .toast-body { flex: 1; font-size: var(--text-body); line-height: 1.4; }
+    .toast-action {
+      background: var(--oxblood);
+      color: #f5e9e9;
+      border: 1px solid var(--oxblood-bright);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .toast-progress {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: currentColor;
+      opacity: .5;
+      transform-origin: left;
+      transform: scaleX(1);
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(24px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toastOut {
+      to { opacity: 0; transform: translateX(24px); }
+    }
+    .toast-in { animation: toastIn .22s ease; }
+    .toast-out { animation: toastOut .25s ease forwards; }
+
+    /* Page fade + card stagger */
+    #content { animation: pageFade .16s ease; }
+    @keyframes pageFade { from { opacity: 0; } to { opacity: 1; } }
+    #drills-grid .lab-card { animation: cardRise .25s ease backwards; }
+    #drills-grid .lab-card:nth-child(2) { animation-delay: .03s; }
+    #drills-grid .lab-card:nth-child(3) { animation-delay: .06s; }
+    #drills-grid .lab-card:nth-child(4) { animation-delay: .09s; }
+    #drills-grid .lab-card:nth-child(5) { animation-delay: .12s; }
+    #drills-grid .lab-card:nth-child(6) { animation-delay: .15s; }
+    #drills-grid .lab-card:nth-child(n+7) { animation-delay: .18s; }
+    @keyframes cardRise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Modal pop + menu slide */
+    .modal-overlay.open .modal-box { animation: modalPop .13s ease; }
+    @keyframes modalPop {
+      from { opacity: 0; transform: scale(.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .overflow-menu.open { animation: menuSlide .12s ease; transform-origin: top left; }
+    @keyframes menuSlide {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Compact density (default ops view) + comfortable opt-out */
+    body.compact .card { padding: var(--space-md); }
+    body.compact .page-header { margin-bottom: var(--space-lg); }
+    body.compact td, body.compact th { padding: 8px 12px; }
+    body.compact .empty-state { padding: var(--space-lg) var(--space-md); }
+
+    /* Active drill: 2-col ops grid (left rail sticky, right live stream) */
+    .ops-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-lg); align-items: start; }
+    .ops-rail { position: sticky; top: 0; display: flex; flex-direction: column; gap: var(--space-lg); }
+    .ops-rail .card, .ops-stream .card { margin-bottom: 0; }
+    .ops-stream { display: flex; flex-direction: column; gap: var(--space-lg); min-width: 0; }
+    /* Drill cards: single-line meta */
+    #drills-grid .lab-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 1100px) {
+      .ops-grid { grid-template-columns: 1fr; }
+      .ops-rail { position: static; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #content, #drills-grid .lab-card, .modal-overlay.open .modal-box,
+      .overflow-menu.open, .toast-in, .toast-out, .timer-live, .score-pop {
+        animation: none !important;
+      }
+      .toast-progress { display: none; }
     }

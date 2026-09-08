@@ -315,7 +315,8 @@ Object.assign(UI.prototype, {
   },
 
   async deleteFlag(flagId) {
-    if (!confirm('Delete this flag?')) return;
+    const ok = await this.showConfirm({ title: 'Delete this flag?', confirmLabel: 'Delete', danger: true });
+    if (!ok) return;
     try {
       await API.delete(`/drills/${this.currentDrillId}/flags/${flagId}`);
       this.showToast('Flag deleted', 'success');
@@ -476,15 +477,19 @@ Object.assign(UI.prototype, {
 
   async stopDrill(drillId) {
     const id = drillId || this.currentDrillId;
-    if (!confirm('Are you sure you want to stop this drill?')) return;
+    const ok = await this.showConfirm({ title: 'Stop this drill?', detail: 'The timer freezes and scoring closes. This cannot be undone.', confirmLabel: 'Stop drill', danger: true });
+    if (!ok) return;
+    let stopped = false;
     try {
+      this.showToast('Stopping drill…', 'info');
       await API.post(`/drills/${id}/stop`, {});
+      stopped = true;
       this.showToast('Drill stopped', 'success');
-      if (id === this.currentDrillId && confirm('Drill completed. Open Reports to write the after-action debrief?')) {
+      if (id === this.currentDrillId) {
+        const goReport = await this.showConfirm({ title: 'Drill completed', detail: 'Open Reports to write the after-action debrief?', confirmLabel: 'Open Reports' });
         this.currentDrillId = null; this.currentDrill = null;
         this.stopDrillPolling();
-        this.loadPage('reports');
-        return;
+        if (goReport) { this.loadPage('reports'); return; }
       }
       this.stopDrillPolling();
       this.stopDrillAutoRefresh();
@@ -492,7 +497,7 @@ Object.assign(UI.prototype, {
       setTimeout(() => this.loadDrills(), 500);
     } catch (error) {
       console.error('Failed to stop drill:', error);
-      this.showToast('Failed to stop drill', 'error');
+      if (!stopped) this.showToast('Failed to stop drill', 'error');
     }
   },
 
@@ -599,9 +604,10 @@ Object.assign(UI.prototype, {
   },
 
   async deleteDrill(drillId) {
-    if (!confirm('Are you sure you want to delete this drill? This action cannot be undone.')) {
-      return;
-    }
+    const drill = await API.get(`/drills/${drillId}`).catch(() => null);
+    const title = drill && drill.title ? `“${drill.title}”` : `drill ${drillId}`;
+    const ok = await this.showConfirm({ title: `Delete ${title}?`, detail: 'Objectives, flags, submissions and scores for this drill are removed. This action cannot be undone.', confirmLabel: 'Delete', danger: true });
+    if (!ok) return;
 
     try {
       this.showToast('Deleting drill...', 'info');
@@ -731,9 +737,8 @@ Object.assign(UI.prototype, {
   },
 
   async deleteAnnouncement(drillId, announcementId) {
-    if (!confirm('Are you sure you want to delete this announcement?')) {
-      return;
-    }
+    const ok = await this.showConfirm({ title: 'Delete this announcement?', confirmLabel: 'Delete', danger: true });
+    if (!ok) return;
 
     try {
       this.showToast('Deleting announcement...', 'info');

@@ -542,7 +542,8 @@ class UI {
   }
 
   async setupRevertPve() {
-    if (!confirm('Revert PVE config to environment variables?')) return;
+    const ok = await this.showConfirm({ title: 'Revert PVE config?', detail: 'The API will fall back to PROXMOX_* environment variables.', confirmLabel: 'Revert', danger: true });
+    if (!ok) return;
     try {
       await API.adminRevertPve();
       this.showToast('PVE config reverted to env', 'success');

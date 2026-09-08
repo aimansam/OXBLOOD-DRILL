@@ -209,9 +209,8 @@ Object.assign(UI.prototype, {
   },
 
   async removeParticipant(drillId, userId) {
-    if (!confirm('Are you sure you want to remove this participant?')) {
-      return;
-    }
+    const ok = await this.showConfirm({ title: 'Remove participant?', confirmLabel: 'Remove', danger: true });
+    if (!ok) return;
 
     try {
       this.showToast('Removing participant...', 'info');
@@ -230,9 +229,8 @@ Object.assign(UI.prototype, {
   },
 
   async duplicateDrill(drillId) {
-    if (!confirm('Create a copy of this drill?')) {
-      return;
-    }
+    const ok = await this.showConfirm({ title: 'Duplicate this drill?', confirmLabel: 'Duplicate' });
+    if (!ok) return;
 
     try {
       this.showToast('Duplicating drill...', 'info');
