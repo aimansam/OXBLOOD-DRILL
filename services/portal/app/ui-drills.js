@@ -14,11 +14,15 @@ Object.assign(UI.prototype, {
       document.getElementById('drills-list-view').style.display = 'none';
       document.getElementById('drills-active-view').style.display = 'block';
       
-      // Populate drill info
-      document.getElementById('active-drill-title').textContent = drill.title || 'Untitled Drill';
-      document.getElementById('active-drill-description').innerHTML = this.renderMarkdown(drill.description || 'No description');
-      document.getElementById('active-drill-status').innerHTML = this._statusPill(drill.status);
-      document.getElementById('active-drill-duration').textContent = this.formatDuration(drill.duration_limit_minutes);
+      // Populate drill info (null-safe: page may omit optional fields)
+      const set = (id, fn) => { const el = document.getElementById(id); if (el) fn(el); };
+      set('active-drill-title', (el) => { el.textContent = drill.title || 'Untitled Drill'; });
+      set('active-drill-description', (el) => { el.innerHTML = this.renderMarkdown(drill.description || 'No description'); });
+      set('active-drill-status', (el) => { el.innerHTML = this._statusPill(drill.status); });
+      set('active-drill-duration', (el) => { el.textContent = this.formatDuration(drill.duration_limit_minutes); });
+      set('active-drill-type', (el) => { el.textContent = drill.drill_type || drill.type || '--'; });
+      set('active-drill-participants', (el) => { el.textContent = drill.max_participants ?? drill.max_seats ?? '--'; });
+      set('active-drill-started', (el) => { const t = drill.actual_start_at || drill.started_at; el.textContent = t ? new Date(t).toLocaleString() : '--'; });
       
       // Load all drill data
       this.loadDrillStats(drillId);
