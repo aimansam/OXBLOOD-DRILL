@@ -79,26 +79,27 @@ Object.assign(UI.prototype, {
 
   async loadDrillReports(drillId) {
     try {
-      const data = await API.get(`/drills/${drillId}/reports`);
+      const data = await API.get(`/reports?drill_id=${drillId}`);
       const reportsDiv = document.getElementById('drill-reports');
-      if (reportsDiv && data && data.reports) {
-        if (data.reports.length === 0) {
-          reportsDiv.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: var(--space-md);">No reports generated yet</div>';
-        } else {
-          reportsDiv.innerHTML = data.reports.map(report => `
-            <div style="padding: var(--space-md); border-bottom: 1px solid var(--border);">
-              <div style="display: flex; justify-content: space-between; margin-bottom: var(--space-sm);">
-                <span style="font-weight: 600;">${report.title || 'Report'}</span>
-                <span class="badge badge-${report.status === 'graded' ? 'success' : 'warning'}">${report.status || 'pending'}</span>
-              </div>
-              <div style="font-size: 13px; color: var(--text-secondary);">Generated: ${new Date(report.generated_at).toLocaleString()}</div>
-              ${report.quality_score ? `<div style="font-size: 13px; margin-top: 4px;">Quality Score: <strong>${report.quality_score}/100</strong></div>` : ''}
-            </div>
-          `).join('');
-        }
+      if (!reportsDiv) return;
+      const rows = (data && data.reports) || [];
+      if (!rows.length) {
+        reportsDiv.innerHTML = '<div class="empty-state"><div class="empty-hint">No reports for this drill yet. Stop the drill, then write the after-action debrief from Reports.</div><button class="btn btn-secondary btn-sm" onclick="app.loadPage(\'reports\')">Go to Reports</button></div>';
+        return;
       }
+      reportsDiv.innerHTML = rows.map((r) => `
+        <div style="padding: var(--space-md); border-bottom: 1px solid var(--border);">
+          <div class="row-between" style="margin-bottom: var(--space-sm);">
+            <span style="font-weight: 600;">${this.sanitizeHTML(r.title || 'Report')}</span>
+            ${this._statusPill(r.status)}
+          </div>
+          <div class="small muted">${r.quality_score != null ? `Quality score: <strong>${r.quality_score}/100</strong> · ` : ''}${this.sanitizeHTML(r.created_at ? this._relTime(r.created_at) : '')}</div>
+          <div style="margin-top: var(--space-sm);"><button class="btn btn-secondary btn-sm" onclick="app.loadPage('reports').then(() => app.openReport(${r.id}))">Open report</button></div>
+        </div>`).join('');
     } catch (error) {
       console.error('Failed to load reports:', error);
+      const reportsDiv = document.getElementById('drill-reports');
+      if (reportsDiv) reportsDiv.innerHTML = this._cardError('Failed to load reports', `app.loadDrillReports(${drillId})`);
     }
   },
 

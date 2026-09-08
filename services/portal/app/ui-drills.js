@@ -35,6 +35,7 @@ Object.assign(UI.prototype, {
       this.loadDrillTeams(drillId);
       this.loadDrillAnnouncementsRich(drillId);
       this.loadDrillScenarios(drillId);
+      this.loadDrillReports(drillId);
       
       this.loadDrillBriefing(drill);
       this.loadDrillTimeline(drillId);
