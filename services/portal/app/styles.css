@@ -330,6 +330,21 @@
       font-size: 12px;
     }
 
+    /* Form inputs (Setup page + drill modals) */
+    .input, select.input, input.input {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    .input:focus {
+      outline: 1px solid var(--signal);
+      border-color: var(--signal);
+    }
+    .input::placeholder { color: var(--text-tertiary); }
+
     /* Badges */
     .badge {
       display: inline-block;

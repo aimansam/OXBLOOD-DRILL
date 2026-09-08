@@ -34,6 +34,10 @@ class UI {
 
     this.user = user;
     this.updateUserInfo();
+    const setupNav = document.getElementById('nav-setup');
+    if (setupNav && String(user.role || '').toLowerCase() === 'admin') {
+      setupNav.style.display = '';
+    }
     this.setupNavigation();
     this._setupModalEsc();
     this.loadPage('dashboard');
@@ -143,6 +147,7 @@ class UI {
         case 'drills': await this.loadDrills(); break;
         case 'reports': await this.loadReports(); break;
         case 'settings': await this.loadSettings(); break;
+        case 'setup': await this.loadSetup(); break;
       }
     } catch (error) {
       console.error('Error loading page:', error);
@@ -434,6 +439,157 @@ class UI {
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
+    }
+  }
+
+  // Admin Setup (admin-only page; role gate enforced server-side too)
+  // ============================================================================
+
+  _isAdmin() {
+    return this.user && String(this.user.role || '').toLowerCase() === 'admin';
+  }
+
+  async loadSetup() {
+    if (!this._isAdmin()) {
+      const content = document.getElementById('content');
+      if (content) content.innerHTML = '<div class="page"><div class="page-header"><h1 class="page-title">Setup</h1></div><div class="card-error">Admin role required.</div></div>';
+      return;
+    }
+    await Promise.all([
+      this.loadSetupUsers(),
+      this.loadSetupPve(),
+      this.loadSetupDefaults(),
+      this.loadSetupHealth(),
+    ]);
+  }
+
+  async loadSetupUsers() {
+    const div = document.getElementById('setup-users');
+    if (!div) return;
+    try {
+      const users = await API.adminListUsers().catch(() => []);
+      const rows = Array.isArray(users) ? users : (users.items || users.users || []);
+      div.innerHTML = rows.length ? '<div class="table-scroll"><table><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr></thead><tbody>' + rows.map((u) => {
+        const sub = u.sub || u.username || '—';
+        const safe = this.sanitizeHTML(sub).replace(/'/g, '&#39;');
+        return '<tr><td style="font-weight: 600;">' + this.sanitizeHTML(sub) + '</td>'
+          + '<td>' + this.sanitizeHTML(u.role || '—') + '</td>'
+          + '<td>' + (u.disabled ? '<span class="status-pill status-pill-cancelled">disabled</span>' : '<span class="status-pill status-pill-completed">active</span>') + '</td>'
+          + '<td class="small muted">' + this.sanitizeHTML(u.last_login_at ? this._relTime(u.last_login_at) : 'never') + '</td>'
+          + '<td style="text-align: right;"><button class="btn btn-secondary btn-sm" onclick="app.setupToggleUser(\'' + safe + '\')">' + (u.disabled ? 'Enable' : 'Disable') + '</button></td></tr>';
+      }).join('') + '</tbody></table></div>' : '<div class="empty-state"><div class="empty-hint">No users yet.</div></div>';
+    } catch (e) {
+      div.innerHTML = this._cardError('Failed to load users', 'app.loadSetupUsers()');
+    }
+  }
+
+  async setupCreateUser() {
+    const msg = document.getElementById('setup-user-msg');
+    const gid = (id) => document.getElementById(id);
+    const sub = ((gid('setup-new-sub') || {}).value || '').trim();
+    const password = ((gid('setup-new-pass') || {}).value || '');
+    const role = ((gid('setup-new-role') || {}).value || 'red');
+    const say = (t, ok) => { if (msg) { msg.textContent = t; msg.style.color = ok ? 'var(--ok)' : 'var(--signal)'; } };
+    if (!sub || !password) { say('Username and password are required.', false); return; }
+    try {
+      await API.adminCreateUser(sub, password, role);
+      say('User ' + sub + ' created.', true);
+      const p = gid('setup-new-pass'); if (p) p.value = '';
+      await this.loadSetupUsers();
+    } catch (e) { say(String(e.message || e), false); }
+  }
+
+  async setupToggleUser(sub) {
+    try {
+      await API.adminToggleUser(sub);
+      await this.loadSetupUsers();
+      this.showToast('User ' + sub + ' updated', 'success');
+    } catch (e) { this.showToast(String(e.message || e), 'error'); }
+  }
+
+  async loadSetupPve() {
+    const div = document.getElementById('setup-pve');
+    if (!div) return;
+    try {
+      const cfg = await API.adminGetPve().catch(() => null);
+      if (!cfg) { div.innerHTML = this._cardError('PVE config unreachable', 'app.loadSetupPve()'); return; }
+      const row = (k, v) => '<div class="row-between" style="padding: 4px 0;"><span class="label">' + k + '</span><span class="value small">' + this.sanitizeHTML(v == null || v === '' ? '—' : String(v)) + '</span></div>';
+      div.innerHTML = row('Host', cfg.host) + row('Node', cfg.node) + row('User', cfg.user)
+        + row('Port', cfg.port) + row('Token ID', cfg.token_id)
+        + row('Token secret', cfg.token_secret ? 'set (hidden)' : 'not set')
+        + row('Source', cfg.source || 'env');
+    } catch (e) {
+      div.innerHTML = this._cardError('Failed to load PVE config', 'app.loadSetupPve()');
+    }
+  }
+
+  async setupSavePve() {
+    const msg = document.getElementById('setup-pve-msg');
+    const say = (t, ok) => { if (msg) { msg.textContent = t; msg.style.color = ok ? 'var(--ok)' : 'var(--signal)'; } };
+    const val = (id) => (((document.getElementById(id) || {}).value) || '').trim();
+    const payload = { host: val('setup-pve-host'), token_id: val('setup-pve-token-id'), token_secret: val('setup-pve-token-secret') };
+    const user = val('setup-pve-user'); if (user) payload.user = user;
+    const port = val('setup-pve-port'); if (port) payload.port = parseInt(port, 10);
+    const node = val('setup-pve-node'); if (node) payload.node = node;
+    if (!payload.host || !payload.token_id || !payload.token_secret) { say('Host, token ID and token secret are required.', false); return; }
+    say('Probing PVE…', true);
+    try {
+      await API.adminSavePve(payload);
+      say('PVE accepted the credentials and config was saved.', true);
+      const s = document.getElementById('setup-pve-token-secret'); if (s) s.value = '';
+      await this.loadSetupPve();
+    } catch (e) { say(String(e.message || e), false); }
+  }
+
+  async setupRevertPve() {
+    if (!confirm('Revert PVE config to environment variables?')) return;
+    try {
+      await API.adminRevertPve();
+      this.showToast('PVE config reverted to env', 'success');
+      await this.loadSetupPve();
+    } catch (e) { this.showToast(String(e.message || e), 'error'); }
+  }
+
+  async loadSetupDefaults() {
+    const div = document.getElementById('setup-defaults');
+    if (!div) return;
+    try {
+      const s = await API.adminGetSettings().catch(() => null);
+      if (!s) { div.innerHTML = this._cardError('Settings unreachable', 'app.loadSetupDefaults()'); return; }
+      const row = (k, v) => '<div class="row-between" style="padding: 4px 0;"><span class="label">' + k + '</span><span class="value small" style="font-family: var(--font-mono);">' + this.sanitizeHTML(v == null ? '—' : String(v)) + '</span></div>';
+      const ttlH = s.login_token_ttl_s != null ? (s.login_token_ttl_s / 3600) + 'h' : '—';
+      div.innerHTML = row('Environment', s.env) + row('Login token TTL', ttlH)
+        + row('Drill timeout', (s.drill_timeout_enabled ? 'on' : 'off') + ' / ' + s.drill_timeout_min + ' min')
+        + row('PVE sync interval', (s.pve_sync_interval_sec || 0) + 's (0 = off)')
+        + row('Orphan janitor', s.orphan_janitor_enabled ? 'on' : 'off')
+        + row('Scenario dir', s.scenarios_dir)
+        + row('WG host', s.wg_host) + row('WG subnet', s.wg_subnet) + row('WG DNS', s.wg_dns)
+        + row('CORS origins', (s.cors_allow_origins || []).join(', '))
+        + '<div class="small muted" style="margin-top: var(--space-sm);">Values come from server env at startup. Edit deploy/.env and restart the API to change them.</div>';
+    } catch (e) {
+      div.innerHTML = this._cardError('Failed to load defaults', 'app.loadSetupDefaults()');
+    }
+  }
+
+  async loadSetupHealth() {
+    const div = document.getElementById('setup-health');
+    if (!div) return;
+    try {
+      const res = await API.adminGetHealth();
+      const h = res.health, ready = res.ready;
+      const dot = (ok) => '<span class="status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: ' + (ok ? 'var(--ok)' : 'var(--signal)') + ';"></span>';
+      let html = '';
+      html += '<div class="row-between" style="padding: 4px 0;"><span class="label">API liveness</span><span class="small">' + dot(h && h.status === 'ok') + this.sanitizeHTML((h && h.status) || 'down') + '</span></div>';
+      const checks = (ready && ready.checks) || {};
+      const keys = Object.keys(checks);
+      keys.forEach((k) => {
+        const ok = String(checks[k]).toLowerCase() === 'ok';
+        html += '<div class="row-between" style="padding: 4px 0;"><span class="label">' + this.sanitizeHTML(k) + '</span><span class="small">' + dot(ok) + this.sanitizeHTML(String(checks[k])) + '</span></div>';
+      });
+      if (!keys.length) html += '<div class="small muted">Readiness probe unreachable.</div>';
+      div.innerHTML = html;
+    } catch (e) {
+      div.innerHTML = this._cardError('Failed to load health', 'app.loadSetupHealth()');
     }
   }
 

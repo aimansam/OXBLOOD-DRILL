@@ -170,6 +170,63 @@ class API {
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return await res.text();
   }
+
+  // --- Admin Setup helpers (v1 paths; API_BASE is /api/v2) ---------------
+  static async _v1(path, options = {}) {
+    const res = await fetch(`/api/v1${path}`, {
+      headers: Auth.getHeaders(),
+      ...options,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`API error: ${res.status} ${text}`.trim());
+    }
+    return await res.json();
+  }
+
+  static async adminListUsers() {
+    return await this._v1('/auth/users');
+  }
+
+  static async adminCreateUser(sub, password, role) {
+    return await this._v1('/auth/users', {
+      method: 'POST',
+      body: JSON.stringify({ sub, password, role }),
+    });
+  }
+
+  static async adminToggleUser(sub) {
+    return await this._v1(`/auth/users/${encodeURIComponent(sub)}/toggle-disabled`, {
+      method: 'POST',
+    });
+  }
+
+  static async adminGetPve() {
+    return await this._v1('/admin/pve-config');
+  }
+
+  static async adminSavePve(payload) {
+    return await this._v1('/admin/pve-config', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  static async adminRevertPve() {
+    return await this._v1('/admin/pve-config', { method: 'DELETE' });
+  }
+
+  static async adminGetSettings() {
+    return await this._v1('/admin/public-settings');
+  }
+
+  static async adminGetHealth() {
+    const [health, ready] = await Promise.all([
+      fetch('/healthz').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('/readyz').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+    return { health, ready };
+  }
 }
 
 // Expose globally for classic <script> loading order (auth -> api -> app)
