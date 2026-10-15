@@ -34,8 +34,8 @@ import os
 import sys
 from pathlib import Path
 
-# Add services/api to path
-sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/services/api')
+# Add apps/api to path
+sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/apps/api')
 
 from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config

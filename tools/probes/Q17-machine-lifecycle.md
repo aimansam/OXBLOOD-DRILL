@@ -21,7 +21,7 @@ $ pvesh list cluster-resources --type vm | grep divide-
 divide-7-drillvm (vmid=112) -- status: stopped, NEVER DELETED
 ```
 
-**Code path** (`services/api/app/runners/runner.py` lines 376-385):
+**Code path** (`apps/api/app/runners/runner.py` lines 376-385):
 
 ```python
 # 5. All assets up — flip run to SUCCEEDED.
@@ -49,7 +49,7 @@ $ curl -X DELETE /pve/api2/json/nodes/pve/qemu/112?purge=1&skiplock=1 \
  "errors":{"skiplock":"Only root may use this option."}}
 ```
 
-**Root cause** (`services/api/app/runners/real_adapter.py` line 281):
+**Root cause** (`apps/api/app/runners/real_adapter.py` line 281):
 
 ```python
 self._get_client().nodes(node).qemu(vmid).delete(

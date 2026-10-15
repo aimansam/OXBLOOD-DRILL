@@ -47,7 +47,7 @@ fi
 # 2. Restore portal code
 echo "2. Restoring portal code..."
 if [ -d "$BACKUP_PATH/portal_app" ]; then
-  cp -r "$BACKUP_PATH/portal_app/"* /DATA/Storage/docker/divide-cyber-drill/services/portal/app/
+  cp -r "$BACKUP_PATH/portal_app/"* /DATA/Storage/docker/divide-cyber-drill/apps/portal/app/
   echo "   ✓ Portal code restored"
 else
   echo "   ⚠ No portal backup found, skipping"
@@ -56,7 +56,7 @@ fi
 # 3. Restore API routers
 echo "3. Restoring API routers..."
 if [ -d "$BACKUP_PATH/api_routers" ]; then
-  cp -r "$BACKUP_PATH/api_routers/"* /DATA/Storage/docker/divide-cyber-drill/services/api/app/routers/
+  cp -r "$BACKUP_PATH/api_routers/"* /DATA/Storage/docker/divide-cyber-drill/apps/api/app/routers/
   echo "   ✓ API routers restored"
 else
   echo "   ⚠ No API routers backup found, skipping"

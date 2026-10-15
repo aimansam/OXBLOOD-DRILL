@@ -195,7 +195,7 @@ def test_demo_runner_does_not_change_bundle():
     must remain at the F4-UI commit-3 size (~246 KB JS). If a
     future commit accidentally re-builds the portal with new
     assets for the demo, this test fires."""
-    build_assets = REPO / "services" / "portal" / "app" / "build" / "assets"
+    build_assets = REPO / "apps" / "portal" / "app" / "build" / "assets"
     if not build_assets.is_dir():
         pytest.skip("build/ not present")
     js_files = [a for a in build_assets.glob("*.js") if ".map" not in a.name]

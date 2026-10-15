@@ -5,7 +5,7 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/services/api')
+sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/apps/api')
 
 from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config
@@ -95,7 +95,6 @@ def main():
     
     # Import templates
     templates = [
-        ('tpl-debian-router', 2, 2048, 20),
         ('tpl-debian-syslog', 2, 2048, 20),
     ]
     

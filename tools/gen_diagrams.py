@@ -126,7 +126,7 @@ def fig_overview():
     pill(ax, 1.7, 7.4, 2.0, 0.7, "keycloak\n(OIDC)",            edge=PURPLE, face="#1a1330", color=PURPLE, weight="bold")
     pill(ax, 4.0, 7.4, 2.0, 0.7, "traefik\n(TLS, :443)",         edge=BLUE,   face="#0e1726", color=BLUE,   weight="bold")
     pill(ax, 6.3, 7.4, 2.0, 0.7, "guacamole\n+ noVNC",           edge=BLUE,   face="#0e1726", color=BLUE,   weight="bold")
-    pill(ax, 8.6, 7.4, 3.4, 0.7, "wazuh + misp  (existing)",     edge=GREY,   face="#161b25", color=MUTED, weight="bold")
+    pill(ax, 8.6, 7.4, 3.4, 0.7, "native logs + artifacts",     edge=GREY,   face="#161b25", color=MUTED, weight="bold")
     pill(ax, 12.2, 7.4, 1.4, 0.7, "trainee\nbrowser",            edge=MUTED,  face="#1d2533", color=MUTED, weight="bold")
 
     # Row 3: integration legend (compact)
@@ -253,7 +253,7 @@ def fig_phase1():
     header_band(ax, 0.5, 8.2,  7.9, 0.45, "Control plane  ·  Docker Compose stack",    color=DIVIDE, face="#0e1e26", text_color=DIVIDE)
     header_band(ax, 8.5, 8.2,  5.1, 0.45, "Drill network (single VxLAN)",              color=AMBER, face="#1f1a0d", text_color=AMBER)
     header_band(ax, 0.5, 4.1,  7.9, 0.4,  "Trainee view",                              color=BLUE,  face="#0e1726", text_color=BLUE)
-    header_band(ax, 8.5, 4.1,  5.1, 0.4,  "Existing infra (Wazuh auto-enroll)",       color=GREY,  face="#161b25", text_color=MUTED)
+    header_band(ax, 8.5, 4.1,  5.1, 0.4,  "Investigation evidence",       color=GREY,  face="#161b25", text_color=MUTED)
 
     # === Control plane pills ===
     pill(ax, 1.7, 7.5, 1.8, 0.7, "div:ide-portal", edge=DIVIDE, face="#11242b", color=DIVIDE, weight="bold")
@@ -274,7 +274,7 @@ def fig_phase1():
     pill(ax, 12.0, 5.0, 1.4, 0.5,  "~ 3 min\nboot -> ready",           edge=GREEN, face="#0e1f1a", color=GREEN, fontsize=8.5)
 
     # === Existing infra ===
-    pill(ax, 10.0, 2.7, 2.6, 0.85, "Wazuh manager", edge=GREY, face="#161b25", color=MUTED, weight="bold")
+    pill(ax, 10.0, 2.7, 2.6, 0.85, "Log aggregator", edge=GREY, face="#161b25", color=MUTED, weight="bold")
     pill(ax, 10.0, 1.6, 2.6, 0.55, "auto-create drill-<id>\nagent group",
          edge=BORDER, color=MUTED, fontsize=8.5)
 
@@ -293,8 +293,8 @@ def fig_phase1():
     # (origin moved LEFT and DOWN to avoid crossing vsftpd pill)
     arrow(ax, 7.0, 5.4, 10.0, 5.6, color=AMBER, ls="--", label="cloud-init",
           label_offset=(0.7, -0.4), label_at="source")
-    # Wazuh enroll: vertical, well below the header band
-    arrow(ax, 11.3, 4.9, 11.3, 2.7, color=GREEN, label="Wazuh enroll", label_offset=(-0.7, -0.4))
+    # Syslog: vertical, well below the header band
+    arrow(ax, 11.3, 4.9, 11.3, 2.7, color=GREEN, label="Linux syslog", label_offset=(-0.7, -0.4))
 
     # VNC: right-angle path. Horizontal segment BELOW the trainee header band.
     arrow(ax, 10.0, 7.5, 10.0, 3.4, color=MUTED, ls=":")
@@ -370,7 +370,7 @@ def fig_phase2():
          edge=GREEN, face="#0e1f1a", color=GREEN, fontsize=9.5)
 
     # Existing infra row
-    pill(ax, 4.0, 0.55, 2.0, 0.5, "Wazuh mgr",        edge=GREY, face="#161b25", color=MUTED, weight="bold", fontsize=9)
+    pill(ax, 4.0, 0.55, 2.0, 0.5, "Guest logs",        edge=GREY, face="#161b25", color=MUTED, weight="bold", fontsize=9)
     pill(ax, 6.4, 0.55, 2.0, 0.5, "MISP",             edge=GREY, face="#161b25", color=MUTED, weight="bold", fontsize=9)
     pill(ax, 8.8, 0.55, 2.0, 0.5, "Prometheus + Loki", edge=GREY, face="#161b25", color=MUTED, weight="bold", fontsize=9)
     pill(ax, 11.2,0.55, 2.0, 0.5, "Grafana",          edge=GREY, face="#161b25", color=MUTED, weight="bold", fontsize=9)
@@ -384,7 +384,7 @@ def fig_phase2():
     arrow(ax, 4.0, 4.0, 3.6, 3.25, color=GREEN, label="syslog", label_offset=(-0.5, 0.5), label_at="target")
     # PCAP: label at target
     arrow(ax, 10.7, 4.0, 10.4, 3.25, color=GREEN, label="PCAP", label_offset=(0.5, 0.5), label_at="target")
-    # alerts: label at target (top of Wazuh box)
+    # Events: label at target
     arrow(ax, 3.6, 2.6, 4.0, 0.85, color=GREEN, label="alerts", label_offset=(-0.5, -0.4), label_at="source")
     # IOCs: label at target
     arrow(ax, 10.4, 2.6, 6.4, 0.85, color=GREEN, label="IOCs", label_offset=(0.5, -0.4), label_at="source")
@@ -405,13 +405,13 @@ def fig_phase3():
 
     # Brackets (no labels)
     bracket(ax, 0.3, 4.8, 4.0, 4.2, "", color=AMBER, face="#1f1a0d")  # Drill VMs
-    bracket(ax, 4.6, 4.8, 4.6, 4.2, "", color=BLUE,  face="#0e1726")  # Wazuh
+    bracket(ax, 4.6, 4.8, 4.6, 4.2, "", color=BLUE,  face="#0e1726")  # Evidence
     bracket(ax, 9.5, 6.4, 4.2, 2.6, "", color=GREEN, face="#0e1f1a")  # PCAP tap
     bracket(ax, 4.6, 0.4, 9.1, 4.0, "", color=DIVIDE, face="#0e1e26") # report builder
 
     # Header bands
     header_band(ax, 0.3, 8.6, 4.0, 0.4, "Drill VMs  ·  per-drill agents",      color=AMBER, face="#1f1a0d", text_color=AMBER)
-    header_band(ax, 4.6, 8.6, 4.6, 0.4, "Wazuh  ·  group=drill-<id>",          color=BLUE,  face="#0e1726", text_color=BLUE)
+    header_band(ax, 4.6, 8.6, 4.6, 0.4, "Guest evidence  ·  drill-<id>",          color=BLUE,  face="#0e1726", text_color=BLUE)
     header_band(ax, 9.5, 8.6, 4.2, 0.4, "PCAP / artifact tap",                color=GREEN, face="#0e1f1a", text_color=GREEN)
     header_band(ax, 4.6, 4.0, 9.1, 0.4, "div:ide report builder  ·  on drill teardown", color=DIVIDE, face="#0e1e26", text_color=DIVIDE)
 
@@ -420,9 +420,9 @@ def fig_phase3():
     pill(ax, 2.3, 7.1, 1.7, 0.55, "win2022",    edge=BLUE,  face="#0e1726", color=BLUE,  weight="bold")
     pill(ax, 2.3, 6.3, 1.7, 0.55, "ubuntu srv", edge=BLUE,  face="#0e1726", color=BLUE,  weight="bold")
     pill(ax, 2.3, 5.5, 1.7, 0.55, "pfsense",    edge=GREEN, face="#0e1f1a", color=GREEN, weight="bold")
-    pill(ax, 2.3, 4.95, 1.7, 0.4,  "Wazuh agent + Sysmon", edge=BORDER, color=MUTED, fontsize=8)
+    pill(ax, 2.3, 4.95, 1.7, 0.4,  "Native guest logs", edge=BORDER, color=MUTED, fontsize=8)
 
-    # Wazuh
+    # Evidence collection
     pill(ax, 6.9, 7.9, 1.8, 0.6,  "manager",           edge=BLUE, face="#0e1726", color=BLUE, weight="bold")
     pill(ax, 6.9, 7.0, 1.8, 0.55, "rules + decoders",  edge=BORDER, color=MUTED, fontsize=8.5)
     pill(ax, 6.9, 6.1, 1.8, 0.55, "alerts index",      edge=BORDER, color=MUTED, fontsize=8.5)
@@ -435,7 +435,7 @@ def fig_phase3():
 
     # Report builder
     pill(ax, 6.0, 3.3, 2.2, 0.7,  "extract IOCs\nfrom PCAP",       edge=DIVIDE, face="#11242b", color=DIVIDE, fontsize=9.5, weight="bold")
-    pill(ax, 8.4, 3.3, 2.2, 0.7,  "extract alerts\nfrom Wazuh",    edge=DIVIDE, face="#11242b", color=DIVIDE, fontsize=9.5, weight="bold")
+    pill(ax, 8.4, 3.3, 2.2, 0.7,  "review guest\nevidence",    edge=DIVIDE, face="#11242b", color=DIVIDE, fontsize=9.5, weight="bold")
     pill(ax, 10.8,3.3, 2.2, 0.7,  "timeline + injects\ncorrelate", edge=DIVIDE, face="#11242b", color=DIVIDE, fontsize=9.5, weight="bold")
     pill(ax, 6.0, 2.3, 2.2, 0.55, "IPs, domains, URLs", edge=BORDER, color=MUTED, fontsize=8.5)
     pill(ax, 8.4, 2.3, 2.2, 0.55, "MITRE TTP tags",     edge=BORDER, color=MUTED, fontsize=8.5)
@@ -517,7 +517,7 @@ def fig_phase4():
             arrow(ax, x + 0.75, 1.95, x + 1.45, 1.95, color=MUTED, lw=1.0)
 
     pill(ax, 7.0, 1.05, 10.0, 0.5,
-         "audit_log  ·  Proxmox events  ·  Wazuh rule correlation  ·  AAR PDF in MinIO",
+         "audit_log  ·  Proxmox events  ·  Guest evidence  ·  AAR PDF in MinIO",
          edge=BORDER, color=MUTED, fontsize=9)
 
     plt.tight_layout()

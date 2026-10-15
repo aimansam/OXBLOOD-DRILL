@@ -1,0 +1,108 @@
+<div class="page active threat-command-page" id="drills-page">
+  <div id="drills-list-view" class="threat-drill-queue">
+    <button class="drill-catalog-back" type="button" onclick="app.loadPage('range-hub')" aria-label="Back to Range Hub" title="Back to Range Hub">←</button>
+    <div class="threat-queue-head">
+      <div>
+        <span class="threat-kicker">OxBlood // operations</span>
+        <h1 class="page-title">Cyber Drills</h1>
+        <p class="threat-queue-note" id="drill-catalog-note">Review active operations or prepare an approved scenario.</p>
+      </div>
+      <div class="drill-catalog-tools">
+        <label class="drill-catalog-search"><span aria-hidden="true">⌕</span><input type="search" id="drill-catalog-search" placeholder="Find a drill" oninput="app.filterDrills(this.value)" aria-label="Find a drill"></label>
+        <button class="btn btn-secondary" type="button" onclick="app.loadDrills()" title="Refresh drill catalog">Refresh</button>
+        <button id="create-drill-btn" class="btn btn-primary admin-only" onclick="app.showCreateDrillModal()">+ Create Scheduled Drill</button>
+      </div>
+    </div>
+    <div class="drill-catalog-toolbar">
+      <span id="drill-catalog-count">Loading drill runs...</span>
+      <div class="drill-catalog-scope operator-only" role="group" aria-label="Drill catalog scope">
+        <button id="drill-scope-operations" type="button" class="is-active" onclick="app.setDrillCatalogScope('operations')">Operations</button>
+        <button id="drill-scope-archive" type="button" onclick="app.setDrillCatalogScope('archive')">Archive</button>
+      </div>
+      <div class="drill-catalog-zoom" role="group" aria-label="Drill catalog map controls">
+        <button type="button" onclick="app.zoomDrillCatalogGraph(1.18)" aria-label="Zoom in" title="Zoom in">+</button>
+        <button type="button" onclick="app.zoomDrillCatalogGraph(0.84)" aria-label="Zoom out" title="Zoom out">−</button>
+        <button type="button" onclick="app.fitDrillCatalogGraph()" title="Fit drill catalog">Fit</button>
+      </div>
+    </div>
+    <section class="drill-catalog-viewport" id="drill-catalog-viewport" aria-label="Interactive drill run catalog">
+      <svg class="drill-catalog-symbols" aria-hidden="true" focusable="false">
+        <symbol id="drill-catalog-icon-live" viewBox="0 0 32 32"><circle cx="16" cy="16" r="10"/><circle cx="16" cy="16" r="3.5"/><path d="M16 1v5m0 20v5M1 16h5m20 0h5"/></symbol>
+        <symbol id="drill-catalog-icon-scheduled" viewBox="0 0 32 32"><rect x="4" y="6" width="24" height="22" rx="2"/><path d="M10 3v6m12-6v6M4 12h24m-18 6h4m4 0h4m-12 5h4m4 0h4"/></symbol>
+        <symbol id="drill-catalog-icon-alert" viewBox="0 0 32 32"><path d="M16 3 29 27H3L16 3Z"/><path d="M16 11v8m0 4v.5"/></symbol>
+        <symbol id="drill-catalog-icon-archive" viewBox="0 0 32 32"><path d="M5 8h22v20H5zM3 4h26v5H3zM11 14h10m-10 5h10"/></symbol>
+      </svg>
+      <div class="drill-catalog-world" id="drill-catalog-world">
+        <svg class="drill-catalog-links" id="drill-catalog-links" aria-hidden="true"></svg>
+        <div class="drill-catalog-nodes" id="drill-catalog-nodes" aria-live="polite"></div>
+      </div>
+      <aside class="drill-catalog-inspector" id="drill-catalog-inspector" hidden aria-live="polite"></aside>
+      <div class="drill-catalog-hint">DRAG TO MOVE <i></i> SCROLL TO ZOOM</div>
+    </section>
+    <footer class="drill-catalog-footer"><span><i></i>DRILL RUN ARCHIVE</span><span id="drill-catalog-status">Range state synchronizing</span><span>ONE SHARED RANGE</span></footer>
+  </div>
+
+  <div id="drills-active-view" class="threat-active-workspace" style="display: none;">
+    <header class="threat-command-hud">
+      <button class="threat-hud-back" type="button" onclick="app.backToDrillList()" title="Back to drills" aria-label="Back to drills">←</button>
+      <div class="threat-hud-title">
+        <strong id="threat-map-title">Loading operation</strong>
+        <small id="threat-map-subtitle">Live range</small>
+      </div>
+      <div class="threat-hud-metrics" id="threat-map-metrics" aria-live="polite" hidden>
+        <span><b id="threat-map-status">STAGING</b><small>state</small></span>
+        <span><b id="threat-map-nodes">--</b><small>nodes</small></span>
+        <span><b id="threat-map-networks">--</b><small>VLANs</small></span>
+        <span><b id="threat-map-clock">--:--:--</b><small>elapsed</small></span>
+      </div>
+      <div class="threat-hud-actions">
+        <button class="threat-hud-icon operator-only" type="button" onclick="app.showRangeReadiness()" title="Range readiness checks" aria-label="Range readiness checks">&#10003;</button>
+        <button id="btn-start-drill" class="btn btn-primary operator-only" type="button" style="display:none" onclick="app.startDrill(app.currentDrillId, this)">Prepare range</button>
+        <button class="threat-hud-icon" type="button" onclick="app.toggleThreatHudMetrics(this)" title="Range status" aria-label="Range status" aria-expanded="false">i</button>
+        <button id="threat-map-pause" class="threat-hud-icon operator-only" type="button" onclick="app.pauseDrill()" title="Pause drill" aria-label="Pause drill">Ⅱ</button>
+        <button id="threat-map-resume" class="threat-hud-icon operator-only" type="button" onclick="app.resumeDrill()" title="Resume drill" aria-label="Resume drill">▶</button>
+        <button class="threat-hud-icon operator-only" type="button" onclick="app.stopDrill()" title="Stop drill" aria-label="Stop drill">■</button>
+      </div>
+    </header>
+
+    <main id="threat-map-root" class="threat-map-root" aria-label="Interactive threat map">
+      <div class="threat-map-loading"><span class="threat-loading-pulse"></span><strong>Loading range graph</strong><small>Waiting for machines and VLAN telemetry.</small></div>
+    </main>
+
+  </div>
+
+  <dialog id="range-readiness-dialog" class="range-readiness-dialog" aria-labelledby="range-readiness-title">
+    <header><h2 id="range-readiness-title">Range Readiness</h2><button class="threat-hud-icon" type="button" onclick="this.closest('dialog').close()" aria-label="Close readiness checks">&times;</button></header>
+    <div id="range-readiness-content" aria-live="polite"></div>
+    <button class="btn btn-secondary" type="button" onclick="app.showRangeReadiness()">Recheck</button>
+  </dialog>
+
+  <div id="create-drill-modal" class="modal-overlay" role="presentation" onclick="if(event.target===this)app.hideCreateDrillModal()">
+    <section class="drill-wizard" role="dialog" aria-modal="true" aria-labelledby="create-drill-title">
+      <header class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-md) var(--space-lg);">
+        <h2 id="create-drill-title" class="card-title">Create Drill</h2>
+        <button type="button" class="threat-hud-icon" onclick="app.hideCreateDrillModal()" aria-label="Close create drill dialog">×</button>
+      </header>
+      <nav class="wizard-progress" aria-label="Create drill steps">
+        <button type="button" id="create-step-1" onclick="app.setCreateWizardStep(1)">Catalog</button>
+        <button type="button" id="create-step-2" onclick="app.setCreateWizardStep(2)">Details</button>
+        <button type="button" id="create-step-3" onclick="app.setCreateWizardStep(3)">Setup</button>
+        <button type="button" id="create-step-4">Provision</button>
+      </nav>
+      <form id="create-drill-form" onsubmit="event.preventDefault();app.createWizardLaunch(false)">
+        <input type="hidden" id="drill-scenario" name="scenario_id">
+        <div id="create-drill-wizard-body" class="wizard-body"></div>
+      </form>
+      <footer class="wizard-footer">
+        <button type="button" id="create-wizard-back" class="btn btn-secondary" onclick="app.previousCreateWizardStep()">Back</button>
+        <div style="display:flex;gap:var(--space-sm);margin-left:auto;">
+          <button type="button" id="create-wizard-next" class="btn btn-secondary" onclick="app.nextCreateWizardStep()">Next</button>
+          <button type="button" id="create-wizard-retry" class="btn btn-secondary" onclick="app.retryCreatedDrillProvision()">Retry Provision</button>
+          <button type="button" id="create-wizard-open" class="btn btn-secondary" onclick="app.openCreatedDrill()">Open Drill</button>
+          <button type="button" id="create-wizard-schedule" class="btn btn-secondary" onclick="app.createWizardLaunch(false)">Create Scheduled</button>
+          <button type="button" id="create-wizard-start" class="btn btn-primary" onclick="app.createWizardLaunch(true)">Prepare range</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+</div>

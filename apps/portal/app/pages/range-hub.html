@@ -1,0 +1,31 @@
+<div class="range-hub-page range-hub-svg-page" id="range-hub-page">
+  <header class="range-hub-heading">
+    <span class="range-hub-kicker">OXBLOOD // NAVIGATION</span>
+    <h1>Range</h1>
+  </header>
+  <div class="range-hub-toolbar">
+    <div class="range-hub-zoom" role="group" aria-label="Range navigation controls">
+      <button type="button" onclick="app.zoomRangeHub(1.18)" aria-label="Zoom in" title="Zoom in">+</button>
+      <button type="button" onclick="app.zoomRangeHub(0.84)" aria-label="Zoom out" title="Zoom out">−</button>
+      <button type="button" onclick="app.fitRangeHub()" title="Fit range">Fit</button>
+    </div>
+  </div>
+  <section class="range-hub-viewport" id="range-hub-viewport" aria-label="Range navigation">
+    <div class="range-hub-world" id="range-hub-world">
+      <svg class="range-hub-graph" id="range-hub-graph" role="group" aria-label="Oxblood Range navigation nodes">
+        <defs>
+          <symbol id="hub-icon-dashboard" viewBox="0 0 32 32"><rect x="4" y="4" width="9" height="9" rx="1"/><rect x="19" y="4" width="9" height="9" rx="1"/><rect x="4" y="19" width="9" height="9" rx="1"/><rect x="19" y="19" width="9" height="9" rx="1"/></symbol>
+          <symbol id="hub-icon-drills" viewBox="0 0 32 32"><circle cx="16" cy="16" r="11"/><circle cx="16" cy="16" r="4"/><path d="M16 1v5m0 20v5M1 16h5m20 0h5"/></symbol>
+          <symbol id="hub-icon-scenarios" viewBox="0 0 32 32"><path d="M7 5h13l6 6v16H7z"/><path d="M20 5v7h6M11 17h11M11 22h8"/></symbol>
+          <symbol id="hub-icon-infrastructure" viewBox="0 0 32 32"><rect x="5" y="4" width="22" height="8" rx="1"/><rect x="5" y="15" width="22" height="8" rx="1"/><path d="M9 8h1m-1 11h1m5-11h9m-9 11h9M8 28h16"/></symbol>
+          <symbol id="hub-icon-reports" viewBox="0 0 32 32"><path d="M5 27V5m0 22h23M10 22l5-7 5 3 7-10"/><path d="M23 8h4v4"/></symbol>
+          <symbol id="hub-icon-settings" viewBox="0 0 32 32"><path d="M5 8h22M5 16h22M5 24h22"/><circle cx="12" cy="8" r="3"/><circle cx="21" cy="16" r="3"/><circle cx="10" cy="24" r="3"/></symbol>
+          <symbol id="hub-icon-setup" viewBox="0 0 32 32"><path d="M6 8h7l4 4-4 4H6zM26 24h-7l-4-4 4-4h7z"/><path d="M17 12l5-5m-7 13-5 5"/></symbol>
+        </defs>
+        <g id="range-hub-links" class="range-hub-links" aria-hidden="true"></g>
+        <g id="range-hub-nodes" class="range-hub-nodes"></g>
+      </svg>
+    </div>
+    <div class="range-hub-hint"><span>DRAG TO PAN</span><i></i><span>SCROLL TO ZOOM</span></div>
+  </section>
+</div>

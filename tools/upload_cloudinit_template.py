@@ -44,7 +44,7 @@ import time
 from pathlib import Path
 
 # Repo root on path so this works from anywhere.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services" / "api"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "apps" / "api"))
 
 from proxmoxer import ProxmoxAPI
 

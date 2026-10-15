@@ -7,6 +7,6 @@ ruff check .
 echo "==> ruff format check"
 ruff format --check .
 echo "==> mypy (api)"
-(cd services/api && mypy app)
+(cd apps/api && mypy app)
 echo "==> pytest (api)"
-(cd services/api && pytest)
+(cd apps/api && pytest)

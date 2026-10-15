@@ -1,0 +1,47 @@
+name: cyberdrill-access
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: guacamole
+      POSTGRES_USER: guacamole
+      POSTGRES_PASSWORD: ${GUAC_DB_PASSWORD}
+    volumes:
+      - guacamole-postgres:/var/lib/postgresql/data
+      - ./guacamole-schema.sql:/docker-entrypoint-initdb.d/001-guacamole-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guacamole -d guacamole"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  guacd:
+    image: guacamole/guacd:1.5.5
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  guacamole:
+    image: guacamole/guacamole:1.5.5
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      GUACD_HOSTNAME: guacd
+      POSTGRESQL_HOSTNAME: postgres
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_DATABASE: guacamole
+      POSTGRESQL_USER: guacamole
+      POSTGRESQL_PASSWORD: ${GUAC_DB_PASSWORD}
+      WEBAPP_CONTEXT: guacamole
+    depends_on:
+      postgres:
+        condition: service_healthy
+      guacd:
+        condition: service_started
+
+volumes:
+  guacamole-postgres:

@@ -14,7 +14,7 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services" / "api"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "apps" / "api"))
 
 from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config
@@ -22,7 +22,6 @@ from app.services.proxmox import _validate_config
 # Pattern matching: template name patterns -> ISO name patterns
 TEMPLATE_ISO_PATTERNS = {
     'tpl-debian-cloudinit': ['debian'],
-    'tpl-debian-router': ['debian'],
     'tpl-debian-syslog': ['debian'],
     'tpl-kali-cloudinit': ['kali'],
     'tpl-win11-enterprise': ['windows', 'win11', 'win-11'],
@@ -33,7 +32,6 @@ TEMPLATE_ISO_PATTERNS = {
 # Template specifications
 TEMPLATE_SPECS = {
     'tpl-debian-cloudinit': {'cpu': 2, 'ram': 2048, 'disk': 20},
-    'tpl-debian-router': {'cpu': 2, 'ram': 2048, 'disk': 20},
     'tpl-debian-syslog': {'cpu': 2, 'ram': 2048, 'disk': 20},
     'tpl-kali-cloudinit': {'cpu': 4, 'ram': 4096, 'disk': 40},
     'tpl-win11-enterprise': {'cpu': 4, 'ram': 4096, 'disk': 60},

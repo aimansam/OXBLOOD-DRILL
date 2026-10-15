@@ -7,7 +7,7 @@ services:
   # Flask portal - serves frontend and proxies API requests
   portal:
     build:
-      context: ../services/portal
+      context: ../apps/portal
       dockerfile: Dockerfile
     image: divide/portal:dev
     container_name: divide-portal
@@ -22,7 +22,7 @@ services:
     networks: [divide-net]
     volumes:
       # Serve static files directly (no build step — plain HTML/CSS/JS)
-      - ${DIVIDE_REPO_ROOT:-..}/services/portal/app:/app/app:ro
+      - ${DIVIDE_REPO_ROOT:-..}/apps/portal/app:/app/app:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:80/healthz"]
       interval: 15s
@@ -34,7 +34,7 @@ services:
   api:
     build:
       context: ..
-      dockerfile: services/api/Dockerfile
+      dockerfile: apps/api/Dockerfile
     image: divide/api:dev
     container_name: divide-api
     restart: unless-stopped
@@ -43,6 +43,7 @@ services:
     environment:
       DIVIDE_ENV: ${DIVIDE_ENV:-dev}
       DIVIDE_LOG_LEVEL: ${DIVIDE_LOG_LEVEL:-INFO}
+      DIVIDE_RANGE_HOST_RESERVE_MB: ${DIVIDE_RANGE_HOST_RESERVE_MB:-2048}
       DIVIDE_DB_URL: postgresql+asyncpg://divide:${POSTGRES_PASSWORD:-divide}@postgres:5432/divide
       DIVIDE_REDIS_URL: redis://redis:6379/0
       # R1: opt into the Redis-backed event bus. With multiple
@@ -66,15 +67,17 @@ services:
       DIVIDE_BOOTSTRAP_ADMIN_PASSWORD: ${DIVIDE_BOOTSTRAP_ADMIN_PASSWORD:-}
       # Token TTL for /api/v1/auth/login (default 8h).
       DIVIDE_LOGIN_TOKEN_TTL_S: ${DIVIDE_LOGIN_TOKEN_TTL_S:-28800}
+      DIVIDE_TOKEN_SECRET: ${DIVIDE_TOKEN_SECRET:-}
       PROXMOX_HOST: ${PROXMOX_HOST:-}
       PROXMOX_PORT: ${PROXMOX_PORT:-8006}
       PROXMOX_USER: ${PROXMOX_USER:-divide@pve}
       PROXMOX_TOKEN_ID: ${PROXMOX_TOKEN_ID:-}
       PROXMOX_TOKEN_SECRET: ${PROXMOX_TOKEN_SECRET:-}
       PROXMOX_VERIFY_SSL: ${PROXMOX_VERIFY_SSL:-true}
+      PROXMOX_CLONE_STORAGE: ${PROXMOX_CLONE_STORAGE:-SSD-Backups}
       # Q22: orphan janitor. Off by default; flip to true in
       # deployments where stale VMs accumulate faster than humans
-      # notice. See services/api/app/core/config.py for full
+      # notice. See apps/api/app/core/config.py for full
       # semantics.
       DIVIDE_ORPHAN_JANITOR_ENABLED: ${DIVIDE_ORPHAN_JANITOR_ENABLED:-false}
       DIVIDE_ORPHAN_JANITOR_INTERVAL_MIN: ${DIVIDE_ORPHAN_JANITOR_INTERVAL_MIN:-30}
@@ -140,7 +143,7 @@ services:
     volumes:
       - minio-data:/data
     ports:
-      - "9001:9001"
+      - "127.0.0.1:9001:9001"
     networks: [divide-net]
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
@@ -163,47 +166,6 @@ services:
       echo 'MinIO bucket ${MINIO_BUCKET:-divide-artifacts} ready'
       "
     restart: "no"
-
-  # --- WireGuard VPN (wg-easy) -------------------------------------------
-  #
-  # Trainees download a per-user .conf from the portal (GET /api/v1/auth/vpn-config)
-  # and import it into any WireGuard client. Once connected, their drill VM
-  # IPs (10.10.x.x) are reachable directly — no browser-side VNC needed.
-  #
-  # Setup:
-  #   1. Set WG_HOST to your server's public IP or hostname in .env
-  #   2. Set WG_PASSWORD to a strong admin password in .env
-  #   3. Set DIVIDE_WG_PEER_SECRET to a random hex string in .env
-  #   4. Open UDP :51820 on your firewall
-  #   5. Visit http://localhost:51821 to see the wg-easy admin UI
-  #
-  # The API fetches the server public key automatically from wg-easy.
-  wg-easy:
-    image: ghcr.io/wg-easy/wg-easy:14
-    container_name: divide-wg-easy
-    restart: unless-stopped
-    environment:
-      LANG: en
-      WG_HOST: ${WG_HOST:-}
-      PASSWORD_HASH: ${WG_PASSWORD_HASH:-}
-      WG_PORT: ${WG_PORT:-51820}
-      WG_DEFAULT_ADDRESS: ${WG_DEFAULT_ADDRESS:-10.13.37.x}
-      WG_DEFAULT_DNS: ${WG_DEFAULT_DNS:-1.1.1.1}
-      WG_ALLOWED_IPS: ${WG_ALLOWED_IPS:-10.10.0.0/16, 10.13.37.0/24}
-      WG_PERSISTENT_KEEPALIVE: 25
-      UI_TRAFFIC_STATS: "true"
-    volumes:
-      - wg-easy-data:/etc/wireguard
-    ports:
-      - "${WG_PORT:-51820}:51820/udp"
-      - "51821:51821/tcp"
-    cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
-    sysctls:
-      - net.ipv4.conf.all.src_valid_mark=1
-      - net.ipv4.ip_forward=1
-    networks: [divide-net]
 
   traefik:
     image: traefik:v3.1
@@ -244,7 +206,7 @@ services:
     container_name: divide-prometheus
     restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -270,7 +232,7 @@ services:
     container_name: divide-grafana
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-divide}
@@ -300,7 +262,6 @@ volumes:
   traefik-letsencrypt:
   prometheus-data:
   grafana-data:
-  wg-easy-data:
 
 networks:
   divide-net:

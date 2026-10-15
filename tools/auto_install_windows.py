@@ -6,7 +6,7 @@ import time
 import subprocess
 from pathlib import Path
 
-sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/services/api')
+sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/apps/api')
 
 from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config

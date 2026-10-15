@@ -121,6 +121,24 @@
         "artifacts"
       ],
       "properties": {
+        "provisioning": {
+          "description": "How PVE prepares machine disks for this scenario.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["full_clone", "linked_clone"],
+              "default": "full_clone"
+            },
+            "linked_clone_reserve_mb": {
+              "type": "integer",
+              "minimum": 128,
+              "maximum": 32768,
+              "default": 1024
+            }
+          }
+        },
         "objectives": {
           "description": "What each participating team must accomplish. Free-form strings.",
           "type": "object",
@@ -185,6 +203,15 @@
                 "minLength": 1,
                 "maxLength": 64
               },
+              "network_mode": {
+                "description": "Network attachment mode. Use trunk for a VLAN-aware firewall appliance such as OPNsense.",
+                "type": "string",
+                "enum": [
+                  "access",
+                  "trunk"
+                ],
+                "default": "access"
+              },
               "count": {
                 "description": "Number of clones to start.",
                 "type": "integer",
@@ -233,6 +260,77 @@
                 "description": "Path (relative to the scenario file) to a cloud-init user-data snippet. Optional.",
                 "type": "string"
               },
+              "windows_setup": {
+                "description": "Optional PowerShell commands executed through QEMU Guest Agent after a Windows clone boots.",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "commands": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "maxItems": 32
+                  },
+                  "phases": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["commands"],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "timeout_seconds": {
+                          "type": "integer",
+                          "minimum": 60,
+                          "maximum": 3600,
+                          "default": 900
+                        },
+                        "commands": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "minItems": 1,
+                          "maxItems": 32
+                        },
+                        "reboot": {
+                          "type": "boolean",
+                          "default": false
+                        }
+                      }
+                    }
+                  },
+                  "verify": {
+                    "description": "Readiness checks for a Windows role after setup completes.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["ip", "domain"],
+                    "properties": {
+                      "ip": {
+                        "type": "string",
+                        "format": "ipv4"
+                      },
+                      "domain": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "controller": {
+                        "type": "string",
+                        "enum": ["member", "primary", "secondary"],
+                        "default": "member"
+                      }
+                    }
+                  }
+                }
+              },
               "exposed": {
                 "description": "If true, the asset is reachable from the portal's noVNC console.",
                 "type": "boolean",
@@ -262,6 +360,12 @@
                 "type": "string",
                 "format": "cidr"
               },
+              "vlan_id": {
+                "description": "802.1Q VLAN tag on the shared drill bridge.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4094
+              },
               "isolation": {
                 "description": "Isolation level. 'tight' = no cross-VLAN routing. 'loose' = controlled egress.",
                 "type": "string",
@@ -289,6 +393,43 @@
             }
           }
         },
+        "routing_policy": {
+          "description": "Optional router forwarding policy. Rules are applied by the scenario router with default-deny forwarding.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "default_forward": {
+              "type": "string",
+              "enum": ["accept", "drop"],
+              "default": "drop"
+            },
+            "rules": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["from", "to", "protocol", "ports"],
+                "properties": {
+                  "from": {"type": "string"},
+                  "to": {"type": "string"},
+                  "protocol": {"type": "string", "enum": ["tcp", "udp"]},
+                  "ports": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "items": {
+                      "anyOf": [
+                        {"type": "integer", "minimum": 1, "maximum": 65535},
+                        {"type": "string", "pattern": "^[1-9][0-9]{0,4}-[1-9][0-9]{0,4}$"}
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "telemetry": {
           "description": "Where events from this run are sent.",
           "type": "object",
@@ -310,14 +451,13 @@
                   "type": {
                     "type": "string",
                     "enum": [
-                      "wazuh",
                       "misp",
                       "minio",
                       "stdout"
                     ]
                   },
                   "endpoint": {
-                    "description": "host:port or URL. Required for wazuh/misp, optional for minio/stdout.",
+                    "description": "host:port or URL. Required for misp, optional for minio/stdout.",
                     "type": "string"
                   },
                   "channels": {
@@ -589,6 +729,12 @@
                 "type": "string",
                 "pattern": "^[a-z][a-z0-9_]{1,62}$"
               },
+              "objective": {
+                "description": "Optional exact objective title completed when this flag is captured.",
+                "type": "string",
+                "minLength": 5,
+                "maxLength": 500
+              },
               "decay_window_seconds": {
                 "description": "Linear time-decay window: at t=window the flag is worth 0 points, at t=0 it's worth base_points. Recommended: scenario duration / 2 in seconds.",
                 "type": "integer",
@@ -600,6 +746,88 @@
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 10000
+              }
+            }
+          }
+        },
+        "validation": {
+          "description": "Human-facing checks that prove the scenario is ready enough for play. These are lightweight platform checks first; deeper in-guest probes can reuse the same shape later.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "probes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "label",
+                  "type"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{1,62}$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 120
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "role_running",
+                      "role_address",
+                      "flag_seeded",
+                      "objectives_seeded",
+                      "telemetry_declared",
+                      "artifacts_declared",
+                      "tcp_connect",
+                      "http_status"
+                    ]
+                  },
+                  "role": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{1,62}$"
+                  },
+                  "side": {
+                    "type": "string",
+                    "enum": [
+                      "red",
+                      "blue",
+                      "shared",
+                      "admin"
+                    ]
+                  },
+                  "required": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "path": {
+                    "type": "string",
+                    "default": "/",
+                    "maxLength": 200
+                  },
+                  "expected_status": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 599,
+                    "default": 200
+                  },
+                  "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 200,
+                    "maximum": 5000,
+                    "default": 1500
+                  }
+                }
               }
             }
           }

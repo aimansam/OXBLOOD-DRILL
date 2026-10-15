@@ -21,11 +21,11 @@ ignore = ["E501"]
 # B008: FastAPI's `= Depends(...)` is the canonical way to declare
 #        dependency injection for both routers and test fixtures.
 "tests/*" = ["S101", "B011", "B008"]
-"services/api/tests/*" = ["S101", "B011", "B008"]
+"apps/api/tests/*" = ["S101", "B011", "B008"]
 "scripts/*" = ["T201", "INP001"]
 # FastAPI routers use `= Depends(...)` as a canonical pattern -- this is
 # the framework's recommended way to declare DB session injection.
-"services/api/app/routers/*" = ["B008"]
+"apps/api/app/routers/*" = ["B008"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -36,8 +36,8 @@ disallow_untyped_defs = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["services/api/tests"]
-pythonpath = ["services/api"]
+testpaths = ["apps/api/tests"]
+pythonpath = ["apps/api"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short"
 markers = [

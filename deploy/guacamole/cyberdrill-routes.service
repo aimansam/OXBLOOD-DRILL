@@ -1,0 +1,12 @@
+[Unit]
+Description=Cyber Drill routed VLAN access for Guacamole
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/sbin/ip route del 10.30.40.0/24 dev eth1 2>/dev/null || true; /sbin/ip route replace 10.30.0.0/16 via 10.30.220.1 dev eth1'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

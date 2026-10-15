@@ -23,12 +23,12 @@ echo "   ✓ Database backed up to $BACKUP_PATH/database.sql"
 
 # 2. Portal code backup
 echo "2. Backing up portal code..."
-cp -r /DATA/Storage/docker/divide-cyber-drill/services/portal/app "$BACKUP_PATH/portal_app"
+cp -r /DATA/Storage/docker/divide-cyber-drill/apps/portal/app "$BACKUP_PATH/portal_app"
 echo "   ✓ Portal code backed up"
 
 # 3. API routers backup
 echo "3. Backing up API routers..."
-cp -r /DATA/Storage/docker/divide-cyber-drill/services/api/app/routers "$BACKUP_PATH/api_routers"
+cp -r /DATA/Storage/docker/divide-cyber-drill/apps/api/app/routers "$BACKUP_PATH/api_routers"
 echo "   ✓ API routers backed up"
 
 # 4. Export current drills

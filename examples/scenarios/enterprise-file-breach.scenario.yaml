@@ -1,0 +1,273 @@
+apiVersion: divide/v1
+kind: Scenario
+metadata:
+  name: enterprise-file-breach
+  title: "Enterprise File Breach"
+  version: 7
+  difficulty: advanced
+  duration_min: 120
+  tags:
+    - enterprise
+    - active-directory
+    - dmz
+    - file-breach
+    - log-investigation
+
+spec:
+  provisioning:
+    # Shared backing disks keep this seven-VM enterprise range inside the
+    # available SSD capacity. Every run is still destroyed during cleanup.
+    mode: linked_clone
+    linked_clone_reserve_mb: 1024
+  objectives:
+    red:
+      - "Reach the DMZ web service from the red workstation."
+      - "Pivot from the DMZ toward the protected DC01 enterprise segment."
+      - "Reach the protected file and backup services."
+      - "Submit the web, file, and backup flags."
+    blue:
+      - "Use host logs and the blue console to identify the initial foothold."
+      - "Trace the pivot from DMZ to the identity segment."
+      - "Contain the compromised path before backup access."
+      - "Submit the source, pivot, and containment flags with evidence."
+
+  networks:
+    - name: red_vlan
+      cidr: 10.30.10.0/24
+      vlan_id: 230
+      isolation: loose
+      egress: restricted
+      dhcp: true
+    - name: dmz_vlan
+      cidr: 10.30.20.0/24
+      vlan_id: 231
+      isolation: tight
+      egress: blocked
+      dhcp: true
+    - name: dc01_vlan
+      cidr: 10.30.40.0/24
+      vlan_id: 234
+      isolation: tight
+      egress: blocked
+      dhcp: false
+    - name: backup_vlan
+      cidr: 10.30.60.0/24
+      vlan_id: 236
+      isolation: tight
+      egress: blocked
+      dhcp: false
+  assets:
+    - role: red_workstation
+      kind: vm
+      template: tpl-kali-gui-xrdp
+      networks: [red_vlan]
+      exposed: true
+      resources:
+        cores: 2
+        ram_mb: 2048
+        disk_gb: 32
+
+    - role: router_fw
+      kind: vm
+      template: tpl-opnsense
+      network_mode: trunk
+      networks: [red_vlan, dmz_vlan, dc01_vlan, backup_vlan]
+      resources:
+        cores: 2
+        ram_mb: 1024
+        disk_gb: 16
+
+    - role: dmz_gateway
+      kind: vm
+      template: tpl-debian-dmz-docker-wazuh
+      networks: [dmz_vlan]
+      resources:
+        cores: 2
+        ram_mb: 1024
+        disk_gb: 20
+
+    - role: dc01
+      kind: vm
+      template: tpl-win2022-ad-auto
+      networks: [dc01_vlan]
+      resources:
+        cores: 4
+        ram_mb: 8192
+        disk_gb: 60
+      windows_setup:
+        verify:
+          ip: 10.30.40.10
+          domain: divide.lab
+          controller: primary
+        phases:
+          - name: configure-dc01
+            timeout_seconds: 600
+            reboot: true
+            commands:
+              - "$ErrorActionPreference = 'Stop'"
+              - "pnputil.exe /scan-devices *> $null"
+              - "Start-Sleep -Seconds 5"
+              - "$adapter = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' } | Sort-Object InterfaceIndex | Select-Object -First 1)"
+              - "if (-not $adapter) { $adapter = @(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -notmatch 'Loopback|Teredo|ISATAP|WAN Miniport' } | Sort-Object InterfaceIndex | Select-Object -First 1) }"
+              - "if (-not $adapter) { $seenAdapters = @(Get-NetAdapter -IncludeHidden -ErrorAction SilentlyContinue | ForEach-Object { \"$($_.Name): $($_.Status) ($($_.InterfaceDescription))\" }); throw \"No active physical network adapter. adapters=[$($seenAdapters -join ', ')]\" }"
+              - "$ifIndex = [int]$adapter.InterfaceIndex"
+              - "$targetIp = '10.30.40.10'"
+              - "$current = Get-NetIPAddress -InterfaceIndex $ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue"
+              - "if (-not ($current | Where-Object IPAddress -eq $targetIp)) { Set-NetIPInterface -InterfaceIndex $ifIndex -Dhcp Disabled -ErrorAction SilentlyContinue; $current | Where-Object { $_.IPAddress -ne '127.0.0.1' } | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue; Get-NetRoute -InterfaceIndex $ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.DestinationPrefix -ne '255.255.255.255/32' } | Remove-NetRoute -Confirm:$false -ErrorAction SilentlyContinue; New-NetIPAddress -InterfaceIndex $ifIndex -IPAddress $targetIp -PrefixLength 24 -DefaultGateway 10.30.40.1 -ErrorAction Stop }"
+              - "Set-DnsClientServerAddress -InterfaceIndex $ifIndex -ServerAddresses 10.30.40.10"
+              - "net user Administrator '{{domain_password}}'"
+              - "Rename-Computer -NewName DC01 -Force"
+          - name: install-dc01-roles
+            timeout_seconds: 600
+            reboot: true
+            commands:
+              - "Install-WindowsFeature -Name AD-Domain-Services,DNS -IncludeManagementTools -ErrorAction Stop | Out-Null"
+          - name: promote-dc01
+            timeout_seconds: 900
+            reboot: true
+            commands:
+              - "$pw = ConvertTo-SecureString '{{domain_password}}' -AsPlainText -Force"
+              - "Install-ADDSForest -DomainName divide.lab -DomainNetbiosName DIVIDE -SafeModeAdministratorPassword $pw -InstallDns -NoRebootOnCompletion -Force"
+          - name: confirm-dc01-address
+            timeout_seconds: 300
+            commands:
+              - "$ErrorActionPreference = 'Stop'"
+              - "$adapter = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' } | Sort-Object InterfaceIndex | Select-Object -First 1)"
+              - "if (-not $adapter) { $adapter = @(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -notmatch 'Loopback|Teredo|ISATAP|WAN Miniport' } | Sort-Object InterfaceIndex | Select-Object -First 1) }"
+              - "if (-not $adapter) { throw 'No active physical network adapter after domain promotion' }"
+              - "$ifIndex = [int]$adapter.InterfaceIndex"
+              - "$targetIp = '10.30.40.10'"
+              - "$current = Get-NetIPAddress -InterfaceIndex $ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue"
+              - "if (-not ($current | Where-Object IPAddress -eq $targetIp)) { Set-NetIPInterface -InterfaceIndex $ifIndex -Dhcp Disabled -ErrorAction SilentlyContinue; $current | Where-Object { $_.IPAddress -ne '127.0.0.1' } | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue; Get-NetRoute -InterfaceIndex $ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.DestinationPrefix -ne '255.255.255.255/32' } | Remove-NetRoute -Confirm:$false -ErrorAction SilentlyContinue; New-NetIPAddress -InterfaceIndex $ifIndex -IPAddress $targetIp -PrefixLength 24 -DefaultGateway 10.30.40.1 -ErrorAction Stop }"
+              - "Set-DnsClientServerAddress -InterfaceIndex $ifIndex -ServerAddresses 10.30.40.10"
+
+    - role: file_server
+      kind: vm
+      template: tpl-debian-file-server-wazuh
+      networks: [dc01_vlan]
+      resources:
+        cores: 2
+        ram_mb: 1024
+        disk_gb: 24
+
+    - role: backup_server
+      kind: vm
+      template: tpl-debian-backup-server-wazuh
+      networks: [backup_vlan]
+      resources:
+        cores: 2
+        ram_mb: 1024
+        disk_gb: 24
+
+    - role: blue_workstation
+      kind: vm
+      template: tpl-debian-blue-gui-wazuh-xrdp
+      networks: [dc01_vlan]
+      exposed: true
+      resources:
+        cores: 2
+        ram_mb: 1536
+        disk_gb: 24
+
+  routing_policy:
+    default_forward: drop
+    rules:
+      - {from: red_vlan, to: dmz_vlan, protocol: tcp, ports: [80, 443]}
+      - {from: dmz_vlan, to: dc01_vlan, protocol: tcp, ports: [445, 5985, 5986]}
+      - {from: dc01_vlan, to: backup_vlan, protocol: tcp, ports: [22, 443, 873]}
+
+  flags:
+    - id: red-dmz-foothold
+      side: red
+      value: "FLAG{enterprise_dmz_foothold}"
+      planted_on_role: dmz_gateway
+      objective: "Reach the DMZ web service."
+      decay_window_seconds: 7200
+      base_points: 100
+    - id: red-file-access
+      side: red
+      value: "FLAG{enterprise_file_access}"
+      planted_on_role: file_server
+      objective: "Reach the protected file service."
+      decay_window_seconds: 7200
+      base_points: 150
+    - id: red-backup-access
+      side: red
+      value: "FLAG{enterprise_backup_access}"
+      planted_on_role: backup_server
+      objective: "Reach the backup service."
+      decay_window_seconds: 7200
+      base_points: 200
+    - id: blue-initial-source
+      side: blue
+      value: "FLAG{enterprise_source_identified}"
+      planted_on_role: blue_workstation
+      objective: "Identify the initial source."
+      decay_window_seconds: 7200
+      base_points: 120
+    - id: blue-pivot-traced
+      side: blue
+      value: "FLAG{enterprise_pivot_traced}"
+      planted_on_role: blue_workstation
+      objective: "Trace the DMZ-to-identity pivot."
+      decay_window_seconds: 7200
+      base_points: 160
+    - id: blue-backup-protected
+      side: blue
+      value: "FLAG{enterprise_backup_protected}"
+      planted_on_role: blue_workstation
+      objective: "Contain the backup path."
+      decay_window_seconds: 7200
+      base_points: 180
+
+  validation:
+    probes:
+      # The control-plane API intentionally has no route into the isolated
+      # exercise VLANs. These readiness checks therefore use PVE's machine
+      # state; in-range service verification is performed from Blue's
+      # workstation during the drill.
+      - {id: dc01-online, label: "DC01 is running", type: role_running, role: dc01, side: shared}
+      - {id: red-desktop-online, label: "Red workstation is running", type: role_running, role: red_workstation, side: red}
+      - {id: blue-desktop-online, label: "Blue workstation is running", type: role_running, role: blue_workstation, side: blue}
+      - {id: blue-address, label: "Blue workstation address assigned", type: role_address, role: blue_workstation, side: blue}
+      - {id: flags-loaded, label: "Scenario flags loaded", type: flag_seeded, side: shared}
+      - {id: objectives-loaded, label: "Mission objectives loaded", type: objectives_seeded, side: shared}
+      - {id: telemetry-config, label: "Telemetry configured (not a live check)", type: telemetry_declared, required: false, side: shared}
+
+  telemetry:
+    sinks:
+      - type: minio
+        bucket: divide-artifacts
+        channels: [pcap, web_access, authentication, system]
+
+  artifacts:
+    sink_to: minio
+    bucket: divide-artifacts
+    required_pcaps: [red_vlan, dmz_vlan, dc01_vlan, backup_vlan]
+    retention_days: 30
+
+  win_conditions:
+    red:
+      - "Red submits the DMZ, file, and backup flags."
+    blue:
+      - "Blue submits the source, pivot, and backup-protection flags."
+
+  scoring:
+    red:
+      rules:
+        - id: dmz_foothold
+          weight: 25
+        - id: file_access
+          weight: 30
+        - id: backup_access
+          weight: 45
+      pass_threshold: 70
+    blue:
+      rules:
+        - id: source_identified
+          weight: 30
+        - id: pivot_traced
+          weight: 30
+        - id: backup_protected
+          weight: 40
+      pass_threshold: 70

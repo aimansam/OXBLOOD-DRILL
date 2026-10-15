@@ -10,8 +10,8 @@ from __future__ import annotations
 import os
 
 # Portal dir must be set BEFORE app modules import so the StaticFiles
-# mount sees services/portal/. Matches services/api/tests/conftest.py.
-os.environ.setdefault("DIVIDE_PORTAL_DIR", "services/portal")
+# mount sees apps/portal/. Matches apps/api/tests/conftest.py.
+os.environ.setdefault("DIVIDE_PORTAL_DIR", "apps/portal")
 
 import pytest
 from fastapi.testclient import TestClient

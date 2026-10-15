@@ -50,7 +50,7 @@ from fastapi.testclient import TestClient
 # prefixes of any other URL in the file.
 PORTAL_HTML_FILES: dict[str, tuple[str, list[str]]] = {
     "wizard": (
-        "services/portal/index.html",
+        "apps/portal/index.html",
         [
             # Each fetch target -- concatenated as `API + "/fragment"`.
             "/probe",
@@ -184,11 +184,10 @@ def test_both_pages_have_a_script_tag():
 
 def test_portal_pages_exist_on_disk():
     """Both pages must be on disk; the Dockerfile copies the directory
-    wholesale so any future page under services/portal/ gets shipped.
+    wholesale so any future page under apps/portal/ gets shipped.
     """
     for relpath, _ in PORTAL_HTML_FILES.values():
         p = Path(__file__).resolve().parent.parent / relpath
         assert p.exists(), f"{relpath} missing at {p}"
         assert p.stat().st_size > 1000, f"{relpath} suspiciously small"
-
 

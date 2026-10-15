@@ -3,7 +3,7 @@ kind: Scenario
 metadata:
   name: phish-to-ransom
   title: "Phishing to Ransomware"
-  version: 1
+  version: 2
   difficulty: intermediate
   duration_min: 90
   tags:
@@ -28,29 +28,39 @@ spec:
   assets:
     - role: red_attacker
       kind: vm
-      template: tpl-kali-cloudinit
+      template: tpl-kali-gui-xrdp
       count: 1
-      networks: [attacker_vlan]
+      networks: [red_vlan]
       resources:
         cores: 4
         ram_mb: 8192
       exposed: true
       user_data: cloud-init/red.yaml
 
+    - role: router_fw
+      kind: vm
+      template: tpl-opnsense
+      network_mode: trunk
+      networks: [red_vlan, dmz_vlan, dc01_vlan, dc02_vlan, backup_vlan, security_vlan]
+      resources:
+        cores: 2
+        ram_mb: 2048
+
+
     - role: victim_workstation
       kind: vm
       template: tpl-win11-enterprise
       count: 3
-      networks: [corp_vlan]
+      networks: [dc02_vlan]
       resources:
         cores: 2
         ram_mb: 4096
 
     - role: dc_server
       kind: vm
-      template: tpl-win2022-dc
+      template: tpl-win2022-ad-tools
       count: 1
-      networks: [corp_vlan, mgmt_vlan]
+      networks: [dc01_vlan]
       resources:
         cores: 2
         ram_mb: 6144
@@ -59,32 +69,51 @@ spec:
       kind: vm
       template: tpl-win2022-member
       count: 1
-      networks: [corp_vlan]
+      networks: [dc02_vlan]
       resources:
         cores: 2
         ram_mb: 4096
 
   networks:
-    - name: attacker_vlan
-      cidr: 10.50.50.0/24
-      isolation: tight
+    - name: red_vlan
+      cidr: 10.30.10.0/24
+      vlan_id: 230
+      isolation: loose
       egress: restricted
-    - name: corp_vlan
-      cidr: 10.10.10.0/24
+      dhcp: true
+    - name: dmz_vlan
+      cidr: 10.30.20.0/24
+      vlan_id: 231
       isolation: tight
       egress: blocked
       dhcp: true
-    - name: mgmt_vlan
-      cidr: 10.10.99.0/24
+    - name: dc01_vlan
+      cidr: 10.30.40.0/24
+      vlan_id: 234
+      isolation: tight
+      egress: blocked
+      dhcp: false
+    - name: dc02_vlan
+      cidr: 10.30.50.0/24
+      vlan_id: 235
+      isolation: tight
+      egress: blocked
+      dhcp: false
+    - name: backup_vlan
+      cidr: 10.30.60.0/24
+      vlan_id: 236
+      isolation: tight
+      egress: blocked
+      dhcp: false
+    - name: security_vlan
+      cidr: 10.30.221.0/24
+      vlan_id: 221
       isolation: tight
       egress: blocked
       dhcp: false
 
   telemetry:
     sinks:
-      - type: wazuh
-        endpoint: wazuh-mgr:55000
-        channels: [sysmon, edr_alerts, firewall]
       - type: misp
         endpoint: misp.local:443
         channels: [iocs]
@@ -122,7 +151,7 @@ spec:
   win_conditions:
     red:
       - "DCSync of at least one Domain Admin account succeeds."
-      - "Ransomware note is observed on two or more endpoints in corp_vlan."
+      - "Ransomware note is observed on two or more endpoints in dc02_vlan."
     blue:
       - "All compromised endpoints isolated within 30 minutes of initial detection."
       - "No encryption events observed on file_server or dc_server."
@@ -131,7 +160,8 @@ spec:
     sink_to: minio
     bucket: divide-runs
     required_pcaps:
-      - attacker_vlan
-      - corp_vlan
-      - mgmt_vlan
+      - red_vlan
+      - dc01_vlan
+      - dc02_vlan
+      - security_vlan
     retention_days: 30

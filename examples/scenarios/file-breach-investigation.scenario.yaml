@@ -1,0 +1,342 @@
+apiVersion: divide/v1
+kind: Scenario
+metadata:
+  name: file-breach-investigation
+  title: "File Breach Investigation"
+  version: 3
+  difficulty: intermediate
+  duration_min: 90
+  tags:
+    - red-team
+    - blue-team
+    - investigation
+    - lateral-movement
+    - file-breach
+  authors:
+    - handle: divide-team
+      name: div:ide core
+
+spec:
+  objectives:
+    red:
+      - "Use the attacker workstation to reach the public web host."
+      - "Pivot through the router and access the internal file server."
+      - "Collect evidence from the file server and reach the backup service."
+      - "Submit the web, file, and backup flags before the drill ends."
+    blue:
+      - "Use the analyst workstation to review the central event stream."
+      - "Identify the attacker source and the compromised web host."
+      - "Confirm the web compromise and preserve the supporting evidence."
+      - "Trace the pivot from the web segment into the internal file segment."
+      - "Submit the attacker, web, and pivot detection flags with evidence notes."
+
+  networks:
+    - name: red_vlan
+      cidr: 10.30.10.0/24
+      vlan_id: 230
+      isolation: loose
+      egress: restricted
+      dhcp: true
+    - name: dmz_vlan
+      cidr: 10.30.20.0/24
+      vlan_id: 231
+      isolation: tight
+      egress: blocked
+      dhcp: true
+    - name: dc01_vlan
+      cidr: 10.30.40.0/24
+      vlan_id: 234
+      isolation: tight
+      egress: blocked
+      dhcp: false
+    - name: dc02_vlan
+      cidr: 10.30.50.0/24
+      vlan_id: 235
+      isolation: tight
+      egress: blocked
+      dhcp: false
+    - name: backup_vlan
+      cidr: 10.30.60.0/24
+      vlan_id: 236
+      isolation: tight
+      egress: blocked
+      dhcp: false
+    - name: security_vlan
+      cidr: 10.30.221.0/24
+      vlan_id: 221
+      isolation: tight
+      egress: blocked
+      dhcp: false
+
+  assets:
+    - role: red_workstation
+      kind: vm
+      template: tpl-kali-gui-xrdp
+      networks: [red_vlan]
+      exposed: true
+      resources:
+        cores: 2
+        ram_mb: 4096
+        disk_gb: 32
+
+    - role: red_staging
+      kind: vm
+      template: tpl-debian-file-server-wazuh
+      networks: [red_vlan]
+      exposed: true
+      resources:
+        cores: 1
+        ram_mb: 2048
+        disk_gb: 20
+
+    - role: router_fw
+      kind: vm
+      template: tpl-opnsense
+      network_mode: trunk
+      networks: [red_vlan, dmz_vlan, dc01_vlan, dc02_vlan, backup_vlan, security_vlan]
+      resources:
+        cores: 2
+        ram_mb: 2048
+        disk_gb: 16
+
+    - role: web_gateway
+      kind: vm
+      template: tpl-debian-dmz-docker-wazuh
+      networks: [dmz_vlan]
+      resources:
+        cores: 1
+        ram_mb: 2048
+        disk_gb: 20
+
+    - role: file_server
+      kind: vm
+      template: tpl-debian-file-server-wazuh
+      networks: [dc02_vlan]
+      resources:
+        cores: 2
+        ram_mb: 2048
+        disk_gb: 24
+
+    - role: backup_server
+      kind: vm
+      template: tpl-debian-backup-server-wazuh
+      networks: [backup_vlan]
+      resources:
+        cores: 1
+        ram_mb: 2048
+        disk_gb: 20
+
+    - role: blue_workstation
+      kind: vm
+      template: tpl-debian-blue-gui-wazuh-xrdp
+      networks: [dc02_vlan]
+      exposed: true
+      resources:
+        cores: 2
+        ram_mb: 4096
+        disk_gb: 24
+
+    - role: log_aggregator
+      kind: vm
+      template: tpl-debian-log-aggregator-wazuh
+      networks: [dc02_vlan]
+      resources:
+        cores: 2
+        ram_mb: 2048
+        disk_gb: 24
+
+  flags:
+    - id: red-flag-web-foothold
+      side: red
+      value: "FLAG{web_gateway_foothold_confirmed}"
+      planted_on_role: web_gateway
+      objective: "Use the attacker workstation to reach the public web host."
+      decay_window_seconds: 5400
+      base_points: 100
+    - id: red-flag-file-collection
+      side: red
+      value: "FLAG{internal_file_collection_confirmed}"
+      planted_on_role: file_server
+      objective: "Pivot through the router and access the internal file server."
+      decay_window_seconds: 5400
+      base_points: 150
+    - id: red-flag-backup-access
+      side: red
+      value: "FLAG{backup_path_reached}"
+      planted_on_role: backup_server
+      objective: "Collect evidence from the file server and reach the backup service."
+      decay_window_seconds: 5400
+      base_points: 150
+    - id: blue-flag-attacker-source
+      side: blue
+      value: "FLAG{attacker_source_identified}"
+      planted_on_role: log_aggregator
+      objective: "Identify the attacker source and the compromised web host."
+      decay_window_seconds: 5400
+      base_points: 120
+    - id: blue-flag-web-compromise
+      side: blue
+      value: "FLAG{web_compromise_detected}"
+      planted_on_role: log_aggregator
+      objective: "Confirm the web compromise and preserve the supporting evidence."
+      decay_window_seconds: 5400
+      base_points: 120
+    - id: blue-flag-pivot-traced
+      side: blue
+      value: "FLAG{pivot_path_traced}"
+      planted_on_role: log_aggregator
+      objective: "Trace the pivot from the web segment into the internal file segment."
+      decay_window_seconds: 5400
+      base_points: 160
+
+  telemetry:
+    sinks:
+      - type: minio
+        bucket: divide-artifacts
+        channels:
+          - authentication
+          - web_access
+          - file_access
+          - network_flow
+          - system
+        tag: file-breach-investigation
+      - type: stdout
+        channels:
+          - high_signal
+          - objective_progress
+
+  artifacts:
+    sink_to: minio
+    bucket: divide-artifacts
+    required_pcaps:
+      - red_vlan
+      - dmz_vlan
+      - dc02_vlan
+      - backup_vlan
+    retention_days: 14
+
+  win_conditions:
+    red:
+      - "Red submits the web, file, and backup flags."
+    blue:
+      - "Blue submits the attacker-source, web-compromise, and pivot flags."
+
+  scoring:
+    red:
+      rules:
+        - id: web_foothold
+          weight: 25
+        - id: file_collection
+          weight: 35
+        - id: backup_access
+          weight: 40
+      pass_threshold: 70
+    blue:
+      rules:
+        - id: attacker_source
+          weight: 30
+        - id: web_compromise
+          weight: 30
+        - id: pivot_traced
+          weight: 30
+        - id: evidence_note_added
+          weight: 10
+      pass_threshold: 70
+
+  validation:
+    probes:
+      - id: red-workstation-ready
+        label: "Red workstation is ready"
+        type: role_running
+        role: red_workstation
+        side: red
+      - id: red-staging-ready
+        label: "Red staging host is ready"
+        type: role_running
+        role: red_staging
+        side: red
+      - id: router-ready
+        label: "Router is ready"
+        type: role_running
+        role: router_fw
+        side: admin
+      - id: web-gateway-ready
+        label: "Web gateway is ready"
+        type: role_running
+        role: web_gateway
+        side: shared
+      - id: file-server-ready
+        label: "File server is ready"
+        type: role_running
+        role: file_server
+        side: shared
+      - id: backup-server-ready
+        label: "Backup server is ready"
+        type: role_running
+        role: backup_server
+        side: shared
+      - id: blue-workstation-ready
+        label: "Blue workstation is ready"
+        type: role_running
+        role: blue_workstation
+        side: blue
+      - id: log-server-ready
+        label: "Log aggregator is ready"
+        type: role_running
+        role: log_aggregator
+        side: blue
+      - id: player-addresses
+        label: "Player machines have addresses"
+        type: role_address
+        role: red_workstation
+        side: shared
+      - id: flags-seeded
+        label: "Scenario flags are loaded"
+        type: flag_seeded
+        side: shared
+      - id: objectives-seeded
+        label: "Mission objectives are loaded"
+        type: objectives_seeded
+        side: shared
+      - id: evidence-path-ready
+        label: "Evidence collection path is declared"
+        type: artifacts_declared
+        side: admin
+      - id: web-http-ready
+        label: "Web gateway is serving the exercise page"
+        type: http_status
+        role: web_gateway
+        port: 80
+        path: /
+        expected_status: 200
+        timeout_ms: 1500
+        side: shared
+        required: false
+      - id: file-http-ready
+        label: "File server is serving the exercise page"
+        type: http_status
+        role: file_server
+        port: 80
+        path: /
+        expected_status: 200
+        timeout_ms: 1500
+        side: shared
+        required: false
+      - id: backup-http-ready
+        label: "Backup server is serving the exercise page"
+        type: http_status
+        role: backup_server
+        port: 80
+        path: /
+        expected_status: 200
+        timeout_ms: 1500
+        side: shared
+        required: false
+      - id: log-server-syslog-ready
+        label: "Log aggregator is listening"
+        type: tcp_connect
+        role: log_aggregator
+        port: 514
+        timeout_ms: 1500
+        side: blue
+        required: false

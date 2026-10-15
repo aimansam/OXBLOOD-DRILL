@@ -1,0 +1,270 @@
+apiVersion: divide/v1
+kind: Scenario
+metadata:
+  name: red-blue-file-breach
+  title: "Red Blue File Breach"
+  version: 2
+  difficulty: beginner
+  duration_min: 60
+  tags:
+    - red-team
+    - blue-team
+    - file-server
+    - first-real
+  authors:
+    - handle: divide-team
+      name: div:ide core
+
+spec:
+  objectives:
+    red:
+      - "Use the red workstation as the attacker jump box."
+      - "Reach the file server through the router."
+      - "Capture the file server and router flags."
+    blue:
+      - "Use the blue workstation as the analyst console."
+      - "Review router and file-server logs from the log aggregator."
+      - "Identify the red workstation IP and submit the detection flag."
+
+  networks:
+    - name: red_vlan
+      cidr: 10.30.10.0/24
+      vlan_id: 230
+      isolation: loose
+      egress: restricted
+      dhcp: true
+    - name: dmz_vlan
+      cidr: 10.30.20.0/24
+      vlan_id: 231
+      isolation: tight
+      egress: blocked
+      dhcp: true
+    - name: dc01_vlan
+      cidr: 10.30.40.0/24
+      vlan_id: 234
+      isolation: tight
+      egress: blocked
+      dhcp: false
+    - name: dc02_vlan
+      cidr: 10.30.50.0/24
+      vlan_id: 235
+      isolation: tight
+      egress: blocked
+      dhcp: false
+    - name: backup_vlan
+      cidr: 10.30.60.0/24
+      vlan_id: 236
+      isolation: tight
+      egress: blocked
+      dhcp: false
+    - name: security_vlan
+      cidr: 10.30.221.0/24
+      vlan_id: 221
+      isolation: tight
+      egress: blocked
+      dhcp: false
+
+  assets:
+    - role: red_workstation
+      kind: vm
+      template: tpl-kali-gui-xrdp
+      count: 1
+      networks: [red_vlan]
+      exposed: true
+      resources:
+        cores: 2
+        ram_mb: 4096
+        disk_gb: 32
+
+    - role: blue_workstation
+      kind: vm
+      template: tpl-debian-blue-gui-wazuh-xrdp
+      count: 1
+      networks: [dc02_vlan]
+      exposed: true
+      resources:
+        cores: 2
+        ram_mb: 4096
+        disk_gb: 24
+
+    - role: router_fw
+      kind: vm
+      template: tpl-opnsense
+      network_mode: trunk
+      count: 1
+      networks: [red_vlan, dmz_vlan, dc01_vlan, dc02_vlan, backup_vlan, security_vlan]
+      resources:
+        cores: 2
+        ram_mb: 2048
+        disk_gb: 16
+
+    - role: file_server
+      kind: vm
+      template: tpl-debian-file-server-wazuh
+      count: 1
+      networks: [dc02_vlan]
+      resources:
+        cores: 2
+        ram_mb: 2048
+        disk_gb: 32
+
+    - role: log_aggregator
+      kind: vm
+      template: tpl-debian-log-aggregator-wazuh
+      count: 1
+      networks: [dc02_vlan]
+      resources:
+        cores: 2
+        ram_mb: 2048
+        disk_gb: 24
+
+  flags:
+    - id: red-flag-file-server
+      side: red
+      value: "FLAG{file_server_access_confirmed}"
+      planted_on_role: file_server
+      decay_window_seconds: 3600
+      base_points: 150
+    - id: red-flag-router
+      side: red
+      value: "FLAG{router_path_confirmed}"
+      planted_on_role: router_fw
+      decay_window_seconds: 3600
+      base_points: 100
+    - id: blue-flag-attacker-ip
+      side: blue
+      value: "FLAG{red_ip_identified}"
+      planted_on_role: log_aggregator
+      decay_window_seconds: 3600
+      base_points: 150
+
+  telemetry:
+    sinks:
+      - type: minio
+        bucket: divide-artifacts
+      - type: stdout
+
+  artifacts:
+    sink_to: minio
+    bucket: divide-artifacts
+    required_pcaps:
+      - red_vlan
+      - dc02_vlan
+    retention_days: 14
+
+  win_conditions:
+    red:
+      - "Red submits the file-server flag and router flag."
+    blue:
+      - "Blue submits the attacker-IP detection flag."
+
+  scoring:
+    red:
+      rules:
+        - id: file_server_access
+          weight: 60
+        - id: router_path_confirmed
+          weight: 40
+      pass_threshold: 70
+    blue:
+      rules:
+        - id: attacker_ip_identified
+          weight: 70
+        - id: evidence_note_added
+          weight: 30
+      pass_threshold: 70
+
+  validation:
+    probes:
+      - id: red-workstation-ready
+        label: "Red workstation is ready"
+        type: role_running
+        role: red_workstation
+        side: red
+      - id: blue-workstation-ready
+        label: "Blue workstation is ready"
+        type: role_running
+        role: blue_workstation
+        side: blue
+      - id: router-ready
+        label: "Router is ready"
+        type: role_running
+        role: router_fw
+        side: admin
+      - id: file-server-ready
+        label: "File server is ready"
+        type: role_running
+        role: file_server
+        side: shared
+      - id: log-server-ready
+        label: "Log server is ready"
+        type: role_running
+        role: log_aggregator
+        side: blue
+      - id: player-addresses
+        label: "Player machines have addresses"
+        type: role_address
+        role: red_workstation
+        side: shared
+      - id: flags-seeded
+        label: "Scenario flags are loaded"
+        type: flag_seeded
+        side: shared
+      - id: objectives-seeded
+        label: "Mission objectives are loaded"
+        type: objectives_seeded
+        side: shared
+      - id: evidence-path-ready
+        label: "Evidence collection path is declared"
+        type: artifacts_declared
+        side: admin
+      - id: red-ssh-reachable
+        label: "Red workstation accepts connections"
+        type: tcp_connect
+        role: red_workstation
+        port: 22
+        timeout_ms: 1500
+        side: red
+        required: false
+      - id: blue-ssh-reachable
+        label: "Blue workstation accepts connections"
+        type: tcp_connect
+        role: blue_workstation
+        port: 22
+        timeout_ms: 1500
+        side: blue
+        required: false
+      - id: file-server-ssh-reachable
+        label: "File server accepts connections"
+        type: tcp_connect
+        role: file_server
+        port: 22
+        timeout_ms: 1500
+        side: shared
+        required: false
+      - id: file-server-http-ready
+        label: "File server is serving the exercise page"
+        type: http_status
+        role: file_server
+        port: 80
+        path: /
+        expected_status: 200
+        timeout_ms: 1500
+        side: shared
+        required: true
+      - id: log-server-ssh-reachable
+        label: "Log server accepts connections"
+        type: tcp_connect
+        role: log_aggregator
+        port: 22
+        timeout_ms: 1500
+        side: blue
+        required: false
+      - id: log-server-syslog-ready
+        label: "Log aggregator is listening"
+        type: tcp_connect
+        role: log_aggregator
+        port: 514
+        timeout_ms: 1500
+        side: blue
+        required: true

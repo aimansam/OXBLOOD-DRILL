@@ -47,7 +47,7 @@ from pathlib import Path
 # Repo root on path so we can import app.core.auth without an editable
 # install (tools/ runs from the dev box where the package isn't pip-installed).
 REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "services" / "api"))
+sys.path.insert(0, str(REPO / "apps" / "api"))
 
 from app.core.auth import sign_token  # noqa: E402
 

@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "services" / "api"))
+sys.path.insert(0, str(ROOT / "apps" / "api"))
 
 from app.db.session import get_sessionmaker  # noqa: E402
 from app.services.scenario_sync import SyncReport, sync_files  # noqa: E402
@@ -42,7 +42,7 @@ def _ensure_schema() -> None:
     # Run alembic from the repo root so relative DB paths like
     # ``sqlite:///./foo.db`` resolve the same way they do for the CLI's
     # own SQLAlchemy calls.
-    api_dir = ROOT / "services" / "api"
+    api_dir = ROOT / "apps" / "api"
     alembic_ini = api_dir / "alembic.ini"
     r = subprocess.run(
         [sys.executable, "-m", "alembic", "--config", str(alembic_ini), "upgrade", "head"],

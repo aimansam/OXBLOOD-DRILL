@@ -5,7 +5,7 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/services/api')
+sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/apps/api')
 
 from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config
@@ -43,7 +43,6 @@ def create_debian_templates(client, node, source_vmid=107):
     print("\n🔵 Creating Debian templates (instant - cloning from tpl-debian-cloudinit)...")
     
     templates = [
-        ('tpl-debian-router', 2, 2048),
         ('tpl-debian-syslog', 2, 2048),
     ]
     

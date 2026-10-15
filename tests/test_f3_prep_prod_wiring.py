@@ -31,7 +31,7 @@ def _read(rel: str) -> str:
 def test_dockerfile_installs_argon2_cffi():
     """The runtime image must install argon2-cffi or the
     /api/v1/auth/login endpoint will ImportError on every request."""
-    src = _read("services/api/Dockerfile")
+    src = _read("apps/api/Dockerfile")
     # Builder wheel list:
     assert re.search(r'"argon2-cffi[^\"]*"', src), (
         "Dockerfile builder must include argon2-cffi in the wheel list"
@@ -179,5 +179,4 @@ def test_issue_token_docstring_references_login_flow():
         "tools/issue_token.py docstring should reference the "
         "credential-login flow (tools/login.py)"
     )
-
 

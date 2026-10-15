@@ -65,7 +65,7 @@ def test_demo_scenario_validates_against_schema():
     import subprocess
     import sys
 
-    env = {"PYTHONPATH": str(REPO / "services" / "api")}
+    env = {"PYTHONPATH": str(REPO / "apps" / "api")}
     r = subprocess.run(
         [sys.executable, "-m", "tools.validate_scenario", str(SCENARIO_PATH)],
         capture_output=True,
@@ -225,5 +225,4 @@ EXPECTED_BLUE_KEYWORDS = {
 # Return string literal; not a substring keyword but the test
 # pins every quoted string the classifier uses.
 EXPECTED_OTHER_KEYWORDS = {"unassigned"}
-
 

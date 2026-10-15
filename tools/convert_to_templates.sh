@@ -32,7 +32,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services" / "api"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "apps" / "api"))
 
 from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config
@@ -129,7 +129,7 @@ if converted:
         'tpl-win11-enterprise',
         'tpl-win2022-dc',
         'tpl-win2022-member',
-        'tpl-debian-router',
+        'tpl-opnsense',
         'tpl-debian-syslog',
     ]
     
@@ -143,7 +143,7 @@ if converted:
     print("Playability:")
     scenarios = {
         'first-live-drill': ['tpl-debian-cloudinit'],
-        'red-vs-blue-baseline': ['tpl-kali-cloudinit', 'tpl-debian-router', 'tpl-debian-cloudinit', 'tpl-debian-syslog'],
+        'red-vs-blue-baseline': ['tpl-kali-cloudinit', 'tpl-opnsense', 'tpl-debian-cloudinit', 'tpl-debian-syslog'],
         'lateral-movement-baseline': ['tpl-kali-cloudinit', 'tpl-win11-enterprise', 'tpl-win2022-dc'],
         'phish-to-ransom': ['tpl-kali-cloudinit', 'tpl-win11-enterprise', 'tpl-win2022-dc', 'tpl-win2022-member'],
     }

@@ -24,13 +24,13 @@ jobs:
       - name: Ruff format check
         run: ruff format --check .
       - name: MyPy
-        run: mypy services/api/app
+        run: mypy apps/api/app
       - name: Install scenario validation deps
         run: pip install jsonschema pyyaml
       - name: Validate scenario YAML
         run: python tools/validate_scenario.py examples/scenarios/
       - name: Pytest (API)
-        run: pytest services/api/tests tests
+        run: pytest apps/api/tests tests
         env:
           DIVIDE_DB_URL: sqlite+aiosqlite:///./test.sqlite
           DIVIDE_REDIS_URL: redis://localhost:6379/0
@@ -87,10 +87,10 @@ jobs:
         env:
           DIVIDE_DB_URL: postgresql+asyncpg://divide:divide@localhost:5432/divide_test
         run: |
-          cd services/api
+          cd apps/api
           PYTHONPATH=. alembic upgrade head
       - name: Pytest (live_pg)
         env:
           DIVIDE_TEST_LIVE_PG: "1"
           DIVIDE_TEST_LIVE_PG_URL: postgresql+asyncpg://divide:divide@localhost:5432/divide_test
-        run: pytest -m live_pg services/api/tests
+        run: pytest -m live_pg apps/api/tests

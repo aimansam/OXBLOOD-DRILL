@@ -1,0 +1,22 @@
+          <div class="page-header report-page-header">
+            <button class="report-atlas-back" type="button" onclick="app.loadPage('range-hub')" aria-label="Back to Range Hub" title="Back to Range Hub">←</button>
+            <div><span class="report-atlas-kicker">OXBLOOD // MISSION RECORD</span><h1 class="page-title">Reports</h1></div>
+            <div class="report-atlas-count" id="reports-count">Loading</div>
+          </div>
+          <div id="reports-list-view">
+            <section class="report-atlas-viewport" id="report-atlas-viewport" aria-label="Interactive mission report archive">
+              <div class="report-atlas-world" id="report-atlas-world">
+                <svg class="report-atlas-links" id="report-atlas-links" aria-hidden="true"></svg>
+                <div class="report-atlas-nodes" id="reports-list" aria-live="polite">
+                <div class="skeleton" style="height: 14px; margin-bottom: 8px;"></div>
+                <div class="skeleton" style="height: 14px; width: 60%;"></div>
+                </div>
+              </div>
+              <div class="report-atlas-zoom" role="group" aria-label="Report archive controls"><button type="button" onclick="app.zoomReportAtlas(1.18)" aria-label="Zoom in" title="Zoom in">+</button><button type="button" onclick="app.zoomReportAtlas(.84)" aria-label="Zoom out" title="Zoom out">−</button><button type="button" onclick="app.fitReportAtlas()" title="Fit archive">Fit</button></div>
+              <div class="report-atlas-hint">DRAG TO EXPLORE <i></i> SCROLL TO ZOOM</div>
+            </section>
+          </div>
+          <div id="reports-detail-view" style="display: none;">
+            <button class="btn btn-secondary btn-sm" style="margin-bottom: var(--space-lg);" onclick="app.backToReportsList()">&larr; Back to Reports</button>
+            <div id="report-detail"><div class="skeleton" style="height: 14px;"></div></div>
+          </div>

@@ -1,0 +1,66 @@
+<div class="page active">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title" id="settings-title">Account</h1>
+    </div>
+    <button class="settings-atlas-back" type="button" onclick="app.loadPage('range-hub')" aria-label="Back to Range Hub" title="Back to Range Hub">←</button>
+  </div>
+
+  <section class="settings-atlas" aria-label="Account sections">
+    <svg class="settings-atlas-links" viewBox="0 0 1000 600" aria-hidden="true"><path d="M500 300V88M500 300H120M500 300H880M500 300V512" /></svg>
+    <div class="settings-atlas-origin">OxBlood</div>
+    <button type="button" class="settings-atlas-node settings-node-profile" onclick="app.selectSettingsNode('profile')"><span>01</span><strong>Profile</strong></button>
+    <button type="button" class="settings-atlas-node settings-node-session" onclick="app.selectSettingsNode('session')"><span>02</span><strong>Session</strong></button>
+    <button type="button" class="settings-atlas-node settings-node-record" onclick="app.selectSettingsNode('record')"><span>03</span><strong>Drill record</strong></button>
+    <button type="button" class="settings-atlas-node settings-node-activity" onclick="app.selectSettingsNode('activity')"><span>04</span><strong>Activity</strong></button>
+  </section>
+
+  <div class="account-grid">
+    <div class="card" data-settings-panel="profile">
+      <div class="card-header">
+        <h3 class="card-title">Profile</h3>
+      </div>
+      <div id="settings-profile" class="account-list">
+        <div class="skeleton" style="height: 16px;"></div>
+      </div>
+    </div>
+
+    <div class="card" data-settings-panel="session">
+      <div class="card-header">
+        <h3 class="card-title">Session</h3>
+      </div>
+      <div class="account-list">
+        <div class="row-between">
+          <span class="label">Sound</span>
+          <label class="toggle-row">
+            <input type="checkbox" data-sound-toggle onchange="app.setSoundEnabled(this.checked)">
+            <span id="sound-state" class="value small">On</span>
+          </label>
+        </div>
+        <div class="row-between">
+          <span class="label">Expires</span>
+          <span id="token-ttl" class="value small" style="font-family: var(--font-mono);">--</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="Auth.logout()">Sign Out</button>
+      </div>
+    </div>
+
+    <div class="card account-record-card" data-settings-panel="record">
+      <div class="card-header">
+        <h3 class="card-title">Drill Record</h3>
+      </div>
+      <div id="user-stats" class="account-stat-grid">
+        <div class="skeleton" style="height: 18px;"></div>
+      </div>
+    </div>
+
+    <div class="card account-activity-card" data-settings-panel="activity">
+      <div class="card-header">
+        <h3 class="card-title">Recent Activity</h3>
+      </div>
+      <div id="user-activity">
+        <div class="small muted">Loading...</div>
+      </div>
+    </div>
+  </div>
+</div>

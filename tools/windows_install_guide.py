@@ -3,7 +3,7 @@
 import os
 import sys
 import time
-sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/services/api')
+sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/apps/api')
 
 from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config
@@ -111,7 +111,7 @@ def main():
     print("  export PROXMOX_USER=divide@pve@pam PROXMOX_TOKEN_ID=drill-token")
     print("  export PROXMOX_TOKEN_SECRET=4ea3414f-d3a4-47b5-a2ed-19018f416cc0")
     print("  export PROXMOX_VERIFY_SSL=false")
-    print("  export PYTHONPATH=/DATA/Storage/docker/divide-cyber-drill/services/api")
+    print("  export PYTHONPATH=/DATA/Storage/docker/divide-cyber-drill/apps/api")
     print("  python3 tools/convert_to_templates.py")
     print()
     print("=" * 70)

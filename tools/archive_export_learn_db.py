@@ -85,7 +85,7 @@ async def main() -> int:
     try:
         async with src_eng.connect() as sconn, dst_eng.connect() as dconn:
             # Create Learn tables on target from shared metadata (Learn subset).
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "services", "api"))
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "apps", "api"))
             from app.db.models_oxblood import Base as OxBase  # noqa: E402
 
             learn_meta = MetaData()
