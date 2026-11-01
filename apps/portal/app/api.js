@@ -239,8 +239,8 @@ class API {
     return await this._v1('/admin/pve-config');
   }
 
-  static async adminListPveGuests() {
-    return await this._v1(`/admin/pve-guests?_=${Date.now()}`);
+  static async adminListPveGuests(drillOnly = false) {
+    return await this._v1(`/admin/pve-guests?drill_only=${drillOnly}&_=${Date.now()}`);
   }
 
   static async adminListStorage() {

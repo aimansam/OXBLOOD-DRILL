@@ -3,14 +3,14 @@
     <button class="drill-catalog-back" type="button" onclick="app.loadPage('range-hub')" aria-label="Back to Range Hub" title="Back to Range Hub">←</button>
     <div class="threat-queue-head">
       <div>
-        <span class="threat-kicker">OxBlood // operations</span>
-        <h1 class="page-title">Cyber Drills</h1>
-        <p class="threat-queue-note" id="drill-catalog-note">Review active operations or prepare an approved scenario.</p>
+        <span class="threat-kicker">OxBlood / Operations</span>
+        <h1 class="page-title">Exercises</h1>
+        <p class="threat-queue-note" id="drill-catalog-note">Manage exercises and their participants.</p>
       </div>
       <div class="drill-catalog-tools">
         <label class="drill-catalog-search"><span aria-hidden="true">⌕</span><input type="search" id="drill-catalog-search" placeholder="Find a drill" oninput="app.filterDrills(this.value)" aria-label="Find a drill"></label>
         <button class="btn btn-secondary" type="button" onclick="app.loadDrills()" title="Refresh drill catalog">Refresh</button>
-        <button id="create-drill-btn" class="btn btn-primary admin-only" onclick="app.showCreateDrillModal()">+ Create Scheduled Drill</button>
+        <button id="create-drill-btn" class="btn btn-primary admin-only" onclick="app.showCreateDrillModal()">New Exercise</button>
       </div>
     </div>
     <div class="drill-catalog-toolbar">
@@ -58,10 +58,11 @@
       <div class="threat-hud-actions">
         <button class="threat-hud-icon operator-only" type="button" onclick="app.showRangeReadiness()" title="Range readiness checks" aria-label="Range readiness checks">&#10003;</button>
         <button id="btn-start-drill" class="btn btn-primary operator-only" type="button" style="display:none" onclick="app.startDrill(app.currentDrillId, this)">Prepare range</button>
+        <button id="btn-cleanup-range" class="btn btn-secondary operator-only" type="button" style="display:none" onclick="app.stopDrill()">Clean up range</button>
         <button class="threat-hud-icon" type="button" onclick="app.toggleThreatHudMetrics(this)" title="Range status" aria-label="Range status" aria-expanded="false">i</button>
         <button id="threat-map-pause" class="threat-hud-icon operator-only" type="button" onclick="app.pauseDrill()" title="Pause drill" aria-label="Pause drill">Ⅱ</button>
         <button id="threat-map-resume" class="threat-hud-icon operator-only" type="button" onclick="app.resumeDrill()" title="Resume drill" aria-label="Resume drill">▶</button>
-        <button class="threat-hud-icon operator-only" type="button" onclick="app.stopDrill()" title="Stop drill" aria-label="Stop drill">■</button>
+        <button id="threat-map-stop" class="threat-hud-icon operator-only" type="button" onclick="app.stopDrill()" title="Stop drill" aria-label="Stop drill">■</button>
       </div>
     </header>
 

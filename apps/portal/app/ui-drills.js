@@ -4,8 +4,14 @@
  */
 
 Object.assign(UI.prototype, {
-  async playDrill(drillId) {
+  async playDrill(drillId, options = {}) {
     try {
+      const listed = (this._allDrills || []).find((item) => Number(item.id) === Number(drillId));
+      const listedStatus = String((listed && listed.status) || '').toLowerCase();
+      if (this._isParticipant() && !options.forceLive && listed && !['active', 'paused'].includes(listedStatus)) {
+        this.openParticipantLobby(listed);
+        return;
+      }
       const drill = await API.get(`/drills/${drillId}`);
       if (this._isParticipant() && !['active', 'paused'].includes(String(drill.status || '').toLowerCase())) {
         this.showToast('This mission is not open yet.', 'warning');
@@ -13,6 +19,7 @@ Object.assign(UI.prototype, {
       }
       this.currentDrillId = drillId;
       this.currentDrill = drill;
+      this.stopParticipantLobbyPolling();
       this._applyRoleVisibility();
       document.body.classList.remove('drill-catalog-mode');
       
@@ -49,11 +56,13 @@ Object.assign(UI.prototype, {
       this.loadDrillStats(drillId);
       this.loadDrillObjectives(drillId);
       this.loadDrillFlags(drillId);
-      this.loadDrillParticipantsExtended(drillId);
+      if (this._isOperator()) {
+        this.loadDrillParticipantsExtended(drillId);
+        this.loadDrillTeams(drillId);
+      }
       this.loadDrillScores(drillId);
       this.loadDrillFirstBloods(drillId);
       this.loadDrillSubmissions(drillId);
-      this.loadDrillTeams(drillId);
       this.loadDrillRangeHealth(drillId);
       this.loadDrillAccess(drillId);
       this.loadOperatorLiveFlow(drillId);
@@ -80,6 +89,85 @@ Object.assign(UI.prototype, {
       } else {
         this.showToast('Failed to load drill', 'error');
       }
+    }
+  },
+
+  openParticipantLobby(drill) {
+    if (!this._isParticipant() || !drill) return;
+    this.stopDrillPolling();
+    this.currentDrillId = Number(drill.id);
+    this.currentDrill = drill;
+    document.body.classList.remove('drill-catalog-mode');
+    document.body.classList.add('threat-map-mode');
+    const list = document.getElementById('drills-list-view');
+    const active = document.getElementById('drills-active-view');
+    const root = document.getElementById('threat-map-root');
+    const title = document.getElementById('threat-map-title');
+    const subtitle = document.getElementById('threat-map-subtitle');
+    const metrics = document.getElementById('threat-map-metrics');
+    if (list) list.style.display = 'none';
+    if (active) {
+      active.style.display = 'block';
+      active.classList.add('participant-workspace');
+      active.classList.remove('operator-workspace');
+    }
+    if (title) title.textContent = drill.title || 'Mission lobby';
+    if (subtitle) subtitle.textContent = String(this._role() || 'team').toUpperCase() + ' TEAM // MISSION LOBBY';
+    if (metrics) metrics.hidden = true;
+    if (root) this.renderParticipantLobbyStatus(drill);
+    this.startParticipantLobbyPolling(Number(drill.id));
+  },
+
+  renderParticipantLobbyStatus(drill) {
+    const root = document.getElementById('threat-map-root');
+    if (!root) return;
+    const env = (drill && drill.environment_config) || {};
+    const phase = String((drill && drill.lifecycle && drill.lifecycle.provision_phase) || env.provision_status || '').toLowerCase();
+    const status = String((drill && drill.status) || 'scheduled').toLowerCase();
+    let heading = 'Waiting for operator';
+    let detail = 'You are enrolled. The mission opens when the operator launches the drill.';
+    let state = 'waiting';
+    if (['starting', 'waiting', 'validating'].includes(phase)) {
+      heading = 'Range preparing';
+      detail = 'The range is restoring from its clean mission baseline.';
+      state = 'preparing';
+    } else if (phase === 'validation_failed') {
+      heading = 'Range needs attention';
+      detail = 'The operator is resolving readiness checks before launch.';
+      state = 'attention';
+    } else if (phase === 'started' && status === 'scheduled') {
+      heading = 'Range ready';
+      detail = 'The range is prepared. Waiting for the operator to launch the mission.';
+      state = 'ready';
+    }
+    root.innerHTML = '<section class="participant-mission-lobby state-' + this.sanitizeHTML(state) + '" aria-live="polite"><span class="participant-lobby-kicker">' + this.sanitizeHTML(String(this._role() || 'team').toUpperCase()) + ' TEAM // ENROLLED</span><strong>' + this.sanitizeHTML(heading) + '</strong><p>' + this.sanitizeHTML(detail) + '</p><span class="participant-lobby-signal"><i></i>' + this.sanitizeHTML(phase || status) + '</span></section>';
+  },
+
+  startParticipantLobbyPolling(drillId) {
+    this.stopParticipantLobbyPolling();
+    this._participantLobbyInterval = setInterval(async () => {
+      if (this.currentDrillId !== drillId || !document.body.classList.contains('threat-map-mode')) return;
+      try {
+        const status = await API.get(`/drills/${drillId}/status?refresh=false`);
+        const drill = Object.assign({}, this.currentDrill || {}, status);
+        this.currentDrill = drill;
+        if (['active', 'paused'].includes(String(status.status || '').toLowerCase())) {
+          this.stopParticipantLobbyPolling();
+          await this.playDrill(drillId, { forceLive: true });
+          return;
+        }
+        this.renderParticipantLobbyStatus(drill);
+      } catch (error) {
+        // The roster may have changed; return safely to the participant list.
+        if (String(error.message || '').includes('403')) this.backToDrillList();
+      }
+    }, 4000);
+  },
+
+  stopParticipantLobbyPolling() {
+    if (this._participantLobbyInterval) {
+      clearInterval(this._participantLobbyInterval);
+      this._participantLobbyInterval = null;
     }
   },
 
@@ -290,7 +378,7 @@ Object.assign(UI.prototype, {
     }).join('');
   },
 
-  renderMissionDirectorEvidence(assets) {
+  renderMissionDirectorEvidence(assets, scenario = null) {
     const div = document.getElementById('mission-director-evidence');
     if (!div) return;
     const rows = Array.isArray(assets) ? assets : [];
@@ -300,7 +388,7 @@ Object.assign(UI.prototype, {
     }
     div.innerHTML = '<div class="director-evidence-chain">' + rows.slice(0, 6).map((asset, index) => {
       const role = String(asset.role || 'machine').replace(/_/g, ' ');
-      const label = role.replace(/\b\w/g, (char) => char.toUpperCase());
+      const label = scenario ? this._scenarioVmLabel(scenario, asset.role) : role.replace(/\b\w/g, (char) => char.toUpperCase());
       const status = String(asset.status || 'planned').toLowerCase();
       const state = status === 'running' ? 'live' : status === 'failed' || asset.error ? 'alert' : 'quiet';
       const meta = this._topologyDeviceMeta ? this._topologyDeviceMeta(asset) : { os: 'VM', kind: 'Virtual machine' };
@@ -372,7 +460,8 @@ Object.assign(UI.prototype, {
     setDisplay('drill-briefing-card', !this._isOperator());
     setDisplay('timeline-note-composer', this._isOperator() && (isActive || isPaused));
     setDisplay('btn-start-drill', this._isOperator() && isScheduled);
-    const phase = ((drill || {}).environment_config || {}).provision_status;
+    const environment = ((drill || {}).environment_config || {});
+    const phase = environment.provision_status;
     const preparing = ['starting', 'waiting', 'validating'].includes(phase);
     const prepared = !drill.scenario_id || ['started', 'validation_failed'].includes(phase);
     const start = document.getElementById('btn-start-drill');
@@ -382,7 +471,10 @@ Object.assign(UI.prototype, {
     }
     setDisplay('btn-pause-drill', this._isOperator() && isActive);
     setDisplay('btn-resume-drill', this._isOperator() && isPaused);
-    setDisplay('btn-stop-drill', this._isOperator() && (isActive || isPaused));
+    const cleanupRequired = isScheduled && environment.cleanup_status !== 'stopped'
+      && !!(environment.provision_run_id || ['starting', 'waiting', 'validating', 'validation_failed', 'failed', 'started'].includes(phase));
+    setDisplay('btn-cleanup-range', this._isOperator() && cleanupRequired);
+    setDisplay('threat-map-stop', this._isOperator() && (isActive || isPaused));
     setDisplay('btn-report-drill', this._isOperator() && isDone);
     setDisplay('drill-control-card', this._isOperator() && (isScheduled || isActive || isPaused || isDone));
 
@@ -571,12 +663,15 @@ Object.assign(UI.prototype, {
     try {
       const data = await API.get(`/drills/${drillId}/access`);
       const assets = data.assets || [];
+      const scenario = this.currentDrill?.scenario_id
+        ? await this._catalogScenarioById(this.currentDrill.scenario_id).catch(() => null)
+        : null;
       this._missionNodeSummary = {
         total: assets.length,
         ready: assets.filter((asset) => String(asset.status || '').toLowerCase() === 'running').length,
         failed: assets.filter((asset) => String(asset.status || '').toLowerCase() === 'failed' || asset.error).length,
       };
-      this.renderMissionDirectorEvidence(assets);
+      this.renderMissionDirectorEvidence(assets, scenario);
       this.renderMissionHud(this.currentDrill);
       if (!assets.length) {
         div.innerHTML = '<div class="empty-state"><div class="empty-hint">' + this.sanitizeHTML(data.message || 'No accessible VMs for your role yet.') + '</div></div>';
@@ -621,7 +716,7 @@ Object.assign(UI.prototype, {
           + '<div class="row-between" style="align-items: flex-start; gap: var(--space-md); margin-bottom: var(--space-sm);">'
           + '<div class="machine-heading">'
           + '<span class="machine-icon" aria-hidden="true"></span>'
-          + `<div><div class="value">${this.sanitizeHTML(humanName(asset.role))}</div><div class="small muted">${this.sanitizeHTML(state.hint)}</div></div>`
+          + `<div><div class="value">${this.sanitizeHTML(scenario ? this._scenarioVmLabel(scenario, asset.role) : humanName(asset.role))}</div><div class="small muted">${this.sanitizeHTML(state.hint)}</div></div>`
           + '</div>'
           + `<span class="status-pill status-pill-${state.cls}${state.cls === 'active' ? ' pulse' : ''}">${this.sanitizeHTML(state.text)}</span>`
           + '</div>'
@@ -677,6 +772,9 @@ Object.assign(UI.prototype, {
         return !side || side === role;
       });
       const assets = accessData.assets || [];
+      const scenario = this.currentDrill?.scenario_id
+        ? await this._catalogScenarioById(this.currentDrill.scenario_id).catch(() => null)
+        : null;
       const primaryAsset = assets.find((asset) => asset.side === role) || assets[0];
       const helperAsset = role === 'blue'
         ? assets.find((asset) => /log|syslog|siem/i.test(asset.role || ''))
@@ -688,7 +786,7 @@ Object.assign(UI.prototype, {
       const machineLine = (asset, fallback) => {
         if (!asset) return `<span class="muted">${this.sanitizeHTML(fallback)}</span>`;
         const ready = String(asset.status || '').toLowerCase() === 'running';
-        return `${this.sanitizeHTML(humanName(asset.role))} ${ready ? '<span class="status-pill status-pill-active pulse">Ready</span>' : '<span class="status-pill status-pill-scheduled">Starting</span>'}`
+        return `${this.sanitizeHTML(scenario ? this._scenarioVmLabel(scenario, asset.role) : humanName(asset.role))} ${ready ? '<span class="status-pill status-pill-active pulse">Ready</span>' : '<span class="status-pill status-pill-scheduled">Starting</span>'}`
           + `<div class="small muted">${asset.ip ? this.sanitizeHTML(asset.ip) : 'No address yet'}</div>`;
       };
       const objectiveHtml = objectives.length
@@ -1253,16 +1351,28 @@ Object.assign(UI.prototype, {
   async stopDrill(drillId) {
     if (!this._isOperator()) return;
     const id = drillId || this.currentDrillId;
-    const ok = await this.showConfirm({ title: 'Stop this drill?', detail: 'The timer freezes and scoring closes. This cannot be undone.', confirmLabel: 'Stop drill', danger: true });
+    const cleanupRequired = this.currentDrill && Number(this.currentDrill.id) === Number(id)
+      && this.currentDrill.status === 'scheduled';
+    const ok = await this.showConfirm({
+      title: cleanupRequired ? 'Clean up this range?' : 'Stop this drill?',
+      detail: cleanupRequired ? 'Cancel this scheduled drill and remove its provisioned VMs. This cannot be undone.' : 'The timer freezes and scoring closes. This cannot be undone.',
+      confirmLabel: cleanupRequired ? 'Clean up range' : 'Stop drill',
+      danger: true,
+    });
     if (!ok) return;
     let stopped = false;
     try {
-      this.showToast('Stopping drill…', 'info');
-      await this._withButtonBusy('btn-stop-drill', 'Stopping...', () => API.post(`/drills/${id}/stop`, {}));
+      this.showToast(cleanupRequired ? 'Cleaning up range…' : 'Stopping drill…', 'info');
+      const result = await this._withButtonBusy(cleanupRequired ? 'btn-cleanup-range' : 'threat-map-stop', cleanupRequired ? 'Cleaning up...' : 'Stopping...', () => API.post(`/drills/${id}/stop`, {}));
       stopped = true;
-      this.showToast('Drill stopped', 'success');
+      if (result.cleanup_status !== 'stopped') {
+        this.showToast('Range cleanup did not finish. Inspect the drill before preparing another range.', 'error');
+        await this.playDrill(id);
+        return;
+      }
+      this.showToast(cleanupRequired ? 'Range cleaned up' : 'Drill stopped', 'success');
       const isOpenDrill = id === this.currentDrillId;
-      if (isOpenDrill) {
+      if (isOpenDrill && !cleanupRequired) {
         const goReport = await this.showConfirm({ title: 'Drill completed', detail: 'Open Reports to write the after-action debrief?', confirmLabel: 'Open Reports' });
         this.currentDrillId = null; this.currentDrill = null;
         this.stopDrillPolling();
@@ -1282,12 +1392,17 @@ Object.assign(UI.prototype, {
 
   backToDrillList() {
     this.stopDrillPolling();
+    this.stopParticipantLobbyPolling();
     if (this.stopThreatStoryReplay) this.stopThreatStoryReplay();
     if (this._threatCameraFrames) {
       Object.values(this._threatCameraFrames).forEach((frame) => cancelAnimationFrame(frame));
       this._threatCameraFrames = {};
     }
     this.toggleMissionDrawer(false);
+    if (this._isParticipant()) {
+      this.loadPage('my-mission');
+      return;
+    }
     document.body.classList.remove('threat-map-mode');
     if (this._threatClockInterval) {
       clearInterval(this._threatClockInterval);

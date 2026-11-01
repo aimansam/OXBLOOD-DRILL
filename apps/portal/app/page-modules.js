@@ -2,10 +2,13 @@
 (function attachPageModules(root) {
   const handlers = {
     'range-hub': 'loadRangeHub',
+    'my-mission': 'loadMyMission',
     dashboard: 'loadDashboard',
     drills: 'loadDrills',
     scenarios: 'loadScenariosPage',
+    teams: 'loadTeamsPage',
     infrastructure: 'loadInfrastructurePage',
+    scoreboard: 'loadScoreboardPage',
     reports: 'loadReports',
     settings: 'loadSettings',
     setup: 'loadSetup',

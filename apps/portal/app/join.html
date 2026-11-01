@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Join a mission · OxBlood Drill</title>
+  <link rel="icon" type="image/svg+xml" href="/drill/favicon.svg">
+  <link rel="stylesheet" href="/join.css?v=1">
+</head>
+<body>
+  <header class="join-topbar"><a class="join-brand" href="/">OxBlood<span> Drill</span></a><a class="join-signin" href="/login">Already have an account? <b>Sign in</b></a></header>
+  <main class="join-main">
+    <div class="join-shell">
+      <div class="join-intro"><span class="join-eyebrow">INVITATION / OXBLOOD DRILL</span><h1>Join the mission.</h1><p>One account. One side. Your place in the exercise is ready when you are.</p></div>
+      <section class="join-card" aria-labelledby="join-card-title">
+        <div class="join-mission" id="joinMission"><span class="join-kicker">YOUR INVITATION</span><h2 id="join-card-title">Checking your link…</h2><p id="joinMissionSub">This usually takes a moment.</p></div>
+        <form id="joinForm" hidden>
+          <div class="join-fields"><label for="joinUsername">Choose a username</label><input id="joinUsername" name="username" type="text" minlength="3" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9_.-]*" autocomplete="username" spellcheck="false" required><small>3–64 letters, numbers, dots, dashes or underscores.</small></div>
+          <div class="join-fields"><label for="joinPassword">Create a password</label><input id="joinPassword" name="password" type="password" minlength="8" autocomplete="new-password" required><small>At least 8 characters.</small></div>
+          <p class="join-error" id="joinError" role="alert" hidden></p>
+          <button class="join-submit" id="joinSubmit" type="submit">Create account &amp; join <span aria-hidden="true">→</span></button>
+          <p class="join-footnote">Your link works once and expires after 24 hours. Keep it private.</p>
+        </form>
+        <div class="join-unavailable" id="joinUnavailable" hidden><p id="joinUnavailableMessage">This invitation is no longer available. Ask the operator for a new link.</p><a href="/login">Go to sign in</a></div>
+      </section>
+      <div class="join-steps"><span><b>01</b> Create account</span><i></i><span><b>02</b> Enter mission</span><i></i><span><b>03</b> Play your side</span></div>
+    </div>
+  </main>
+  <script src="/join.js?v=1"></script>
+</body>
+</html>

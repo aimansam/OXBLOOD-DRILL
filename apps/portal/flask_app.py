@@ -35,10 +35,25 @@ def login():
     return send_from_directory(APP_DIR, 'login.html')
 
 
+@app.route('/join')
+def join():
+    """Invite-only participant registration page."""
+    response = send_from_directory(APP_DIR, 'join.html')
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    return response
+
+
 @app.route('/drill/')
 def drill_index():
     """Serve the drill platform index."""
     return send_from_directory(APP_DIR, 'index.html')
+
+
+@app.route('/drill/three/')
+def three_map_index():
+    """Serve the isolated React/Three live-range client."""
+    return send_from_directory(os.path.join(APP_DIR, 'three'), 'index.html')
 
 
 def _is_asset_path(path):

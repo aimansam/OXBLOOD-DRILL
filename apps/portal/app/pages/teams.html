@@ -1,0 +1,9 @@
+<main class="workspace-teams" aria-labelledby="teams-title">
+  <header class="workspace-scoreboard-head">
+    <div><h1 id="teams-title">Teams</h1><p>Invite and assign Red and Blue players before launch.</p></div>
+    <label class="workspace-scoreboard-picker">Exercise
+      <select id="teams-exercise" onchange="app.showTeamsDrill(this.value)" aria-label="Choose exercise"><option>Loading exercises...</option></select>
+    </label>
+  </header>
+  <div id="teams-body" aria-live="polite"><p class="workspace-empty">Loading roster...</p></div>
+</main>

@@ -39,7 +39,7 @@ class UI {
     this.setupNavigation();
     this._setupAudioUnlock();
     this._setupModalEsc();
-    this.loadPage('range-hub');
+    this.loadPage(this._isParticipant() ? 'my-mission' : 'range-hub');
   }
 
   async loadShellComponents() {
@@ -77,6 +77,12 @@ class UI {
     if (rankBadge) {
       rankBadge.textContent = this.user.role.toUpperCase();
     }
+    const accountName = document.getElementById('workspace-account-name');
+    const accountRole = document.getElementById('workspace-account-role');
+    const accountAvatar = document.querySelector('.workspace-account-avatar');
+    if (accountName) accountName.textContent = this.user.sub;
+    if (accountRole) accountRole.textContent = this.user.role;
+    if (accountAvatar) accountAvatar.textContent = this.user.sub.substring(0, 2).toUpperCase();
   }
 
   _role() {
@@ -89,6 +95,10 @@ class UI {
 
   _isParticipant() {
     return ['red', 'blue'].includes(this._role());
+  }
+
+  openHome() {
+    return this.loadPage(this._isParticipant() ? 'my-mission' : 'range-hub');
   }
 
   _applyRoleVisibility(root = document) {
@@ -187,18 +197,157 @@ class UI {
 
   setupNavigation() {
     this._setupOverflowClose();
+    const sidebar = document.getElementById('workspace-sidebar');
+    if (sidebar && localStorage.getItem('oxblood-sidebar-collapsed') === 'true') sidebar.classList.add('is-collapsed');
+  }
+
+  toggleWorkspaceSidebar() {
+    const sidebar = document.getElementById('workspace-sidebar');
+    if (!sidebar) return;
+    if (window.matchMedia('(max-width:760px)').matches) {
+      const opened = sidebar.classList.toggle('is-mobile-open');
+      sidebar.querySelector('.workspace-sidebar-toggle')?.setAttribute('aria-label', opened ? 'Close navigation' : 'Open navigation');
+      return;
+    }
+    const collapsed = sidebar.classList.toggle('is-collapsed');
+    localStorage.setItem('oxblood-sidebar-collapsed', String(collapsed));
+    sidebar.querySelector('.workspace-sidebar-toggle')?.setAttribute('aria-label', collapsed ? 'Expand navigation' : 'Collapse navigation');
+  }
+
+  async openWorkspaceTeams() {
+    await this.loadPage('teams');
+  }
+
+  async loadTeamsPage() {
+    const select = document.getElementById('teams-exercise');
+    const body = document.getElementById('teams-body');
+    if (!select || !body) return;
+    try {
+      const drills = await API.getAllDrills();
+      this._teamsDrills = drills;
+      const preferred = drills.find((drill) => String(drill.status || '').toLowerCase() === 'scheduled') || drills[0];
+      select.innerHTML = drills.length
+        ? drills.map((drill) => '<option value="' + Number(drill.id) + '">' + this.sanitizeHTML(drill.title || drill.scenario_name || 'Exercise') + ' #' + Number(drill.id) + ' · ' + this.sanitizeHTML(String(drill.status || 'unknown')) + '</option>').join('')
+        : '<option value="">No exercises</option>';
+      if (preferred) {
+        select.value = String(preferred.id);
+        await this.showTeamsDrill(preferred.id);
+      }
+      else body.innerHTML = '<p class="workspace-empty">No exercises are available yet.</p>';
+    } catch (error) {
+      body.innerHTML = '<p class="workspace-empty">Could not load exercises. ' + this.sanitizeHTML(error.message || '') + '</p>';
+    }
+  }
+
+  async showTeamsDrill(drillId) {
+    const body = document.getElementById('teams-body');
+    const id = Number(drillId);
+    if (!body || !Number.isInteger(id) || id <= 0) return;
+    body.innerHTML = '<p class="workspace-empty">Loading roster...</p>';
+    try {
+      const result = await API.get('/drills/' + id + '/participants');
+      if (document.getElementById('teams-body') !== body || Number(document.getElementById('teams-exercise')?.value) !== id) return;
+      const people = (result.participants || []).filter((person) => !['removed', 'left'].includes(String(person.status || '').toLowerCase()));
+      const drill = (this._teamsDrills || []).find((item) => Number(item.id) === id);
+      const scheduled = String(drill?.status || '').toLowerCase() === 'scheduled';
+      const lane = (side) => {
+        const members = people.filter((person) => String(person.role || '').toLowerCase() === side);
+        return '<section class="workspace-team-lane"><div class="workspace-team-lane-head"><h2>' + side.charAt(0).toUpperCase() + side.slice(1) + ' team</h2><span>' + members.length + ' assigned</span></div>' + (members.length ? '<ul>' + members.map((person) => '<li><span class="workspace-team-avatar">' + this.sanitizeHTML(String(person.username || person.sub || 'U').slice(0,2).toUpperCase()) + '</span><strong>' + this.sanitizeHTML(person.username || person.sub || ('User ' + Number(person.user_id))) + '</strong></li>').join('') + '</ul>' : '<p>No player assigned</p>') + '</section>';
+      };
+      const fresh = scheduled && this._teamsInviteLink?.drillId === id ? this._teamsInviteLink : null;
+      const invite = scheduled
+        ? '<section class="workspace-team-invites"><div><h2>Invite players</h2><p>Create a separate single-use link for each player. They choose a username and password, then join the selected team automatically.</p></div><div class="workspace-team-invite-actions"><button type="button" class="btn btn-secondary" onclick="app.generateTeamsInvite(' + id + ',\'red\')">Create Red link</button><button type="button" class="btn btn-secondary" onclick="app.generateTeamsInvite(' + id + ',\'blue\')">Create Blue link</button></div>'
+          + (fresh ? '<div class="workspace-team-invite-result" role="status"><strong>' + this.sanitizeHTML(fresh.side.toUpperCase()) + ' link ready</strong><span>Copy this link now; it cannot be retrieved after refresh.</span><div><input id="roster-invite-url" type="text" readonly aria-label="Participant invitation link"><button type="button" class="btn btn-primary" onclick="app.copyRosterInvite()">Copy link</button></div></div>' : '') + '</section>'
+        : '<p class="workspace-team-closed">Registration is closed for this ' + this.sanitizeHTML(String(drill?.status || 'unavailable').toLowerCase()) + ' exercise. Select a scheduled exercise above.</p>';
+      body.innerHTML = '<div class="workspace-team-grid">' + lane('red') + lane('blue') + '</div>' + invite
+        + (scheduled ? '<button class="workspace-manage-button" type="button" onclick="app.manageTeamsRoster(' + id + ')">Manage existing players <span aria-hidden="true">&rarr;</span></button>' : '');
+      if (fresh) document.getElementById('roster-invite-url').value = fresh.url;
+    } catch (error) {
+      body.innerHTML = '<p class="workspace-empty">Roster unavailable. ' + this.sanitizeHTML(error.message || '') + '</p>';
+    }
+  }
+
+  async generateTeamsInvite(drillId, side) {
+    if (!this._isOperator()) return;
+    try {
+      const invite = await API.post(`/drills/${drillId}/invitations`, { side });
+      this._teamsInviteLink = { drillId: Number(drillId), side, url: window.location.origin + '/join#token=' + invite.token };
+      await this.showTeamsDrill(drillId);
+      document.getElementById('roster-invite-url')?.select();
+      this.showToast(side.charAt(0).toUpperCase() + side.slice(1) + ' invitation link ready to copy.', 'success');
+    } catch (error) {
+      this.showToast(error.message || 'Could not create invitation.', 'error');
+    }
+  }
+
+  async manageTeamsRoster(drillId) {
+    await this.loadPage('drills');
+    await this.openDrillRoster(drillId);
+  }
+
+  async openWorkspaceScoreboard() {
+    await this.loadPage('scoreboard');
+  }
+
+  async loadScoreboardPage() {
+    const select = document.getElementById('scoreboard-exercise');
+    const body = document.getElementById('scoreboard-body');
+    if (!select || !body) return;
+    try {
+      const drills = await API.getAllDrills();
+      this._scoreboardDrills = drills;
+      select.innerHTML = drills.length
+        ? drills.map((drill) => '<option value="' + Number(drill.id) + '">' + this.sanitizeHTML(drill.title || drill.scenario_name || 'Exercise') + ' #' + Number(drill.id) + '</option>').join('')
+        : '<option value="">No exercises</option>';
+      if (drills.length) await this.showScoreboardRun(drills[0].id);
+      else body.innerHTML = '<p class="workspace-empty">No exercises are available yet.</p>';
+    } catch (error) {
+      body.innerHTML = '<p class="workspace-empty">Could not load exercises. ' + this.sanitizeHTML(error.message || '') + '</p>';
+    }
+  }
+
+  async showScoreboardRun(drillId) {
+    const body = document.getElementById('scoreboard-body');
+    if (!body) return;
+    const id = Number(drillId);
+    if (!Number.isInteger(id) || id <= 0) return;
+    body.innerHTML = '<p class="workspace-empty">Loading scores...</p>';
+    try {
+      const [result, roster] = await Promise.all([
+        API.get('/leaderboard/drill/' + id),
+        API.get('/drills/' + id + '/participants').catch(() => null),
+      ]);
+      if (document.getElementById('scoreboard-body') !== body || Number(document.getElementById('scoreboard-exercise')?.value) !== id) return;
+      const names = new Map((roster?.participants || []).map((person) => [Number(person.user_id), person.username || person.sub]));
+      const entries = result.leaderboard || [];
+      const count = document.getElementById('scoreboard-count');
+      if (count) count.textContent = entries.length + (entries.length === 1 ? ' participant' : ' participants');
+      body.innerHTML = entries.length
+        ? '<div class="workspace-score-table-wrap"><table class="workspace-score-table"><thead><tr><th>Rank</th><th>Participant</th><th>Points</th><th>Flags</th></tr></thead><tbody>' + entries.map((entry, index) => '<tr><td>' + Number(entry.rank || index + 1) + '</td><td>' + this.sanitizeHTML(names.get(Number(entry.user_id)) || ('User ' + Number(entry.user_id))) + '</td><td>' + Number(entry.total_points || 0) + '</td><td>' + Number(entry.flags_captured || 0) + '</td></tr>').join('') + '</tbody></table></div>'
+        : '<p class="workspace-empty">No scores have been recorded for this exercise.</p>';
+    } catch (error) {
+      body.innerHTML = '<p class="workspace-empty">Scores are unavailable. ' + this.sanitizeHTML(error.message || '') + '</p>';
+    }
+  }
+
+  async openMissionControlCreate() {
+    await this.loadPage('drills');
+    this.showCreateDrillModal();
   }
 
   async loadPage(page) {
-    const participantBlockedPages = new Set(['scenarios', 'infrastructure', 'setup']);
-    if (this._isParticipant() && participantBlockedPages.has(page)) {
-      // Keep direct/manual route attempts inside the participant workspace.
-      // Previously the page loaded its operator-only surface and appeared blank.
-      this.showToast('This workspace is available to operators only.', 'info');
-      page = 'range-hub';
+    document.getElementById('workspace-sidebar')?.classList.remove('is-mobile-open');
+    const participantAllowedPages = new Set(['my-mission']);
+    if (this._isParticipant() && !participantAllowedPages.has(page) && !(page === 'drills' && this._openingAssignedMission)) {
+      // Participants have a single mission surface. Drill view is entered only
+      // through the assigned-mission handoff below.
+      this.showToast('Your assigned mission is available from My Mission.', 'info');
+      page = 'my-mission';
     }
+    if (page !== 'my-mission') this.stopMyMissionPolling();
     if (this.currentPage === 'drills' && page !== 'drills' && typeof this.stopDrillPolling === 'function') {
       this.stopDrillPolling();
+      if (typeof this.stopParticipantLobbyPolling === 'function') this.stopParticipantLobbyPolling();
       this.currentDrillId = null;
       this.currentDrill = null;
       this.stopThreatStoryReplay();
@@ -208,6 +357,7 @@ class UI {
     document.body.classList.toggle('infrastructure-atlas-mode', page === 'infrastructure');
     document.body.classList.toggle('scenario-atlas-mode', page === 'scenarios');
     document.body.classList.toggle('range-hub-mode', page === 'range-hub');
+    document.body.classList.toggle('my-mission-mode', page === 'my-mission');
     if (page !== 'dashboard') document.body.classList.remove('dashboard-full-mode');
     document.body.classList.remove('dashboard-map-mode');
     if (page !== 'dashboard' && this._dashboardRefreshInterval) {
@@ -220,6 +370,15 @@ class UI {
     }
     this.currentPage = page;
     document.body.dataset.portalPage = page;
+    const pageNames = { 'range-hub': 'Mission Control', dashboard: 'Overview', drills: 'Exercises', scenarios: 'Organizations', teams: 'Teams', infrastructure: 'Infrastructure', scoreboard: 'Scoreboard', reports: 'Reports', settings: 'Settings', setup: 'System Settings', 'my-mission': 'My Mission' };
+    const breadcrumb = document.getElementById('workspace-breadcrumb');
+    if (breadcrumb) breadcrumb.textContent = pageNames[page] || page;
+    document.querySelectorAll('[data-workspace-page]').forEach((item) => {
+      const selected = item.dataset.workspacePage === page;
+      item.classList.toggle('is-active', selected);
+      if (selected) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    });
     
     // Load page template from pages/ directory
     const content = document.getElementById('content');
@@ -344,7 +503,7 @@ class UI {
     inspector.setAttribute('aria-hidden', 'false');
     inspector.innerHTML = '<button type="button" class="threat-map-inspector-close" onclick="app.closeThreatMapInspector(\'' + mapId + '\')" aria-label="Close node details">×</button>'
       + '<span class="threat-map-inspector-kicker">Node inspection</span>'
-      + '<h3>' + this.sanitizeHTML(role.replace(/_/g, ' ')) + '</h3>'
+      + '<h3>' + this.sanitizeHTML(this._vmLabel(asset)) + '</h3>'
       + '<div class="threat-map-inspector-os">' + this.sanitizeHTML(meta.os) + '<span>' + this.sanitizeHTML(meta.kind) + '</span></div>'
       + '<dl><div><dt>Status</dt><dd>' + this.sanitizeHTML(status) + '</dd></div><div><dt>IP address</dt><dd>' + this.sanitizeHTML((live && live.ip) || asset.ip || 'Not assigned') + '</dd></div><div><dt>Network</dt><dd>' + this.sanitizeHTML(networks) + '</dd></div><div><dt>Template</dt><dd>' + this.sanitizeHTML(asset.template || asset.kind || 'Virtual machine') + '</dd></div></dl>'
       + (live && live.id && live.console_available && registry.drillId ? '<button class="btn btn-primary btn-sm" onclick="app.openAssetConsole(' + registry.drillId + ', ' + live.id + ')">Enter workstation</button>' : '<small class="threat-map-inspector-note">Workstation access becomes available when the node is ready.</small>');
@@ -374,7 +533,7 @@ class UI {
       + '<span class="threat-map-inspector-kicker">Link inspection</span><h3>' + this.sanitizeHTML(networkName || 'Network link') + '</h3>'
       + '<div class="threat-map-inspector-os">VLAN ' + this.sanitizeHTML(network.vlan_id || '—') + '<span>' + this.sanitizeHTML(network.cidr || 'No CIDR declared') + '</span></div>'
       + '<dl><div><dt>Isolation</dt><dd>' + this.sanitizeHTML(network.isolation || 'Declared by scenario') + '</dd></div><div><dt>Egress</dt><dd>' + this.sanitizeHTML(network.egress || 'Restricted') + '</dd></div><div><dt>Connected nodes</dt><dd>' + connected.length + '</dd></div></dl>'
-      + '<div class="threat-map-inspector-links">' + connected.map((asset) => '<button type="button" onclick="app.inspectThreatNode(\'' + mapId + '\',\'' + encodeURIComponent(String(asset.role || '')) + '\')">' + this.sanitizeHTML(asset.role || 'node') + '</button>').join('') + '</div>';
+      + '<div class="threat-map-inspector-links">' + connected.map((asset) => '<button type="button" onclick="app.inspectThreatNode(\'' + mapId + '\',\'' + encodeURIComponent(String(asset.role || '')) + '\')">' + this.sanitizeHTML(this._vmLabel(asset)) + '</button>').join('') + '</div>';
     let firstEdge = null;
     shell.querySelectorAll('.network-wire').forEach((edge) => {
       const selected = edge.dataset.network === networkName;
@@ -664,7 +823,7 @@ class UI {
     const cards = [
       { id: 'command', x: 750, y: 145, tone: 'core', icon: 'drills', kicker: 'COMMAND', title: 'Operations', value: current ? 'LIVE' : 'IDLE', note: current ? current.title || 'Active drill' : 'No active drill', count: active.length + ' active', detail: this.sanitizeHTML(current ? current.title || 'Active drill' : 'No drill is running.') + (current ? '<div class="dashboard-node-detail-meta">' + this.sanitizeHTML(this._lifecycleLabel(current)) + '</div>' : '<div class="dashboard-node-detail-meta">Range available for operations</div>'), action: current ? 'Open live drill' : 'View drills', click: current ? "app.loadPage('drills').then(() => app.playDrill(" + Number(current.id) + '))' : "app.loadPage('drills')" },
       { id: 'schedule', x: 445, y: 255, tone: 'gold', icon: 'calendar', kicker: 'SCHEDULE', title: 'Upcoming', value: String(scheduled.length), note: next ? next.title || 'Untitled drill' : 'No scheduled operation', count: next ? 'NEXT IN QUEUE' : 'QUEUE EMPTY', detail: next ? '<strong>' + this.sanitizeHTML(next.title || 'Untitled drill') + '</strong><div class="dashboard-node-detail-meta">' + this.sanitizeHTML(next.scheduled_at || 'Scheduled drill') + '</div>' : 'There are no scheduled drills.', action: 'Open drill schedule', click: "app.loadPage('drills')" },
-      { id: 'scenarios', x: 1055, y: 255, tone: 'cyan', icon: 'dashboard', kicker: 'LIBRARY', title: 'Scenarios', value: String(scenarios.length), note: 'Available playbooks', count: 'CATALOG', detail: scenarios.length ? scenarios.slice(0, 8).map((scenario) => '<div class="dashboard-node-list-row"><b>' + this.sanitizeHTML(scenario.title || scenario.name || 'Scenario') + '</b><span>' + this.sanitizeHTML(String(scenario.run_count || 0)) + ' RUNS</span></div>').join('') : 'No scenarios are currently available.', action: 'Browse scenarios', click: "app.loadPage('scenarios')" },
+      { id: 'scenarios', x: 1055, y: 255, tone: 'cyan', icon: 'dashboard', kicker: 'LIBRARY', title: 'Organizations', value: String(new Set(scenarios.map((scenario) => this._scenarioOrganization(scenario))).size), note: 'Exercise environments', count: 'CATALOG', detail: scenarios.length ? scenarios.slice(0, 8).map((scenario) => '<div class="dashboard-node-list-row"><b>' + this.sanitizeHTML(this._scenarioOrganization(scenario)) + '</b><span>' + this.sanitizeHTML(this._scenarioName(scenario)) + '</span></div>').join('') : 'No organizations are currently available.', action: 'Browse organizations', click: "app.loadPage('scenarios')" },
       { id: 'outcomes', x: 375, y: 490, tone: 'blue', icon: 'scenarios', kicker: 'AFTER ACTION', title: 'Outcomes', value: String(data.dashboard ? data.dashboard.completedDrills : completed.length), note: last ? last.title || 'Last completed drill' : 'No recorded outcome', count: 'RECORDED RUNS', detail: last ? '<strong>' + this.sanitizeHTML(last.title || 'Completed drill') + '</strong><div class="dashboard-node-detail-meta">' + this.sanitizeHTML(this._lifecycleLabel(last)) + '</div>' : 'Completed drill records will appear here.', action: 'Open reports', click: "app.loadPage('reports')" },
       { id: 'fleet', x: 1125, y: 490, tone: 'green', icon: 'infrastructure', kicker: 'PVE INVENTORY', title: 'Fleet', value: guests.length ? running + ' / ' + guests.length : '--', note: guests.length ? hosts.size + ' hypervisor' + (hosts.size === 1 ? '' : 's') : (this._dashboardMapError ? 'Inventory unavailable' : 'Inventory loading'), count: 'ONLINE / TOTAL', detail: this._dashboardFleetDetails(guests), action: 'Open infrastructure', click: "app.loadPage('infrastructure')" },
       { id: 'activity', x: 540, y: 735, tone: 'red', icon: 'reports', kicker: 'SIGNAL LOG', title: 'Activity', value: String(recent.length), note: recent[0] ? activityLabel(recent[0].action || recent[0].event_type || 'Latest event') : 'No recent activity', count: 'LATEST EVENTS', detail: recent.length ? recent.map((entry) => '<div class="dashboard-node-list-row"><b>' + this.sanitizeHTML(activityLabel(entry.action || entry.event_type || entry.title)) + '</b><span>' + this.sanitizeHTML(entry.created_at ? this._relTime(entry.created_at) : 'TIME N/A') + '</span></div>').join('') : 'No recent activity has been recorded.', action: 'Open activity reports', click: "app.loadPage('reports')" },
@@ -1035,92 +1194,180 @@ class UI {
     if (button) button.textContent = playing ? 'Pause flow' : 'Play flow';
   }
 
-  loadRangeHub() {
+  async loadRangeHub() {
     document.body.classList.add('range-hub-mode');
+    const [drillResult, audit, health, pve, guests] = await Promise.all([
+      API.getAllDrills().then((items) => ({ items })).catch(() => ({ items: [], error: true })),
+      API.getAuditLog(8),
+      API.adminGetHealth().catch(() => null),
+      this._isAdmin() ? API.adminGetPve().catch(() => null) : Promise.resolve(null),
+      this._isAdmin() ? API.adminListPveGuests(true).catch(() => null) : Promise.resolve(null),
+    ]);
+    const drills = drillResult.items;
+    const active = drills.find((drill) => ['active', 'paused'].includes(String(drill.status || '').toLowerCase()));
+    const scheduled = drills.find((drill) => String(drill.status || '').toLowerCase() === 'scheduled');
+    const current = active || scheduled || null;
+    const roster = current && this._isOperator()
+      ? await API.get(`/drills/${current.id}/participants`).catch(() => null)
+      : null;
+    const rangeHealth = current && this._isOperator()
+      ? await API.get(`/drills/${current.id}/range-health`).catch(() => null)
+      : null;
+    const participants = roster?.participants || [];
+    const service = document.getElementById('workspace-service-status');
+    if (service) service.textContent = health?.health?.status === 'ok' ? 'Platform online' : health?.health ? 'Platform check' : 'Status unavailable';
+    this._missionControl = { drills, active, scheduled, current, participants, rosterKnown: !!roster, rangeHealth, audit, health, pve, guests, drillsUnavailable: drillResult.error };
     this._renderRangeHub();
   }
 
   _renderRangeHub() {
-    const root = document.getElementById('range-hub-nodes');
-    const world = document.getElementById('range-hub-world');
-    const links = document.getElementById('range-hub-links');
-    const viewport = document.getElementById('range-hub-viewport');
-    const graph = document.getElementById('range-hub-graph');
-    if (!root || !world || !links || !viewport || !graph) return;
-    const nodes = [
-      { page: 'dashboard', title: 'Dashboard', icon: 'dashboard', tone: 'dashboard' },
-      { page: 'drills', title: 'Cyber Drills', icon: 'drills', tone: 'drills' },
-      ...(this._isOperator() ? [{ page: 'scenarios', title: 'Scenarios', icon: 'scenarios', tone: 'scenarios' }] : []),
-      ...(this._isAdmin() ? [{ page: 'infrastructure', title: 'Infrastructure', icon: 'infrastructure', tone: 'infrastructure' }] : []),
-      { page: 'reports', title: 'Reports', icon: 'reports', tone: 'reports' },
-      { page: 'settings', title: 'Settings', icon: 'settings', tone: 'settings' },
-      ...(this._isAdmin() ? [{ page: 'setup', title: 'Setup', icon: 'setup', tone: 'setup' }] : []),
-    ];
-    const mobile = viewport.clientWidth <= 760;
-    const width = mobile ? 430 : 1500;
-    const height = mobile ? 860 : 930;
-    const center = mobile ? { x: 215, y: 72 } : { x: 750, y: 465 };
-    const desktopPositions = {
-      dashboard: { x: 750, y: 145 }, drills: { x: 1055, y: 255 },
-      scenarios: { x: 1125, y: 490 }, infrastructure: { x: 960, y: 735 },
-      reports: { x: 540, y: 735 }, settings: { x: 375, y: 490 }, setup: { x: 445, y: 255 },
-    };
-    const mobileStep = nodes.length > 1 ? 600 / (nodes.length - 1) : 0;
-    const mobilePositions = nodes.map((node, index) => ({ page: node.page, x: 215, y: 175 + index * mobileStep }));
-    const positions = mobile ? Object.fromEntries(mobilePositions.map((point) => [point.page, point])) : desktopPositions;
-    this._rangeHubMobileLayout = mobile;
-    this._rangeHubMapSize = { width, height };
-    world.style.width = width + 'px';
-    world.style.height = height + 'px';
-    graph.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
-    graph.setAttribute('width', String(width));
-    graph.setAttribute('height', String(height));
-    let paths = '';
-    nodes.forEach((node) => {
-      const point = positions[node.page];
-      const dx = point.x - center.x;
-      const dy = point.y - center.y;
-      const distance = Math.hypot(dx, dy) || 1;
-      const startX = center.x + dx / distance * (mobile ? 28 : 58);
-      const startY = center.y + dy / distance * (mobile ? 28 : 58);
-      const endX = point.x - dx / distance * (mobile ? 37 : 72);
-      const endY = point.y - dy / distance * (mobile ? 37 : 72);
-      const bend = mobile ? 0 : (point.x < center.x ? -34 : 34);
-      const curve = mobile
-        ? 'M' + center.x + ' ' + (center.y + 28) + ' V' + endY
-        : 'M' + startX + ' ' + startY + ' C' + (startX + bend) + ' ' + startY + ' ' + (endX - bend) + ' ' + endY + ' ' + endX + ' ' + endY;
-      paths += '<path data-hub-edge="' + node.page + '" d="' + curve + '" />';
-    });
-    links.innerHTML = paths;
-    const radius = mobile ? 32 : 68;
-    const iconSize = mobile ? 28 : 44;
-    const tones = { dashboard: '#7ea9ef', drills: '#e3787e', scenarios: '#d7b95e', infrastructure: '#64c4b8', reports: '#a79ae8', settings: '#aab7c2', setup: '#82c991' };
-    root.innerHTML = '<g class="range-hub-origin" aria-hidden="true"><circle cx="' + center.x + '" cy="' + center.y + '" r="' + (mobile ? 30 : 58) + '"/><text class="range-hub-origin-name" x="' + center.x + '" y="' + (center.y + (mobile ? 3 : 6)) + '" text-anchor="middle">OxBlood</text></g>'
-      + nodes.map((node) => {
-        const point = positions[node.page];
-        return '<g class="range-hub-node range-hub-node-' + node.tone + '" data-hub-page="' + node.page + '" data-x="' + point.x + '" data-y="' + point.y + '" style="--hub-accent:' + tones[node.tone] + '" tabindex="0" role="button" aria-label="' + node.title + '" onclick="app.openRangeHubNode(\'' + node.page + '\',this)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();app.openRangeHubNode(\'' + node.page + '\',this)}">'
-          + '<circle class="range-hub-node-orb" cx="' + point.x + '" cy="' + point.y + '" r="' + radius + '"/><use class="range-hub-node-icon" href="#hub-icon-' + node.icon + '" x="' + (point.x - iconSize / 2) + '" y="' + (point.y - iconSize / 2) + '" width="' + iconSize + '" height="' + iconSize + '"/><text x="' + point.x + '" y="' + (point.y + radius + (mobile ? 22 : 32)) + '" text-anchor="middle">' + node.title + '</text></g>';
-      }).join('');
-    if (!root._rangeHubEventsBound) {
-      root._rangeHubEventsBound = true;
-      root.addEventListener('pointerover', (event) => this._highlightRangeHubNode(event.target.closest('[data-hub-page]'), root));
-      root.addEventListener('pointerout', (event) => {
-        if (!event.relatedTarget || !root.contains(event.relatedTarget)) this._highlightRangeHubNode(null, root);
-        else if (!event.relatedTarget.closest('[data-hub-page]')) this._highlightRangeHubNode(null, root);
-      });
-      root.addEventListener('focusin', (event) => this._highlightRangeHubNode(event.target.closest('[data-hub-page]'), root));
-      root.addEventListener('focusout', (event) => {
-        if (!event.relatedTarget || !root.contains(event.relatedTarget)) this._highlightRangeHubNode(null, root);
-      });
+    const root = document.getElementById('mission-control-content');
+    if (!root) return;
+    const control = this._missionControl || { drills: [], participants: [] };
+    const current = control.current;
+    const scheduled = control.scheduled;
+    const status = String((current && current.status) || '').toLowerCase();
+    const provision = String(((scheduled || {}).environment_config || {}).provision_status || '').toLowerCase();
+    const enrolled = new Set((control.participants || []).filter((person) => !['removed', 'left'].includes(String(person.status || '').toLowerCase())).map((person) => String(person.role || '').toLowerCase()));
+    const teamsReady = enrolled.has('red') && enrolled.has('blue');
+    let next = { kind: 'create', label: 'Plan a drill', detail: 'Choose an organization and exercise' };
+    if (status === 'active' || status === 'paused') next = { kind: 'open', drillId: current.id, label: 'Open live drill', detail: String(current.title || 'Live mission') };
+    else if (scheduled && !teamsReady) next = { kind: 'roster', drillId: scheduled.id, label: 'Assign teams', detail: 'Red and Blue players required' };
+    else if (scheduled && ['starting', 'waiting', 'validating'].includes(provision)) next = { kind: 'inspect', drillId: scheduled.id, label: 'Range preparing', detail: 'Open operation status' };
+    else if (scheduled && ['started', 'validation_failed'].includes(provision)) {
+      const checks = control.rangeHealth?.checks || [];
+      const ready = checks.length > 0 && checks.filter((check) => check.required).every((check) => check.state === 'ready');
+      next = ready
+        ? { kind: 'start', drillId: scheduled.id, label: 'Launch Exercise', detail: 'All required range checks passed' }
+        : { kind: 'inspect', drillId: scheduled.id, label: 'Check Readiness', detail: 'Review required range checks' };
     }
-    this._bindRangeHub();
-    this._fitRangeHubIfNeeded();
+    else if (scheduled && provision === 'failed') next = { kind: 'inspect', drillId: scheduled.id, label: 'Resolve range', detail: 'Preparation needs attention' };
+    else if (scheduled) next = { kind: 'prepare', drillId: scheduled.id, label: 'Prepare range', detail: 'Restore the mission baseline' };
+    this._missionControlNext = next;
+    const safe = (value) => this.sanitizeHTML(value == null ? '' : String(value));
+    const checkItems = control.rangeHealth?.checks || [];
+    const requiredChecks = checkItems.filter((check) => check.required);
+    const rangeReady = requiredChecks.length > 0 && requiredChecks.every((check) => check.state === 'ready');
+    const rangeState = status === 'active' ? 'Running' : status === 'paused' ? 'Paused' : provision === 'failed' ? 'Failed' : rangeReady ? 'Ready' : ['starting', 'waiting', 'validating'].includes(provision) ? 'Preparing' : current ? 'Pending' : 'Unknown';
+    const title = current ? (current.title || current.scenario_name || 'Untitled exercise') : 'No exercise selected';
+    const rosterValue = control.rosterKnown ? enrolled.size + ' of 2' : 'Unavailable';
+    const guestItems = control.guests?.items || [];
+    const runningGuests = guestItems.filter((guest) => String(guest.status || '').toLowerCase() === 'running').length;
+    const connected = !!control.pve && !control.pve.error && !!control.guests && !control.guests.error;
+    const infrastructureValue = connected ? runningGuests + ' / ' + (control.guests.total_registered ?? guestItems.length) : 'Unavailable';
+    const date = current?.scheduled_start_at || current?.start_time;
+    const scheduledTime = date && !Number.isNaN(new Date(date).getTime()) ? new Date(date).toLocaleString() : '';
+    const statusLabel = status === 'active' ? 'Running' : status === 'paused' ? 'Paused' : status === 'completed' ? 'Completed' : rangeState === 'Ready' ? 'Ready' : rangeState === 'Failed' ? 'Failed' : rangeState === 'Preparing' ? 'Preparing' : current ? 'Scheduled' : 'No exercise';
+    const networkCheck = checkItems.find((check) => /network|bridge/i.test(check.id || check.label || ''));
+    const readiness = [
+      { label: 'Proxmox', state: connected ? 'ready' : 'unknown', detail: connected ? 'Connected' : 'Unavailable' },
+      { label: 'Network', state: networkCheck?.state || 'unknown', detail: networkCheck ? (networkCheck.state === 'ready' ? 'Ready' : 'Needs attention') : 'Not checked' },
+      { label: 'Required checks', state: rangeReady ? 'ready' : provision === 'failed' ? 'error' : current ? 'pending' : 'unknown', detail: requiredChecks.length ? requiredChecks.filter((check) => check.state === 'ready').length + ' / ' + requiredChecks.length : 'Unavailable' },
+    ];
+    const metric = (label, value) => '<div class="mc-metric"><span>' + safe(label) + '</span><strong>' + safe(value) + '</strong></div>';
+    const activity = this._filterFeed(control.audit || [], 3).map((entry) => '<li><span class="mc-event-mark"></span><strong>' + safe(entry.action || entry.event_type || 'Activity') + '</strong><time>' + safe(this._relTime(entry.created_at || entry.at)) + '</time></li>').join('');
+    root.innerHTML = '<section class="mc-metrics" aria-label="Operational overview">'
+      + metric('Live', control.drillsUnavailable ? 'Unavailable' : control.drills.filter((item) => item.status === 'active').length)
+      + metric('Scheduled', control.drillsUnavailable ? 'Unavailable' : control.drills.filter((item) => item.status === 'scheduled').length)
+      + metric('Drill VMs running', infrastructureValue)
+      + '</section><section class="mc-feature" aria-labelledby="mission-current-title"><div class="mc-feature-main"><span class="mc-eyebrow">CURRENT EXERCISE ' + (current ? '#'+Number(current.id) : '') + '</span><h2 id="mission-current-title">' + safe(title) + '</h2>' + (scheduledTime ? '<p class="mc-feature-date">' + safe(scheduledTime) + '</p>' : '') + '<div class="mc-feature-summary"><span class="mc-state is-' + safe(statusLabel.toLowerCase().replace(/[^a-z]+/g,'-')) + '">' + safe(statusLabel) + '</span><span>Teams <strong>' + safe(rosterValue) + '</strong></span></div></div><button type="button" class="mc-feature-action" onclick="app.openMissionControlNext()">' + safe(next.label) + ' <span aria-hidden="true">&rarr;</span></button></section>'
+      + '<div class="mc-lower"><section class="mc-readiness"><div class="mc-section-head"><h2>System readiness</h2><button type="button" onclick="app.loadPage(\'infrastructure\')" ' + (this._isAdmin() ? '' : 'hidden') + '>Infrastructure &rarr;</button></div><ul>' + readiness.map((item) => '<li><span class="mc-readiness-dot is-' + safe(item.state) + '"></span><span>' + safe(item.label) + '</span><small>' + safe(item.detail) + '</small></li>').join('') + '</ul></section><section class="mc-activity"><div class="mc-section-head"><h2>Recent activity</h2><button type="button" onclick="app.loadPage(\'dashboard\')">View all &rarr;</button></div>' + (activity ? '<ul>' + activity + '</ul>' : '<p class="mc-empty">No recent audit events.</p>') + '</section></div>';
   }
 
   _highlightRangeHubNode(node, root) {
     const graph = root.ownerSVGElement;
     if (!graph) return;
     graph.querySelectorAll('[data-hub-edge]').forEach((edge) => edge.classList.toggle('is-linked', !!node && edge.dataset.hubEdge === node.dataset.hubPage));
+  }
+
+  async openMissionControlNext() {
+    const next = this._missionControlNext;
+    if (!next) return;
+    if (next.kind === 'create') {
+      await this.loadPage('drills');
+      this.showCreateDrillModal();
+      return;
+    }
+    if (next.kind === 'roster') {
+      await this.loadPage('drills');
+      await this.openDrillRoster(next.drillId);
+      return;
+    }
+    await this.loadPage('drills');
+    await this.playDrill(next.drillId);
+    if (next.kind === 'prepare' || next.kind === 'start') await this.startDrill(next.drillId);
+  }
+
+  async openAssignedMission(drillId) {
+    if (!this._isParticipant()) return;
+    this._openingAssignedMission = true;
+    try {
+      await this.loadPage('drills');
+      await this.playDrill(drillId);
+    } finally {
+      this._openingAssignedMission = false;
+    }
+  }
+
+  stopMyMissionPolling() {
+    if (this._myMissionInterval) {
+      clearInterval(this._myMissionInterval);
+      this._myMissionInterval = null;
+    }
+  }
+
+  async _myMissionGuideScenario(scenarioId) {
+    if (!scenarioId) return null;
+    if (!this._myMissionGuideCatalogPromise) {
+      this._myMissionGuideCatalogPromise = API.adminGetScenarioCatalog()
+        .then((data) => data.items || data.scenarios || [])
+        .catch(() => {
+          this._myMissionGuideCatalogPromise = null;
+          return [];
+        });
+    }
+    const catalog = await this._myMissionGuideCatalogPromise;
+    return catalog.find((item) => Number(item.id) === Number(scenarioId)) || null;
+  }
+
+  async loadMyMission() {
+    const root = document.getElementById('my-mission-root');
+    if (!root || !this._isParticipant()) return;
+    const refresh = async () => {
+      if (this.currentPage !== 'my-mission') return;
+      try {
+        const drills = await API.getAllDrills();
+        const live = drills.find((drill) => ['active', 'paused'].includes(String(drill.status || '').toLowerCase()));
+        const scheduled = drills.find((drill) => String(drill.status || '').toLowerCase() === 'scheduled');
+        const drill = live || scheduled || null;
+        const role = this._role();
+        const team = role === 'blue' ? 'BLUE' : 'RED';
+        if (!drill) {
+          root.innerHTML = '<section class="my-mission-empty"><span class="my-mission-kicker">' + team + ' TEAM // STANDING BY</span><h1>No mission assigned</h1><p>Your operator will assign you to a drill. This screen updates automatically.</p><span class="my-mission-signal"><i></i>WAITING FOR ASSIGNMENT</span></section>';
+          return;
+        }
+        const status = String(drill.status || 'scheduled').toLowerCase();
+        const phase = String((drill.lifecycle && drill.lifecycle.provision_phase) || (drill.environment_config || {}).provision_status || '').replace(/_/g, ' ');
+        const liveMission = ['active', 'paused'].includes(status);
+        const state = liveMission ? 'live' : (['starting', 'validating', 'waiting'].includes(phase.replace(/ /g, '_')) ? 'preparing' : 'waiting');
+        const heading = liveMission ? 'Mission live' : (state === 'preparing' ? 'Range preparing' : 'Waiting for operator');
+        const detail = liveMission
+          ? 'The range is open. Enter the map when you are ready.'
+          : (state === 'preparing' ? 'Your range is being restored from its baseline.' : 'You are enrolled. The operator will prepare and launch the mission.');
+        const scenario = await this._myMissionGuideScenario(drill.scenario_id);
+        if (this.currentPage !== 'my-mission') return;
+        const guide = scenario ? this._scenarioPlayGuide(scenario)[role] || [] : [];
+        const guideMarkup = guide.length
+          ? '<div class="my-mission-guide"><h2>' + (role === 'blue' ? 'Defense guide' : 'Attack guide') + '</h2><ol>' + guide.map((step) => '<li>' + this.sanitizeHTML(step) + '</li>').join('') + '</ol></div>'
+          : '';
+        root.innerHTML = '<section class="my-mission-state state-' + state + '"><span class="my-mission-kicker">' + team + ' TEAM // ASSIGNED</span><div class="my-mission-orbit" aria-hidden="true"><i></i><i></i><i></i></div><h1>' + this.sanitizeHTML(drill.title || 'Assigned mission') + '</h1><strong>' + heading + '</strong><p>' + detail + '</p>' + guideMarkup + '<span class="my-mission-signal"><i></i>' + this.sanitizeHTML((phase || status || 'scheduled').toUpperCase()) + '</span><button type="button" class="btn btn-primary" onclick="app.openAssignedMission(' + Number(drill.id) + ')">' + (liveMission ? 'Enter mission' : 'Open mission lobby') + '</button></section>';
+      } catch (error) {
+        root.innerHTML = this._cardError('Mission signal unavailable', 'app.loadMyMission()');
+      }
+    };
+    this.stopMyMissionPolling();
+    await refresh();
+    this._myMissionInterval = setInterval(refresh, 8000);
   }
 
   openRangeHubNode(page, node, afterOpen = null) {
@@ -1251,45 +1498,34 @@ class UI {
     const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
     this._dashboardInventory = [];
     this._dashboardMapError = null;
-    setText('dashboard-title', 'Command Center');
-    setText('dashboard-subtitle', 'Range overview // operational status // recent activity');
+    setText('dashboard-title', 'Range Overview');
+    setText('dashboard-subtitle', 'Operations, infrastructure, and recent activity.');
     setText('dashboard-state-label', active.length ? 'Live operation' : 'Standing by');
     setText('dashboard-role-label', 'Operator');
     setText('dashboard-telemetry-label', dashboard ? 'Connected' : 'Limited');
     setText('dashboard-kpi-active', String(active.length));
     setText('dashboard-kpi-scheduled', String(scheduled.length));
     setText('dashboard-kpi-completed', String(dashboard ? dashboard.completedDrills : completed.length));
-    setText('dashboard-kpi-scenarios', String(scenarios.length));
+    setText('dashboard-kpi-scenarios', String(new Set(scenarios.map((scenario) => this._scenarioOrganization(scenario))).size));
 
     const hero = document.getElementById('dashboard-hero');
     if (hero) {
       const drill = active[0];
       hero.innerHTML = drill
-        ? '<div class="hero-live" role="status"><div><div class="hero-sub"><span style="color:var(--signal)">&#9679;</span> Live operation</div><div class="hero-title">' + this.sanitizeHTML(drill.title || 'Untitled drill') + '</div></div><span class="timer timer-live">' + this.sanitizeHTML(this._lifecycleLabel(drill)) + '</span><button class="btn btn-primary btn-sm" onclick="app.loadPage(\'drills\').then(() => app.playDrill(' + Number(drill.id) + '))">Open drill</button></div>'
-        : '<div class="card"><div class="row-between"><div><div class="label">Live operations</div><div class="value">No drill running</div><div class="small muted" style="margin-top:4px">' + (scheduled[0] ? 'Next: ' + this.sanitizeHTML(scheduled[0].title || 'Scheduled drill') : 'The range is standing by') + '</div></div><button class="btn btn-secondary btn-sm" onclick="app.loadPage(\'drills\')">View drills</button></div></div>';
+        ? '<div class="dashboard-focus" role="status"><div><span class="dashboard-focus-label">Live exercise</span><strong>' + this.sanitizeHTML(drill.title || 'Untitled drill') + '</strong></div><span class="timer timer-live">' + this.sanitizeHTML(this._lifecycleLabel(drill)) + '</span><button class="btn btn-primary btn-sm" onclick="app.loadPage(\'drills\').then(() => app.playDrill(' + Number(drill.id) + '))">Open exercise</button></div>'
+        : '<div class="dashboard-focus"><div><span class="dashboard-focus-label">Next exercise</span><strong>' + (scheduled[0] ? this.sanitizeHTML(scheduled[0].title || 'Scheduled exercise') : 'Nothing scheduled') + '</strong></div><button class="btn btn-secondary btn-sm" onclick="app.loadPage(\'drills\')">View exercises</button></div>';
     }
     const rails = document.getElementById('dashboard-rails');
-    if (rails) {
-      const last = completed[completed.length - 1];
-      const signal = !active.length && scheduled.length ? 'No live drill' : active.length > 1 ? 'Multiple active drills' : 'All clear';
-      rails.innerHTML = '<article class="dashboard-rail dashboard-rail-red"><span class="dashboard-rail-kicker">Next operation</span><strong>' + (scheduled[0] ? this.sanitizeHTML(scheduled[0].title || 'Untitled') : '&mdash;') + '</strong><small>' + (scheduled[0] ? 'Scheduled drill' : 'Nothing scheduled') + '</small></article>'
-        + '<article class="dashboard-rail dashboard-rail-blue"><span class="dashboard-rail-kicker">Last outcome</span><strong>' + (last ? this.sanitizeHTML(last.title || 'Untitled') : '&mdash;') + '</strong><small>' + (last ? this.sanitizeHTML(String(last.status || 'completed')) : 'No completed drill yet') + '</small></article>'
-        + '<article class="dashboard-rail dashboard-rail-gold"><span class="dashboard-rail-kicker">Range readiness</span><strong>' + (dashboard ? 'Connected' : 'Check connection') + '</strong><small>Portal and range status</small></article>'
-        + '<article class="dashboard-rail dashboard-rail-neutral"><span class="dashboard-rail-kicker">Command signal</span><strong>' + this.sanitizeHTML(signal) + '</strong><small>' + (active.length > 1 ? 'Only one drill should run at a time' : active.length ? 'Live environment in use' : 'No active environment') + '</small></article>';
-    }
+    if (rails) rails.innerHTML = '';
     const activity = document.getElementById('dashboard-activity');
     if (activity) {
       const feed = this._filterFeed(auditLog, 8);
       activity.innerHTML = feed.length ? feed.map((entry) => this._feedRow(entry)).join('') : '<div class="empty-state"><div class="empty-hint">No recent activity.</div></div>';
     }
-    this._renderDashboardGraph({ dashboard, active, scheduled, completed, scenarios, auditLog });
     if (this._dashboardRefreshInterval) clearInterval(this._dashboardRefreshInterval);
-    await this.refreshDashboardMap(true);
-    this._dashboardRefreshInterval = setInterval(() => {
-      if (this.currentPage === 'dashboard') this.refreshDashboardMap();
-    }, 12000);
+    this._dashboardRefreshInterval = null;
     if (this._dashboardClockInterval) clearInterval(this._dashboardClockInterval);
-    this._dashboardClockInterval = setInterval(() => this._updateDashboardElapsed(), 1000);
+    this._dashboardClockInterval = null;
   }
 
   _setDashboardMapMessage(title, detail, actionLabel = '', action = '') {
@@ -1486,7 +1722,8 @@ class UI {
     if (!el) return;
     const drill = this._dashboardActiveDrill;
     const start = drill && (drill.actual_start_at || drill.started_at);
-    if (!start) { el.textContent = '--:--:--'; return; }
+    if (!start) { el.hidden = true; return; }
+    el.hidden = false;
     const seconds = Math.max(0, Math.floor((Date.now() - new Date(start).getTime()) / 1000));
     el.textContent = [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60]
       .map((value) => String(value).padStart(2, '0')).join(':');
@@ -1583,7 +1820,7 @@ class UI {
       if (note) {
         note.textContent = this._isParticipant()
           ? 'Your assigned mission appears when enrollment and range start are complete.'
-          : 'Review active operations or prepare an approved scenario.';
+          : 'Manage exercises and their participants.';
       }
       this._syncDrillCatalogScopeControls();
       this.renderDrillsGrid(this._drillCatalogRows());
@@ -1639,6 +1876,7 @@ class UI {
       return '<button type="button" class="drill-catalog-node drill-catalog-run state-' + this.sanitizeHTML(tone) + '" data-node-id="' + Number(drill.id) + '" style="left:' + x + 'px;top:' + y + 'px" onclick="app.focusDrillCatalogNode(\'' + Number(drill.id) + '\')" aria-label="Inspect run ' + Number(drill.id) + ': ' + this.sanitizeHTML(drill.title || 'Untitled drill') + ', ' + this.sanitizeHTML(label) + '" aria-pressed="false">' +
         '<span class="drill-catalog-orb"><svg viewBox="0 0 32 32" aria-hidden="true"><use href="#drill-catalog-icon-' + icon + '"></use></svg><i></i></span>' +
         '<strong>' + this.sanitizeHTML(drill.title || 'Untitled drill') + '</strong>' +
+        '<span class="drill-catalog-run-id">RUN #' + Number(drill.id) + '</span>' +
         '<span class="drill-catalog-run-status">' + (live ? 'LIVE · ' : '') + label + '</span></button>';
     }).join('');
     links.innerHTML = paths + '<circle class="drill-catalog-edge-origin" cx="' + center + '" cy="' + center + '" r="4" />';
@@ -1687,7 +1925,7 @@ class UI {
   _drillCatalogRows() {
     const baseRows = this._allDrills || [];
     if (!this._isOperator()) {
-      return baseRows.filter((drill) => ['active', 'paused'].includes(String(drill.status || '').toLowerCase()));
+      return baseRows.filter((drill) => ['scheduled', 'active', 'paused'].includes(String(drill.status || '').toLowerCase()));
     }
     const archive = this._drillCatalogScope === 'archive';
     return baseRows.filter((drill) => this._isArchivedDrill(drill) === archive);
@@ -1719,7 +1957,10 @@ class UI {
     const terminal = ['completed', 'ended', 'cancelled', 'failed', 'timeout'].includes(status);
     const canOperate = this._isOperator();
     const date = drill.started_at || drill.actual_start_at || drill.scheduled_start_at || drill.created_at;
-    let actions = '<button type="button" class="btn btn-primary btn-sm" onclick="app.playDrill(' + id + ')">' + (canOperate ? (status === 'active' ? 'Open live' : terminal ? 'Review run' : 'Open run') : 'Enter run') + '</button>';
+    let actions = '<button type="button" class="btn btn-primary btn-sm" onclick="app.playDrill(' + id + ')">' + (canOperate ? (status === 'active' ? 'Open live' : terminal ? 'Review run' : 'Open run') : (active ? 'Enter mission' : 'Open lobby')) + '</button>';
+    if (canOperate) {
+      actions += '<button type="button" class="btn btn-secondary btn-sm" onclick="app.openDrillRoster(' + id + ')">Roster</button>';
+    }
     if (canOperate && status === 'scheduled') {
       const preparation = (drill.environment_config || {}).provision_status;
       const preparing = ['starting', 'waiting', 'validating'].includes(preparation);
@@ -1779,6 +2020,7 @@ class UI {
     if (!viewport || viewport._drillCatalogGraphBound) return;
     viewport._drillCatalogGraphBound = true;
     this._drillCatalogGraphCamera = { scale: 1, x: 0, y: 0 };
+    if (getComputedStyle(viewport).touchAction !== 'none') return;
     viewport.addEventListener('wheel', (event) => {
       event.preventDefault();
       const rect = viewport.getBoundingClientRect();
@@ -1944,7 +2186,7 @@ class UI {
       const list = document.getElementById('reports-list');
       if (list) {
         const count = document.getElementById('reports-count');
-        if (count) count.textContent = reports.length + ' REPORTS';
+        if (count) count.textContent = reports.length + (reports.length === 1 ? ' report' : ' reports');
         const rows = Math.max(1, Math.ceil(reports.length / 3));
         const height = Math.max(800, 350 + rows * 270);
         const world = document.getElementById('report-atlas-world');
@@ -1964,7 +2206,7 @@ class UI {
             const run = !report.drill_id ? 'STANDALONE' : drillIds.has(runId) ? 'RUN #' + runId : 'RUN UNAVAILABLE';
             const score = report.score == null ? '--' : String(report.score);
             const result = String(report.result || 'Recorded').toUpperCase();
-            return '<button type="button" class="report-atlas-node report-state-' + this.sanitizeHTML(result.toLowerCase().replace(/[^a-z0-9_-]/g, '-')) + '" style="left:' + x + 'px;top:' + y + 'px" onclick="app.openReport(' + Number(report.id) + ')" aria-label="Open ' + this.sanitizeHTML(report.scenario || 'report') + '"><span class="report-atlas-signal">' + this.sanitizeHTML(run) + '</span><strong>' + this.sanitizeHTML(report.scenario || 'Mission report') + '</strong><span class="report-atlas-value">' + this.sanitizeHTML(score) + '</span><small>' + this.sanitizeHTML(result) + '</small></button>';
+            return '<button type="button" class="report-atlas-node report-state-' + this.sanitizeHTML(result.toLowerCase().replace(/[^a-z0-9_-]/g, '-')) + '" style="left:' + x + 'px;top:' + y + 'px" onclick="app.openReport(' + Number(report.id) + ')" aria-label="Open ' + this.sanitizeHTML(report.scenario || 'report') + '"><span class="report-atlas-signal">' + this.sanitizeHTML(run) + '</span><strong>' + this.sanitizeHTML(report.scenario || 'Mission report') + '</strong><span class="report-atlas-value">Score ' + this.sanitizeHTML(score) + '</span><small>' + this.sanitizeHTML(result) + '</small></button>';
           }).join('');
           list.innerHTML = hub + nodes + (!reports.length ? '<div class="report-atlas-empty"><strong>No mission reports</strong><span>Complete a drill to add its debrief to this archive.</span><button type="button" class="btn btn-secondary btn-sm" onclick="app.loadPage(\'drills\')">Open drills</button></div>' : '');
           this._bindReportAtlas();
@@ -1983,6 +2225,7 @@ class UI {
     if (!viewport || viewport._reportAtlasBound) return;
     viewport._reportAtlasBound = true;
     this._reportAtlasCamera = { scale: 1, x: 0, y: 0 };
+    if (getComputedStyle(viewport).touchAction !== 'none') return;
     viewport.addEventListener('wheel', (event) => {
       event.preventDefault();
       this._zoomReportAtlasAt(event.deltaY < 0 ? 1.1 : .91, event.clientX, event.clientY);
@@ -2188,6 +2431,67 @@ class UI {
     return (scenario && (scenario.title || scenario.display_name || scenario.name || scenario.metadata_name)) || 'Scenario';
   }
 
+  _scenarioOrganization(scenario) {
+    const metadata = scenario?.spec?.metadata || {};
+    return scenario?.organization || metadata.organization || this._scenarioName(scenario);
+  }
+
+  _scenarioSummary(scenario) {
+    const metadata = scenario?.spec?.metadata || {};
+    return scenario?.summary || metadata.summary || scenario?.description || scenario?.summary_text || 'Exercise briefing has not been documented.';
+  }
+
+  _scenarioVulnerabilities(scenario) {
+    const rows = scenario?.vulnerabilities || this._scenarioRuntimeSpec(scenario).vulnerabilities || [];
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  _scenarioAttackPath(scenario) {
+    const rows = this._scenarioRuntimeSpec(scenario).attack_path || [];
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  _vmLabel(asset, instanceRole = asset?.role) {
+    const code = String(asset?.vm_name || '').trim();
+    if (!code) return String(instanceRole || 'Machine').replace(/_/g, ' ');
+    const count = Math.max(1, Number(asset?.count || 1));
+    if (count <= 1) return code;
+    const match = String(instanceRole || '').match(/_(\d+)$/);
+    if (match) return code + String(match[1]).padStart(2, '0');
+    return code + '01–' + code + String(count).padStart(2, '0');
+  }
+
+  _scenarioVmLabel(scenario, role) {
+    const assets = this._scenarioRuntimeSpec(scenario).assets || [];
+    const asset = assets.find((row) => row.role === role || String(role).startsWith(row.role + '_'));
+    return asset ? this._vmLabel(asset, role) : String(role || 'Machine').replace(/_/g, ' ');
+  }
+
+  _scenarioPathSetup(scenario, role) {
+    const runtime = this._scenarioRuntimeSpec(scenario);
+    const asset = (runtime.assets || []).find((row) => row.role === role);
+    if (!asset) return { network: 'Asset not declared', route: '', check: '' };
+    const networks = new Map((runtime.networks || []).map((row) => [row.name, row]));
+    const names = asset.networks || [];
+    const network = names.map((name) => {
+      const vlan = networks.get(name)?.vlan_id;
+      return name + (vlan == null ? '' : ' · VLAN ' + vlan);
+    }).join(', ') || 'No network declared';
+    const rules = (runtime.routing_policy?.rules || []).filter((row) => names.includes(row.to));
+    const route = rules.map((row) => row.from + ' → ' + row.to + ' ' + String(row.protocol || '').toUpperCase() + ' ' + (row.ports || []).join('/')).join('; ');
+    const probes = (runtime.validation?.probes || []).filter((row) => row.role === role && ['http_status', 'tcp_connect'].includes(row.type));
+    const check = probes.map((row) => (row.type === 'http_status' ? 'HTTP' : 'TCP') + ' :' + row.port).join(', ');
+    return { network, route, check };
+  }
+
+  _scenarioPlayGuide(scenario) {
+    const guide = this._scenarioRuntimeSpec(scenario).play_guide || {};
+    return {
+      red: Array.isArray(guide.red) ? guide.red : [],
+      blue: Array.isArray(guide.blue) ? guide.blue : [],
+    };
+  }
+
   _scenarioSlug(scenario) {
     return (scenario && (scenario.name || scenario.metadata_name || scenario.slug)) || '';
   }
@@ -2278,7 +2582,8 @@ class UI {
       : 'planned';
     const x = row.point.x;
     const y = row.point.y;
-    const label = this.sanitizeHTML(role);
+    const iconY = y - 12;
+    const label = this.sanitizeHTML(this._vmLabel(asset));
     const kind = this.sanitizeHTML(meta.kind);
     const os = this.sanitizeHTML(meta.os);
     const side = this._assetSide(asset);
@@ -2286,10 +2591,12 @@ class UI {
     const action = mapId
       ? ' onclick="app.inspectThreatNode(\'' + mapId + '\',\'' + encodedRole + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();app.inspectThreatNode(\'' + mapId + '\',\'' + encodedRole + '\')}"'
       : '';
-    return '<g class="topology-svg-device topology-svg-device-' + meta.cls + ' topology-svg-state-' + state + '" data-threat-role="' + label + '" data-threat-side="' + side + '" role="button" aria-label="Inspect ' + label + '" tabindex="0"' + action + '>'
+    return '<g class="topology-svg-device topology-svg-device-' + meta.cls + ' topology-svg-state-' + state + '" data-threat-role="' + this.sanitizeHTML(role) + '" data-threat-side="' + side + '" data-topology-state="' + state + '" role="button" aria-label="Inspect ' + label + '" tabindex="0"' + action + '>'
       + '<title>' + label + ' - ' + kind + '</title>'
+      + '<circle class="topology-svg-node-halo" cx="' + x + '" cy="' + iconY + '" r="43"></circle>'
+      + '<circle class="topology-svg-node-pulse" cx="' + x + '" cy="' + iconY + '" r="35"></circle>'
       + '<circle class="topology-svg-status" cx="' + (x - 58) + '" cy="' + (y - 44) + '" r="5"></circle>'
-      + this._topologySvgIcon(meta, x, y - 12)
+      + this._topologySvgIcon(meta, x, iconY)
       + '<rect class="topology-svg-os-badge" x="' + (x + 15) + '" y="' + (y + 14) + '" width="46" height="18" rx="9"></rect>'
       + '<text class="topology-svg-os-text" x="' + (x + 38) + '" y="' + (y + 27) + '">' + os + '</text>'
       + '<text class="topology-svg-name" x="' + x + '" y="' + (y + 62) + '">' + label + '</text>'
@@ -2320,7 +2627,7 @@ class UI {
       + this._topologyDeviceIcon(meta)
       + '<span class="packet-os-badge">' + this.sanitizeHTML(meta.os) + '</span>'
       + '</div>'
-      + '<div class="network-node-name">' + this.sanitizeHTML(role) + (count > 1 ? ' x' + count : '') + '</div>'
+      + '<div class="network-node-name">' + this.sanitizeHTML(this._vmLabel(asset)) + '</div>'
       + '<div class="network-node-kind">' + this.sanitizeHTML(meta.kind) + '</div>'
       + (nets ? '<div class="network-node-net">' + this.sanitizeHTML(nets) + '</div>' : '')
       + (state ? '<div class="topology-node-live network-node-live"><span class="status-pill status-pill-' + state.cls + '">' + this.sanitizeHTML(state.label) + '</span>' + (live.ip ? '<span>' + this.sanitizeHTML(live.ip) + '</span>' : '') + '</div>' : '')
@@ -2353,7 +2660,7 @@ class UI {
       + '<span class="packet-os-badge">' + this.sanitizeHTML(meta.os) + '</span>'
       + '</div>'
       + '<div class="topology-node-body">'
-      + '<div class="topology-node-role">' + this.sanitizeHTML(role) + (count > 1 ? ' x' + count : '') + '</div>'
+      + '<div class="topology-node-role">' + this.sanitizeHTML(this._vmLabel(asset)) + '</div>'
       + '<div class="packet-device-kind">' + this.sanitizeHTML(meta.kind) + '</div>'
       + '<div class="small muted">' + this.sanitizeHTML((asset && (asset.template || asset.kind)) || 'vm') + '</div>'
       + (nets ? '<div class="topology-node-nets">' + this.sanitizeHTML(nets) + '</div>' : '')
@@ -2455,7 +2762,7 @@ class UI {
       const midX = Math.round((a.point.x + b.point.x) / 2);
       return 'M' + a.point.x + ' ' + a.point.y + ' H' + midX + ' V' + b.point.y + ' H' + b.point.x;
     };
-    const lines = edges.map((edge) => {
+    const lines = edges.map((edge, index) => {
       const a = byKey.get(edge.from.key);
       const b = byKey.get(edge.to.key);
       if (!a || !b || !a.point || !b.point) return '';
@@ -2463,8 +2770,12 @@ class UI {
       const path = wirePath(a, b);
       const safeNetwork = this.sanitizeHTML(edge.networkName);
       const activate = 'onclick="app.inspectThreatEdge(\'' + mapId + '\',\'' + encodedNetwork + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();app.inspectThreatEdge(\'' + mapId + '\',\'' + encodedNetwork + '\')}"';
-      return '<g class="topology-network-edge">'
+      const packetDuration = (2.6 + (index % 3) * .45).toFixed(2);
+      const packetOffset = (index * .61).toFixed(2);
+      return '<g class="topology-network-edge" data-threat-side="' + edge.side + '">'
         + '<path class="network-wire network-wire-' + edge.side + ' threat-wire" data-threat-side="' + edge.side + '" data-network="' + safeNetwork + '" d="' + path + '" aria-hidden="true"><title>' + safeNetwork + '</title></path>'
+        + '<path class="network-wire-signal network-wire-signal-' + edge.side + '" d="' + path + '" style="animation-delay:-' + packetOffset + 's" aria-hidden="true"></path>'
+        + '<circle class="topology-svg-packet topology-svg-packet-' + edge.side + '" r="3.5" aria-hidden="true"><animateMotion dur="' + packetDuration + 's" begin="-' + packetOffset + 's" repeatCount="indefinite" path="' + path + '"></animateMotion></circle>'
         + '<path class="network-wire-hit" data-network="' + safeNetwork + '" d="' + path + '" tabindex="0" role="button" aria-label="Inspect ' + safeNetwork + ' link" ' + activate + '></path>'
         + '</g>';
     }).join('');
@@ -2495,9 +2806,15 @@ class UI {
       const textX = column.align === 'start' ? column.zoneX + 22 : column.align === 'end' ? column.zoneX + column.zoneW - 22 : column.zoneX + (column.zoneW / 2);
       const anchor = column.align === 'start' ? 'start' : column.align === 'end' ? 'end' : 'middle';
       const tone = column.key === 'red' ? 'topology-svg-red-text' : column.key === 'transit' ? 'topology-svg-shared-text' : column.key === 'dmz' ? 'topology-svg-dmz-text' : column.key === 'identity' ? 'topology-svg-identity-text' : 'topology-svg-blue-text';
-      return '<rect class="topology-svg-zone topology-svg-zone-' + column.key + '" x="' + column.zoneX + '" y="24" width="' + column.zoneW + '" height="' + (height - 48) + '" rx="8"></rect>'
+      const columnIndex = layout.indexOf(column);
+      const scanY = 98 + ((columnIndex * 47) % Math.max(80, height - 132));
+      const scanTravel = Math.max(110, height - 142);
+      return '<g class="topology-svg-zone-group topology-svg-zone-group-' + column.key + '" data-topology-zone="' + column.key + '">'
+        + '<rect class="topology-svg-zone topology-svg-zone-' + column.key + '" x="' + column.zoneX + '" y="24" width="' + column.zoneW + '" height="' + (height - 48) + '" rx="8"></rect>'
+        + '<line class="topology-svg-zone-scan topology-svg-zone-scan-' + column.key + '" x1="' + (column.zoneX + 12) + '" y1="' + scanY + '" x2="' + (column.zoneX + column.zoneW - 12) + '" y2="' + scanY + '" style="--zone-scan-travel:' + scanTravel + 'px;--zone-scan-delay:-' + (columnIndex * 1.25).toFixed(2) + 's"></line>'
         + '<text class="topology-svg-zone-title ' + tone + '" text-anchor="' + anchor + '" x="' + textX + '" y="58">' + zone.name + '</text>'
-        + '<text class="topology-svg-zone-cidr" text-anchor="' + anchor + '" x="' + textX + '" y="78">' + zone.cidr + '</text>';
+        + '<text class="topology-svg-zone-cidr" text-anchor="' + anchor + '" x="' + textX + '" y="78">' + zone.cidr + '</text>'
+        + '</g>';
     }).join('');
     const networkKey = networks.map((network) => {
       const side = laneSide(network && network.name);
@@ -2512,6 +2829,7 @@ class UI {
     const topologyLegend = options.activeDrillMap ? '' : '<div class="topology-legend packet-legend"><span class="legend-red">Threat path</span><span class="legend-shared">Transit</span><span class="legend-blue">Defense</span><span class="legend-neutral">VLAN links</span></div>';
     return '<div class="threat-map-shell' + autoplay + intro + '" data-map-id="' + mapId + '" data-filter="all">'
       + '<div class="threat-map-toolbar"><div class="threat-map-controls">'
+      + (options.activeDrillMap && options.drillId ? '<button type="button" class="threat-map-control" onclick="window.location.assign(\'/drill/three/?drill_id=' + encodeURIComponent(String(options.drillId)) + '\')" title="Open the experimental three-dimensional range">3D range</button>' : '')
       + '<button type="button" class="threat-map-control threat-map-replay" onclick="app.replayThreatMapIntro(\'' + mapId + '\')" title="Replay cinematic map reveal">Replay reveal</button>'
       + '<button type="button" class="threat-map-control" onclick="app.resetThreatMapCamera(\'' + mapId + '\')" title="Fit the complete range">Fit range</button>'
       + '<button type="button" class="threat-map-control operator-only" aria-expanded="false" onclick="app.toggleThreatTimeline(\'' + mapId + '\',this)">Story feed</button>'
@@ -2527,8 +2845,9 @@ class UI {
       + topologyLegend
       + '<div class="network-canvas topology-svg-wrap">'
       + '<svg class="topology-svg" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="Scenario network topology">'
-      + '<defs><pattern id="' + gridId + '" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" class="topology-svg-grid-line"></path></pattern></defs>'
+      + '<defs><pattern id="' + gridId + '" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" class="topology-svg-grid-line"></path></pattern><radialGradient id="' + gridId + '-glow" cx="52%" cy="48%" r="74%"><stop offset="0%" stop-color="#1e3a5f" stop-opacity=".28"></stop><stop offset="56%" stop-color="#0b1320" stop-opacity=".12"></stop><stop offset="100%" stop-color="#05080d" stop-opacity=".72"></stop></radialGradient></defs>'
       + '<rect class="topology-svg-bg" x="0" y="0" width="' + width + '" height="' + height + '" rx="8"></rect>'
+      + '<rect class="topology-svg-ambient" style="fill:url(#' + gridId + '-glow)" x="0" y="0" width="' + width + '" height="' + height + '" rx="8"></rect>'
       + '<rect class="topology-svg-grid" style="fill:url(#' + gridId + ')" x="0" y="0" width="' + width + '" height="' + height + '"></rect>'
       + zoneMarkup
       + '<g class="topology-svg-wires">' + lines + '</g>'
@@ -2548,7 +2867,11 @@ class UI {
     if (!root || !world || !links) return;
     const catalog = this._scenarioPageCatalog || [];
     const query = String(this._scenarioGraphQuery || '').trim().toLowerCase();
-    const scenarios = catalog.filter((scenario) => `${this._scenarioName(scenario)} ${this._scenarioSlug(scenario)} ${scenario.description || ''}`.toLowerCase().includes(query));
+    const scenarios = catalog.filter((scenario) => {
+      const vulnerabilities = this._scenarioVulnerabilities(scenario);
+      const attackPath = this._scenarioAttackPath(scenario);
+      return `${this._scenarioOrganization(scenario)} ${this._scenarioName(scenario)} ${this._scenarioSlug(scenario)} ${this._scenarioSummary(scenario)} ${attackPath.map((item) => `${item.asset || ''} ${item.goal || ''}`).join(' ')} ${vulnerabilities.map((item) => `${item.asset || ''} ${item.issue || ''} ${(item.cve_ids || []).join(' ')}`).join(' ')}`.toLowerCase().includes(query);
+    });
     this._scenarioGraphVisibleCount = scenarios.length;
     this._scenarioGraphFitted = false;
     const bridgeRows = this._scenarioPageBridges || [];
@@ -2571,13 +2894,12 @@ class UI {
       + '<div class="scenario-atlas-fact"><span>TEMPLATE COVERAGE</span><b class="' + (coverage.ready ? 'is-ready' : 'is-check') + '">' + (coverage.ready ? 'READY' : coverage.required.length ? coverage.missing.length + ' MISSING' : 'NOT CHECKED') + '</b></div>'
       + (lock.error ? '<p>' + this.sanitizeHTML(lock.error) + '</p>' : '')
       + (lock.drill_id ? '<button type="button" class="btn btn-secondary btn-sm" onclick="app.playDrill(' + Number(lock.drill_id) + ')">View active run #' + this.sanitizeHTML(lock.drill_id) + '</button>' : '<p>One shared range slot. Starting a playbook provisions its drill environment.</p>');
-    const origin = { id: 'catalog', x: center - 76, y: center - 76, width: 152, height: 152, title: 'Scenario catalog', eyebrow: 'PLAYBOOK INDEX', body: catalogBody };
+    const origin = { id: 'catalog', x: center - 76, y: center - 76, width: 152, height: 152, title: 'Organization catalog', eyebrow: 'EXERCISE INDEX', body: catalogBody };
     const cards = { catalog: origin };
     let paths = '';
-    const hubMarkup = '<button type="button" class="scenario-atlas-origin" data-node-id="catalog" style="left:' + origin.x + 'px;top:' + origin.y + 'px" onclick="app.focusScenarioGraphNode(\'catalog\')" aria-label="OxBlood scenario catalog, ' + catalog.length + ' playbooks" aria-pressed="false"><span>OXBLOOD</span><small>SCENARIOS</small></button>';
+    const hubMarkup = '<button type="button" class="scenario-atlas-origin" data-node-id="catalog" style="left:' + origin.x + 'px;top:' + origin.y + 'px" onclick="app.focusScenarioGraphNode(\'catalog\')" aria-label="OxBlood organization catalog, ' + catalog.length + ' exercises" aria-pressed="false"><span>OXBLOOD</span><small>ORGANIZATIONS</small></button>';
     const scenarioMarkup = scenarios.map((scenario, index) => {
       const id = Number(scenario.id);
-      const stats = this._scenarioCounts(scenario);
       const ring = Math.floor(index / 8);
       const ringIndex = index % 8;
       const inRing = Math.min(8, scenarios.length - ring * 8);
@@ -2591,14 +2913,14 @@ class UI {
       const card = { id: String(id), x, y, width: 190, height: 182, centerX: pointX, centerY: pointY, scenario };
       cards[String(id)] = card;
       paths += '<path class="scenario-atlas-edge difficulty-' + this.sanitizeHTML(tone) + '" d="M' + center + ' ' + center + ' L' + pointX.toFixed(1) + ' ' + pointY.toFixed(1) + '" />';
-      return '<button type="button" class="scenario-atlas-node scenario-atlas-playbook scenario-atlas-difficulty-' + tone + '" data-node-id="' + id + '" style="left:' + x + 'px;top:' + y + 'px" onclick="app.focusScenarioGraphNode(\'' + id + '\')" aria-label="Inspect scenario ' + this.sanitizeHTML(this._scenarioName(scenario)) + '" aria-pressed="false">'
+      return '<button type="button" class="scenario-atlas-node scenario-atlas-playbook scenario-atlas-difficulty-' + tone + '" data-node-id="' + id + '" style="left:' + x + 'px;top:' + y + 'px" onclick="app.focusScenarioGraphNode(\'' + id + '\')" aria-label="Inspect ' + this.sanitizeHTML(this._scenarioOrganization(scenario)) + ': ' + this.sanitizeHTML(this._scenarioName(scenario)) + '" aria-pressed="false">'
         + '<span class="scenario-atlas-orb"><svg viewBox="0 0 32 32" aria-hidden="true"><use href="#scenario-atlas-icon-playbook"></use></svg><i></i></span>'
-        + '<strong>' + this.sanitizeHTML(this._scenarioName(scenario)) + '</strong>'
-        + '<span class="scenario-atlas-node-status">' + this.sanitizeHTML(tone.toUpperCase()) + ' · ' + stats.assets + ' ASSETS</span></button>';
+        + '<strong>' + this.sanitizeHTML(this._scenarioOrganization(scenario)) + '</strong>'
+        + '<span class="scenario-atlas-node-status">' + this.sanitizeHTML(this._scenarioName(scenario)) + '</span></button>';
     }).join('');
     this._scenarioGraphCards = cards;
     links.innerHTML = paths + '<circle class="scenario-atlas-origin-signal" cx="' + center + '" cy="' + center + '" r="4" />';
-    const empty = scenarios.length ? '' : '<div class="scenario-atlas-empty">' + (catalog.length ? 'No playbooks match this search.' : 'No scenarios are synced yet. Sync approved scenario files in Setup.') + '</div>';
+    const empty = scenarios.length ? '' : '<div class="scenario-atlas-empty">' + (catalog.length ? 'No organizations match this search.' : 'No exercises are available yet.') + '</div>';
     root.innerHTML = hubMarkup + scenarioMarkup + empty;
     const inspector = document.getElementById('scenario-atlas-inspector');
     if (this._scenarioGraphSelected && !root.querySelector('[data-node-id="' + this._scenarioGraphSelected + '"]')) {
@@ -2606,7 +2928,7 @@ class UI {
       if (inspector) inspector.hidden = true;
     }
     const counter = document.getElementById('scenario-atlas-count');
-    if (counter) counter.textContent = scenarios.length + ' / ' + catalog.length + ' PLAYBOOKS VISIBLE';
+    if (counter) counter.textContent = scenarios.length + ' / ' + catalog.length + ' ORGANIZATIONS VISIBLE';
     const footer = document.getElementById('scenario-atlas-footer-status');
     if (footer) footer.textContent = lock.available ? 'Shared range ready' : lock.drill_id ? 'Range reserved by run #' + lock.drill_id : 'Environment state unavailable';
     if (this._scenarioGraphSelected && this._scenarioGraphCards[this._scenarioGraphSelected]) {
@@ -2627,14 +2949,43 @@ class UI {
     const objectives = (runtime.objectives || {});
     const lock = this._scenarioEnvironmentLock || {};
     const blocked = !lock.available;
-    const desc = scenario.description || scenario.summary || 'Mission brief not provided.';
-    return '<span class="scenario-atlas-detail-kicker">MISSION BRIEF // ' + this.sanitizeHTML(this._scenarioSlug(scenario) || 'scenario') + '</span>'
-      + '<h2>' + this.sanitizeHTML(this._scenarioName(scenario)) + '</h2>'
-      + '<p class="scenario-atlas-detail-desc">' + this.sanitizeHTML(desc) + '</p>'
+    const attackPath = this._scenarioAttackPath(scenario);
+    const vulnerabilities = this._scenarioVulnerabilities(scenario);
+    const pathRows = attackPath.length ? '<ol class="scenario-attack-path">' + attackPath.map((item) => {
+      const setup = this._scenarioPathSetup(scenario, item.asset);
+      const weakness = vulnerabilities.find((row) => row.asset === item.asset);
+      return '<li><strong>' + this.sanitizeHTML(this._scenarioVmLabel(scenario, item.asset)) + '</strong>'
+        + '<span>' + this.sanitizeHTML(item.goal || 'Assess target') + '</span>'
+        + '<small>Declared setup: ' + this.sanitizeHTML(setup.network) + '</small>'
+        + (setup.route ? '<small>Route rule: ' + this.sanitizeHTML(setup.route) + '</small>' : '')
+        + (setup.check ? '<small>Planned service check: ' + this.sanitizeHTML(setup.check) + '</small>' : '')
+        + '<small class="scenario-path-weakness">Weakness: ' + this.sanitizeHTML(weakness?.issue || 'Not verified') + '</small></li>';
+    }).join('') + '</ol>' : '<p class="scenario-atlas-muted">Attack path has not been documented.</p>';
+    const guide = this._scenarioPlayGuide(scenario);
+    const guideSide = (side, title) => {
+      const win = (runtime.win_conditions?.[side] || [])[0];
+      return '<article class="scenario-guide-side is-' + side + '"><h4>' + title + '</h4>'
+        + (guide[side].length ? '<ol>' + guide[side].map((step) => '<li>' + this.sanitizeHTML(step) + '</li>').join('') + '</ol>' : '<p class="scenario-atlas-muted">Guide not documented.</p>')
+        + (win ? '<p class="scenario-guide-win"><b>Win</b> ' + this.sanitizeHTML(win) + '</p>' : '') + '</article>';
+    };
+    const weaknessRows = vulnerabilities.length ? vulnerabilities.map((item) => {
+      const cves = Array.isArray(item.cve_ids) ? item.cve_ids : [];
+      return '<article class="scenario-weakness"><span class="scenario-weakness-asset">' + this.sanitizeHTML(this._scenarioVmLabel(scenario, item.asset)) + '</span><strong>' + this.sanitizeHTML(item.issue || 'Documented weakness') + '</strong>'
+        + (item.detail ? '<p>' + this.sanitizeHTML(item.detail) + '</p>' : '')
+        + '<div class="scenario-cve-list">' + (cves.length ? cves.map((cve) => '<span>' + this.sanitizeHTML(cve) + '</span>').join('') : '<span class="is-unmapped">No CVE mapped</span>') + '</div></article>';
+    }).join('') : '<p class="scenario-atlas-muted">No vulnerable service or CVE has been verified yet.</p>';
+    return '<span class="scenario-atlas-detail-kicker">ORGANIZATION // ' + this.sanitizeHTML(this._scenarioSlug(scenario) || 'exercise') + '</span>'
+      + '<h2>' + this.sanitizeHTML(this._scenarioOrganization(scenario)) + '</h2>'
+      + '<div class="scenario-exercise-title"><span>EXERCISE</span><strong>' + this.sanitizeHTML(this._scenarioName(scenario)) + '</strong></div>'
+      + '<p class="scenario-atlas-detail-desc">' + this.sanitizeHTML(this._scenarioSummary(scenario)) + '</p>'
       + '<div class="scenario-atlas-detail-stats"><div><b>' + counts.assets + '</b><span>ASSETS</span></div><div><b>' + counts.networks + '</b><span>NETWORKS</span></div><div><b>' + counts.objectives + '</b><span>OBJECTIVES</span></div><div><b>' + counts.flags + '</b><span>FLAGS</span></div></div>'
+      + '<section><h3>Intended attack path</h3><p class="scenario-path-note">Setup comes from the scenario file. Live services and exploitability require a separate check.</p>' + pathRows + '</section>'
+      + '<section><h3>Verified weaknesses</h3><div class="scenario-weakness-list">' + weaknessRows + '</div></section>'
+      + '<section><h3>How to play</h3><div class="scenario-guide-grid">' + guideSide('red', 'Attack · Red') + guideSide('blue', 'Defend · Blue') + '</div></section>'
+      + '<details class="scenario-briefing-more"><summary>Full exercise details</summary>'
       + '<section><h3>Red objectives</h3>' + list(objectives.red || []) + '</section>'
       + '<section><h3>Blue objectives</h3>' + list(objectives.blue || []) + '</section>'
-      + '<section><h3>Range design</h3><div class="scenario-atlas-detail-list">' + (assets.length ? assets.map((asset) => '<div><b>' + this.sanitizeHTML(asset.role || 'Asset') + '</b><span>' + this.sanitizeHTML(asset.template || asset.kind || 'template unspecified') + '</span></div>').join('') : '<p class="scenario-atlas-muted">No assets declared.</p>') + (networks.length ? networks.map((network) => '<div><b>' + this.sanitizeHTML(network.name || 'Network') + '</b><span>' + this.sanitizeHTML(network.cidr || 'Address plan not specified') + '</span></div>').join('') : '') + '</div></section>'
+      + '<section><h3>Range design</h3><div class="scenario-atlas-detail-list">' + (assets.length ? assets.map((asset) => '<div><b>' + this.sanitizeHTML(this._vmLabel(asset)) + '</b><span>' + this.sanitizeHTML(asset.template || asset.kind || 'template unspecified') + '</span></div>').join('') : '<p class="scenario-atlas-muted">No assets declared.</p>') + (networks.length ? networks.map((network) => '<div><b>' + this.sanitizeHTML(network.name || 'Network') + '</b><span>' + this.sanitizeHTML(network.cidr || 'Address plan not specified') + '</span></div>').join('') : '') + '</div></section></details>'
       + '<button id="scenario-start-btn" type="button" class="btn btn-primary scenario-atlas-launch" onclick="app.startScenarioFromCatalog(' + Number(scenario.id) + ')" ' + (blocked ? 'disabled' : '') + '>' + (blocked ? 'Environment in use' : 'Prepare range') + '</button>'
       + (lock.drill_id ? '<button type="button" class="btn btn-secondary scenario-atlas-active-link" onclick="app.playDrill(' + Number(lock.drill_id) + ')">View active run #' + this.sanitizeHTML(lock.drill_id) + '</button>' : '');
   }
@@ -2688,6 +3039,7 @@ class UI {
     if (!viewport || viewport._scenarioGraphBound) return;
     viewport._scenarioGraphBound = true;
     this._scenarioGraphCamera = { scale: 1, x: 0, y: 0 };
+    if (getComputedStyle(viewport).touchAction !== 'none') return;
     viewport.addEventListener('wheel', (event) => {
       if (event.target.closest('.scenario-atlas-inspector')) return;
       event.preventDefault();
@@ -2868,7 +3220,7 @@ class UI {
   async loadScenariosPage() {
     if (!this._isOperator()) {
       const content = document.getElementById('content');
-      if (content) content.innerHTML = '<div class="page"><div class="page-header"><h1 class="page-title">Scenarios</h1></div><div class="card-error">Lead role required.</div></div>';
+      if (content) content.innerHTML = '<div class="page"><div class="page-header"><h1 class="page-title">Organizations</h1></div><div class="card-error">Lead role required.</div></div>';
       return;
     }
     const list = document.getElementById('scenario-atlas-nodes');
@@ -3069,6 +3421,7 @@ class UI {
     if (!viewport || viewport._infrastructureGraphBound) return;
     viewport._infrastructureGraphBound = true;
     this._infrastructureGraphCamera = { scale: 1, x: 0, y: 0 };
+    if (getComputedStyle(viewport).touchAction !== 'none') return;
     viewport.addEventListener('wheel', (event) => {
       if (event.target.closest('.infrastructure-atlas-inspector')) return;
       event.preventDefault();
@@ -3701,8 +4054,9 @@ class UI {
   }
 
   _defaultDrillTitle(scenario) {
-    const base = (scenario && (scenario.title || scenario.name)) || 'Untitled Drill';
-    return `${base} Drill`;
+    const exercise = this._scenarioName(scenario);
+    const organization = this._scenarioOrganization(scenario);
+    return organization === exercise ? `${exercise} Drill` : `${organization} — ${exercise}`;
   }
 
   selectCreateScenario(scenarioId) {
@@ -3789,7 +4143,7 @@ class UI {
     set('create-wizard-next', !editMode && state.step < 3);
     set('create-wizard-schedule', editMode || state.step === 3);
     set('create-wizard-start', !editMode && state.step === 3);
-    set('create-wizard-retry', !editMode && provisionFailed && !!state.createdDrillId);
+    set('create-wizard-retry', !editMode && provisionFailed && !!state.createdDrillId && !state.environmentBusyDrillId);
     set('create-wizard-open', !editMode && provisionReady && !!state.createdDrillId);
     const scheduleBtn = document.getElementById('create-wizard-schedule');
     if (scheduleBtn) {
@@ -3832,7 +4186,7 @@ class UI {
     const lower = String(status || 'idle').toLowerCase();
     const failed = lower === 'failed' || lower.includes('fail') || lower === 'timeout';
     const ready = lower === 'started' || lower === 'ready';
-    const activeIndex = ready ? 5 : failed ? 2 : lower.includes('boot') ? 4 : lower.includes('seed') ? 3 : lower.includes('clone') ? 2 : lower.includes('network') ? 1 : 0;
+    const activeIndex = ready || lower === 'validation_failed' ? 5 : failed ? 2 : lower.includes('boot') ? 4 : lower.includes('seed') ? 3 : lower.includes('clone') ? 2 : lower.includes('network') ? 1 : 0;
     const steps = [['Templates', 'tpl'], ['Networks', 'net'], ['Clone', 'vm'], ['Seed', 'cfg'], ['Boot', 'run'], ['Ready', 'ok']];
     return '<div class="provision-flow" aria-label="Provision flow">'
       + steps.map(([label, code], idx) => {
@@ -3848,13 +4202,14 @@ class UI {
   _provisionMachinesHtml(snapshot) {
     const assets = (snapshot && snapshot.assets) || [];
     if (!assets.length) return '<div class="provision-machines empty"><span class="small muted">Preparing machine list...</span></div>';
+    const scenario = this._selectedCreateScenario();
     return '<div class="provision-machines">'
       + assets.map((asset) => {
         const state = String(asset.status || 'planned').toLowerCase();
         const cls = state === 'running' ? 'ready' : state.includes('fail') ? 'failed' : 'pending';
         return '<div class="provision-machine provision-machine-' + cls + '">'
           + '<span class="provision-machine-dot" aria-hidden="true"></span>'
-          + '<span class="provision-machine-role">' + this.sanitizeHTML(asset.role || 'Machine') + '</span>'
+          + '<span class="provision-machine-role">' + this.sanitizeHTML(scenario ? this._scenarioVmLabel(scenario, asset.role) : (asset.role || 'Machine')) + '</span>'
           + '<span class="provision-machine-meta">'
           + (asset.pve_vmid ? 'VM ' + this.sanitizeHTML(asset.pve_vmid) : 'Waiting for clone')
           + (asset.ip ? ' · ' + this.sanitizeHTML(asset.ip) : '')
@@ -3892,8 +4247,8 @@ class UI {
           + '<div class="scenario-card selected scenario-card-large">'
           + this._scenarioImageSlot(s)
           + '<span class="scenario-card-copy">'
-          + `<span class="scenario-card-title">${this.sanitizeHTML(s.title || s.name || `Scenario ${s.id}`)}</span>`
-          + `<span class="scenario-card-slug">${this.sanitizeHTML(s.name || '')}</span>`
+          + `<span class="scenario-card-title">${this.sanitizeHTML(this._scenarioOrganization(s))}</span>`
+          + `<span class="scenario-card-slug">${this.sanitizeHTML(this._scenarioName(s))}</span>`
           + this._scenarioMiniTopology(s)
           + '<span class="scenario-card-meta">'
           + `<span>${this.sanitizeHTML(s.difficulty || 'beginner')}</span><span>${stats.assets} assets</span><span>${stats.networks} networks</span><span>${stats.objectives} objectives</span><span>${stats.flags} flags</span>`
@@ -3908,7 +4263,7 @@ class UI {
       body.innerHTML = ''
         + '<div class="wizard-status" style="margin-bottom: var(--space-md); display: flex; gap: var(--space-md); align-items: center;">'
         + (scenario ? this._scenarioImageSlot(scenario) : '')
-        + `<div><div class="value">${this.sanitizeHTML((scenario && (scenario.title || scenario.name)) || 'Scenario')}</div><div class="small muted">${this.sanitizeHTML((scenario && scenario.name) || '')}</div></div>`
+          + `<div><div class="value">${this.sanitizeHTML(this._scenarioOrganization(scenario))}</div><div class="small muted">${this.sanitizeHTML(this._scenarioName(scenario))}</div></div>`
         + '</div>'
         + '<div class="wizard-field-grid">'
         + `<div class="wizard-field"><label>Title</label><input id="drill-title" type="text" value="${this.sanitizeHTML(state.title || '')}" oninput="app._createWizard.titleTouched=true; app._captureCreateWizardFields(); app.updateActionButtonStates();"></div>`
@@ -3923,7 +4278,7 @@ class UI {
         + '<div class="wizard-status">'
         + '<div style="display: flex; gap: var(--space-md); align-items: center;">'
         + (scenario ? this._scenarioImageSlot(scenario) : '')
-        + `<div><div class="value">${this.sanitizeHTML((scenario && (scenario.title || scenario.name)) || 'Scenario')}</div><div class="small muted">${stats ? `${stats.assets} assets, ${stats.networks} networks, ${stats.objectives} objectives, ${stats.flags} flags will be seeded` : ''}</div></div>`
+        + `<div><div class="value">${this.sanitizeHTML(this._scenarioOrganization(scenario))}</div><div class="small muted">${this.sanitizeHTML(this._scenarioName(scenario))}${stats ? ` · ${stats.assets} assets, ${stats.networks} networks` : ''}</div></div>`
         + '</div>'
         + '<div id="drill-scenario-readiness" class="small muted" style="margin-top: var(--space-md);">Checking scenario readiness...</div>'
         + '<div style="display: flex; gap: var(--space-sm); margin-top: var(--space-md);"><button type="button" class="btn btn-secondary btn-sm" onclick="app.updateDrillScenarioReadiness()">Recheck</button><button type="button" class="btn btn-secondary btn-sm" onclick="app.setupDryRunBridges()">Dry run bridges</button><button type="button" class="btn btn-primary btn-sm" onclick="app.setupApplyBridges().then(()=>app.updateDrillScenarioReadiness())">Apply missing bridges</button></div>'
@@ -3933,17 +4288,18 @@ class UI {
       const status = state.provisionStatus || 'idle';
       const done = status === 'started';
       const failed = status === 'failed';
+      const validationFailed = status === 'validation_failed';
+      const busyDrillId = Number(state.environmentBusyDrillId) || 0;
       const message = this._friendlyProvisionMessage(state.provisionMessage || 'Waiting for clone, boot, NIC attach, and flag seed confirmation.');
       body.innerHTML = ''
         + '<div class="provision-monitor">'
         + (scenario ? this._scenarioImageSlot(scenario) : '')
         + '<div>'
-        + `<div class="value">${this.sanitizeHTML(done ? 'VMs ready' : failed ? 'Provisioning failed' : 'Provisioning')}</div>`
+        + `<div class="value">${this.sanitizeHTML(busyDrillId ? 'Range in use' : done ? 'VMs ready' : validationFailed ? 'Range checks need attention' : failed ? 'Provisioning failed' : 'Provisioning')}</div>`
         + `<div class="small muted">${this.sanitizeHTML(message)}</div>`
-        + this._provisionFlowHtml(status)
-        + this._provisionMachinesHtml(state.provisionSnapshot)
-        + (failed ? '<div class="provision-recovery"><button type="button" class="btn btn-secondary btn-sm" onclick="app.hideCreateDrillModal(); app.loadPage(\'setup\')">Open cleanup</button><span class="small muted">Remove leftover VMs or wait for PVE locks to clear, then retry.</span></div>' : '')
-        + `<div style="margin-top: var(--space-md);">${this._readinessPill(done ? true : failed ? false : null)}</div>`
+        + (busyDrillId ? '' : this._provisionFlowHtml(status) + this._provisionMachinesHtml(state.provisionSnapshot))
+        + (busyDrillId ? '<div class="provision-recovery"><button type="button" class="btn btn-secondary btn-sm" onclick="app.hideCreateDrillModal(); app.loadPage(\'drills\').then(() => app.playDrill(' + busyDrillId + '))">Open drill #' + busyDrillId + '</button><span class="small muted">Resolve that drill and its VM cleanup before retrying this one.</span></div>' : failed ? '<div class="provision-recovery"><button type="button" class="btn btn-secondary btn-sm" onclick="app.hideCreateDrillModal(); app.loadPage(\'setup\')">Open cleanup</button><span class="small muted">Remove leftover VMs or wait for PVE locks to clear, then retry.</span></div>' : '')
+        + `<div style="margin-top: var(--space-md);">${this._readinessPill(done ? true : failed || validationFailed ? false : null)}</div>`
         + '</div>'
         + '</div>';
     }
@@ -3957,6 +4313,16 @@ class UI {
       return text + ' Wait for the Proxmox VM lock to clear, then retry provisioning.';
     }
     return text;
+  }
+
+  async _showProvisionConflict(error) {
+    if (!String(error?.message || '').includes('409')) return false;
+    const lock = await API.getEnvironmentLock().catch(() => null);
+    const ownerId = Number(lock?.drill_id) || 0;
+    if (!ownerId || lock.available || !this._createWizard) return false;
+    this._createWizard.environmentBusyDrillId = ownerId;
+    this._createWizard.provisionMessage = `Drill #${ownerId} still owns the shared range (${lock.status || 'in use'}). Resolve its VM cleanup before preparing another drill.`;
+    return true;
   }
 
   async updateDrillScenarioReadiness() {
@@ -4246,6 +4612,7 @@ class UI {
       return;
     }
     this._createWizard.step = 4;
+    this._createWizard.environmentBusyDrillId = null;
     this._createWizard.provisionStatus = 'starting';
     this._createWizard.provisionStartedAt = Date.now();
     this._createWizard.provisionMessage = 'Creating run and starting VM provisioning...';
@@ -4260,6 +4627,7 @@ class UI {
     } catch (error) {
       this._createWizard.provisionStatus = 'failed';
       this._createWizard.provisionMessage = error.message || 'Start request failed';
+      await this._showProvisionConflict(error);
       this._createWizard.busy = false;
       this.renderCreateWizardStep();
       this.showToast('Failed to start drill: ' + (error.message || 'Unknown error'), 'error');
@@ -4315,6 +4683,7 @@ class UI {
     const drillId = this._createWizard && this._createWizard.createdDrillId;
     if (!drillId || !this._createWizard) return;
     this._createWizard.busy = true;
+    this._createWizard.environmentBusyDrillId = null;
     this._createWizard.provisionStatus = 'starting';
     this._createWizard.provisionStartedAt = Date.now();
     this._createWizard.provisionMessage = 'Retrying VM provisioning...';
@@ -4329,6 +4698,7 @@ class UI {
     } catch (error) {
       this._createWizard.provisionStatus = 'failed';
       this._createWizard.provisionMessage = error.message || 'Provision retry failed';
+      await this._showProvisionConflict(error);
       this._createWizard.busy = false;
       this.renderCreateWizardStep();
       this.showToast('Failed to retry provisioning: ' + (error.message || 'Unknown error'), 'error');

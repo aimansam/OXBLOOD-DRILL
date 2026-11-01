@@ -2,7 +2,7 @@
   <section class="dashboard-command-graph" aria-labelledby="dashboard-graph-title">
     <button type="button" class="dashboard-graph-back" onclick="app.loadPage('range-hub')" aria-label="Back to Range Hub" title="Back to Range Hub">&#8592;</button>
     <header class="dashboard-graph-header">
-      <div><span class="dashboard-section-kicker">Oxblood // Range intelligence</span><h1 id="dashboard-graph-title">Operations Graph</h1><p>Explore the range by signal. Select a node to open its live detail.</p></div>
+      <div><span class="dashboard-section-kicker">OxBlood</span><h1 id="dashboard-graph-title">Overview</h1><p>Operations and range status.</p></div>
       <div class="dashboard-graph-tools" role="group" aria-label="Graph controls">
         <button type="button" onclick="app.zoomDashboardGraph(1.18)" aria-label="Zoom in" title="Zoom in">+</button>
         <button type="button" onclick="app.zoomDashboardGraph(0.84)" aria-label="Zoom out" title="Zoom out">−</button>
@@ -37,9 +37,9 @@
     <div class="dashboard-stage-art" aria-hidden="true"></div>
     <div class="dashboard-stage-content">
       <div class="dashboard-stage-copy">
-        <span class="dashboard-overline">Oxblood // Operations Command</span>
-        <h1 class="dashboard-title" id="dashboard-title">Command Center</h1>
-        <p id="dashboard-subtitle">Range overview // operational status // recent activity</p>
+        <span class="dashboard-overline">OxBlood / Operations</span>
+        <h1 class="dashboard-title" id="dashboard-title">Range Overview</h1>
+        <p id="dashboard-subtitle">Operations, infrastructure, and recent activity.</p>
       </div>
       <div id="dashboard-hero" class="dashboard-hero-slot" aria-live="polite">
         <div class="dashboard-loading-line"><span></span><span></span><span></span></div>
@@ -56,27 +56,10 @@
     <article><span>Active drills</span><strong id="dashboard-kpi-active">--</strong><small>in progress</small></article>
     <article><span>Scheduled</span><strong id="dashboard-kpi-scheduled">--</strong><small>upcoming</small></article>
     <article><span>Completed</span><strong id="dashboard-kpi-completed">--</strong><small>recorded runs</small></article>
-    <article><span>Scenarios</span><strong id="dashboard-kpi-scenarios">--</strong><small>available</small></article>
+    <article><span>Organizations</span><strong id="dashboard-kpi-scenarios">--</strong><small>in catalog</small></article>
   </section>
 
   <section class="dashboard-board-grid" aria-label="Operations overview">
-    <article class="dashboard-panel dashboard-topology-panel">
-      <div class="dashboard-panel-heading">
-        <div><span class="dashboard-section-kicker">Environment view</span><h2>Interactive topology</h2></div>
-        <div class="dashboard-topology-tools" role="group" aria-label="Topology controls">
-          <span id="dashboard-map-state" class="dashboard-map-state">Checking</span>
-          <button type="button" onclick="app.zoomDashboardMap(0.78)" aria-label="Zoom in" title="Zoom in">+</button>
-          <button type="button" onclick="app.zoomDashboardMap(1.28)" aria-label="Zoom out" title="Zoom out">−</button>
-          <button type="button" onclick="app.fitDashboardMap()" aria-label="Fit topology" title="Fit topology">Fit</button>
-        </div>
-      </div>
-      <p class="dashboard-topology-caption" id="dashboard-map-subtitle">All virtual machines reported by Proxmox, grouped by hypervisor. Select a machine for resource details.</p>
-      <div id="dashboard-map-root" class="dashboard-map-root" aria-live="polite">
-        <div class="dashboard-map-loading"><span></span><strong>Connecting to the live range</strong></div>
-      </div>
-      <div class="dashboard-map-footer"><span><b id="dashboard-map-nodes">--</b> nodes online</span><span><b id="dashboard-map-networks">--</b> PVE hosts</span><span id="dashboard-map-elapsed">--:--:--</span><button type="button" id="dashboard-open-drill" class="dashboard-panel-link" hidden>Open active drill</button></div>
-    </article>
-
     <article class="dashboard-panel dashboard-timeline-panel">
       <div class="dashboard-panel-heading">
         <div><span class="dashboard-section-kicker">Mission record</span><h2>Recent activity</h2></div>
