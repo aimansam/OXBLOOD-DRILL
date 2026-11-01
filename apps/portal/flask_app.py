@@ -10,6 +10,7 @@ This is a reverse proxy that:
 """
 
 import os
+import re
 
 import requests
 from flask import Flask, Response, abort, request, send_from_directory
@@ -45,10 +46,31 @@ def join():
     return response
 
 
+_ASSET_VERSION_RE = re.compile(r'(\.(?:js|css))\?v=[^"\']*')
+
+
+def _asset_version():
+    """Cache-buster derived from the newest top-level JS/CSS mtime."""
+    try:
+        mtimes = [
+            entry.stat().st_mtime
+            for entry in os.scandir(APP_DIR)
+            if entry.is_file() and entry.name.endswith((".js", ".css"))
+        ]
+    except OSError:
+        return "0"
+    return str(int(max(mtimes, default=0)))
+
+
 @app.route("/drill/")
 def drill_index():
-    """Serve the drill platform index."""
-    return send_from_directory(APP_DIR, "index.html")
+    """Serve the drill platform index with auto-versioned asset URLs."""
+    with open(os.path.join(APP_DIR, "index.html"), encoding="utf-8") as fh:
+        html = fh.read()
+    html = _ASSET_VERSION_RE.sub(rf"\1?v={_asset_version()}", html)
+    response = Response(html, mimetype="text/html")
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.route("/drill/three/")
