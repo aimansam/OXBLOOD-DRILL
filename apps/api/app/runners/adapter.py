@@ -165,6 +165,10 @@ class ProxmoxAdapter(ABC):
         """Start a VM; no-op if already running."""
 
     @abstractmethod
+    async def set_vm_name(self, vmid: int, node: str, name: str) -> None:
+        """Set the PVE display name without changing the VMID or guest hostname."""
+
+    @abstractmethod
     async def ensure_vm_running(
         self, name: str, node: str, timeout_s: float = 90.0
     ) -> VmState:

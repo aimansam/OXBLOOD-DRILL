@@ -71,6 +71,34 @@ def test_examples_validate(validator, example_files) -> None:
         assert errors == [], f"{f.name} should be valid, got: {[e.message for e in errors]}"
 
 
+def test_attack_paths_reference_scenario_assets(example_files) -> None:
+    for f in example_files:
+        spec = yaml.safe_load(f.read_text())["spec"]
+        roles = {asset["role"] for asset in spec["assets"]}
+        for step in spec.get("attack_path", []):
+            assert step["asset"] in roles, f"{f.name}: unknown attack-path asset {step['asset']}"
+
+
+def test_play_guides_cover_both_teams(example_files) -> None:
+    for f in example_files:
+        spec = yaml.safe_load(f.read_text())["spec"]
+        guide = spec.get("play_guide", {})
+        for side in ("red", "blue"):
+            assert guide.get(side), f"{f.name}: {side} team has no play guide"
+            assert len(guide[side]) <= 4, f"{f.name}: {side} guide is too long"
+
+
+def test_short_vm_names_are_unique_per_scenario(example_files) -> None:
+    for f in example_files:
+        assets = yaml.safe_load(f.read_text())["spec"]["assets"]
+        names = [
+            f"{asset['vm_name']}{index:02d}" if asset.get("count", 1) > 1 else asset["vm_name"]
+            for asset in assets
+            for index in range(1, asset.get("count", 1) + 1)
+        ]
+        assert len(names) == len(set(names)), f"{f.name}: duplicate VM names: {names}"
+
+
 def test_cli_exits_zero(example_files) -> None:
     result = subprocess.run(
         ["python3", str(VALIDATOR_CLI), *map(str, example_files)],

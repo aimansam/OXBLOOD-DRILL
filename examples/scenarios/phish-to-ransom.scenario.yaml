@@ -3,6 +3,8 @@ kind: Scenario
 metadata:
   name: phish-to-ransom
   title: "Phishing to Ransomware"
+  organization: "Pusat Kesihatan Seri Melur"
+  summary: "Red follows a phishing-to-ransomware simulation while Blue detects the foothold and contains affected endpoints."
   version: 2
   difficulty: intermediate
   duration_min: 90
@@ -15,6 +17,23 @@ metadata:
       name: div:ide core
 
 spec:
+  attack_path:
+    - asset: victim_workstation
+      goal: "Gain a phishing foothold"
+    - asset: dc_server
+      goal: "Escalate privilege and perform DCSync"
+    - asset: victim_workstation
+      goal: "Simulate ransomware on two endpoints"
+  play_guide:
+    red:
+      - "Use the exercise phishing email to gain a foothold on a designated workstation."
+      - "Follow the identity objective toward Domain Admin access and the simulated DCSync."
+      - "Run the scenario's ransomware simulation on two designated endpoints only."
+    blue:
+      - "Inspect the phishing email and endpoint alerts to identify the first affected user."
+      - "Correlate unusual identity activity with the DCSync objective."
+      - "Isolate affected endpoints and preserve PCAP and endpoint evidence."
+  vulnerabilities: []
   objectives:
     red:
       - "Compromise at least one domain user via the phishing email."
@@ -27,6 +46,7 @@ spec:
 
   assets:
     - role: red_attacker
+      vm_name: RED01
       kind: vm
       template: tpl-kali-gui-xrdp
       count: 1
@@ -38,6 +58,7 @@ spec:
       user_data: cloud-init/red.yaml
 
     - role: router_fw
+      vm_name: FW01
       kind: vm
       template: tpl-opnsense
       network_mode: trunk
@@ -48,6 +69,7 @@ spec:
 
 
     - role: victim_workstation
+      vm_name: PC
       kind: vm
       template: tpl-win11-enterprise
       count: 3
@@ -57,6 +79,7 @@ spec:
         ram_mb: 4096
 
     - role: dc_server
+      vm_name: DC01
       kind: vm
       template: tpl-win2022-ad-tools
       count: 1
@@ -66,6 +89,7 @@ spec:
         ram_mb: 6144
 
     - role: file_server
+      vm_name: FILE01
       kind: vm
       template: tpl-win2022-member
       count: 1

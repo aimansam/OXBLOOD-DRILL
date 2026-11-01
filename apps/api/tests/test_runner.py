@@ -24,7 +24,50 @@ from app.db.base import Base
 from app.db.models import AssetStatus, AuditAction, RunStatus
 from app.runners.adapter import CloneSpec
 from app.runners.mock_adapter import MockProxmoxAdapter
-from app.runners.runner import Runner, RunnerError, RunRequest, _static_ip_configs
+from app.runners.runner import Runner, RunnerError, RunRequest, _static_ip_configs, _vm_name
+
+
+def test_vm_name_uses_short_code_and_counted_instance() -> None:
+    assert _vm_name({"vm_name": "DC01"}, "dc01") == "DC01"
+    assert _vm_name({"vm_name": "PC", "count": 3}, "victim_workstation_2") == "PC02"
+    assert _vm_name({}, "dc01") is None
+
+
+@pytest.mark.asyncio
+async def test_stop_reapplies_short_name_after_snapshot_rollback(session: AsyncSession) -> None:
+    class RestoringNameAdapter(MockProxmoxAdapter):
+        async def restore_vm_snapshot(self, vmid: int, node: str, name: str) -> None:
+            await super().restore_vm_snapshot(vmid, node, name)
+            self._require_vm(vmid, node).name = "old-dc-name"
+
+    scenario = _scenario_with("short-name-rollback", [{**_asset("dc01"), "vm_name": "DC01"}])
+    session.add(scenario)
+    await session.commit()
+    adapter = RestoringNameAdapter()
+    adapter.seed_template("tpl-x", 9000)
+    runner = Runner(adapter=adapter)
+    result = await runner.start_run(RunRequest(scenario_id=scenario.id), session)
+    asset = (await session.execute(select(models.Asset).where(models.Asset.run_id == result.run_id))).scalar_one()
+    await adapter.stop_vm(asset.pve_vmid, asset.pve_node)
+    await adapter.create_vm_snapshot(asset.pve_vmid, asset.pve_node, "clean-baseline")
+    await adapter.start_vm(asset.pve_vmid, asset.pve_node)
+    session.add(models.SnapshotBaseline(
+        scenario_id=scenario.id,
+        scenario_version=1,
+        role="dc01",
+        template="tpl-x",
+        pve_vmid=asset.pve_vmid,
+        pve_node=asset.pve_node,
+        snapshot_name="clean-baseline",
+        status="ready",
+        source_run_id=result.run_id,
+    ))
+    await session.commit()
+
+    await runner.stop_run(result.run_id, session=session)
+    state = await adapter.get_vm_state(asset.pve_vmid, asset.pve_node)
+    assert state.status == "stopped"
+    assert state.name == "DC01"
 
 
 # --- fixtures ---------------------------------------------------------------

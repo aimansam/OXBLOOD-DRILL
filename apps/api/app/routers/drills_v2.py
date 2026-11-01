@@ -393,9 +393,10 @@ async def _provision_drill_background(
                 drill = await get_drill(db, drill_id)
                 if drill is not None:
                     health = await _range_health(db, drill)
+                    prepared = _provision_checks_ready(health)
                     await _set_drill_provision_status(
-                        drill_id, "started" if health["mood"] == "ready" else "validation_failed",
-                        error=None if health["mood"] == "ready" else "Range validation failed. Review readiness checks before starting.",
+                        drill_id, "started" if prepared else "validation_failed",
+                        error=None if prepared else "Range validation failed. Review readiness checks before starting.",
                     )
     except (RunnerError, SdnPermissionError, ProxmoxAPIError, ValueError) as exc:
         await _set_drill_provision_status(
@@ -867,6 +868,15 @@ def _asset_visible_for_probe(side: str, token: TokenData | None) -> bool:
     return False
 
 
+def _provision_checks_ready(health: dict) -> bool:
+    """Team enrollment gates exercise start, not VM preparation."""
+    return all(
+        check.get("state") == "ready"
+        for check in health.get("checks", [])
+        if check.get("required") and check.get("id") != "mission-roster"
+    )
+
+
 async def _range_health(db: AsyncSession, drill, token: TokenData | None = None) -> dict:
     scenario = None
     if drill.scenario_id:
@@ -1076,6 +1086,33 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
         "state": "ready" if expected_assets > 0 and len(healthy_assets) == expected_assets and len(assets) == expected_assets else "needs_attention",
         "detail": f"{len(healthy_assets)}/{expected_assets} machines running without provisioning errors.",
     })
+    required_sides = [
+        side for side in ("red", "blue")
+        if (scenario_spec.get("objectives") or {}).get(side)
+    ]
+    if required_sides:
+        roster = (
+            await db.execute(
+                select(DrillParticipant).where(
+                    DrillParticipant.drill_id == drill.id,
+                    DrillParticipant.status.notin_(["removed", "left"]),
+                )
+            )
+        ).scalars().all()
+        assigned = {str(item.role or "").lower() for item in roster}
+        missing_sides = [side for side in required_sides if side not in assigned]
+        checks.insert(2, {
+            "id": "mission-roster",
+            "label": "Required teams are enrolled",
+            "side": "shared",
+            "required": True,
+            "state": "ready" if not missing_sides else "needs_attention",
+            "detail": (
+                "Red and Blue teams are enrolled."
+                if not missing_sides
+                else "Enroll at least one " + " and ".join(side.title() for side in missing_sides) + " participant."
+            ),
+        })
     required = [check for check in checks if check["required"]]
     ready_count = sum(1 for check in checks if check["state"] == "ready")
     issue_count = sum(1 for check in checks if check["state"] == "needs_attention")
@@ -1151,7 +1188,11 @@ async def get_drills(
                 drill
                 for drill in drills
                 if drill.id in enrolled_ids
-                and drill.status in {DrillStatus.ACTIVE, DrillStatus.PAUSED}
+                and drill.status in {
+                    DrillStatus.SCHEDULED,
+                    DrillStatus.ACTIVE,
+                    DrillStatus.PAUSED,
+                }
             ]
     return {"drills": [drill_to_dict(drill) for drill in drills]}
 
@@ -1234,11 +1275,15 @@ async def get_drill_status(
     drill_id: int,
     refresh: bool = Query(True),
     db: AsyncSession = Depends(get_session),
+    token: TokenData | None = Depends(current_token),
 ):
     """Return drill lifecycle status and optionally refresh VM states from PVE."""
     drill = await get_drill(db, drill_id)
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
+    if token and str(token.role or "").lower() in {"red", "blue"}:
+        if not await _participant_is_enrolled(db, drill.id, token):
+            raise HTTPException(status_code=403, detail="You are not enrolled in this drill.")
     if refresh:
         provision = await _refresh_drill_provision_state(db, drill)
     else:
@@ -1964,6 +2009,7 @@ async def stop_drill_endpoint(
 async def get_participants(
     drill_id: int,
     db: AsyncSession = Depends(get_session),
+    token: TokenData = Depends(require_role(Role.ADMIN, Role.LEAD)),
 ):
     """Get all participants in a drill."""
     drill = await get_drill(db, drill_id)
@@ -1986,9 +2032,53 @@ async def get_participants(
                 "role": p.role,
                 "status": p.status,
                 "joined_at": p.joined_at.isoformat() if p.joined_at else None,
+                "last_login_at": (
+                    users_by_id[p.user_id].last_login_at.isoformat()
+                    if p.user_id in users_by_id and users_by_id[p.user_id].last_login_at
+                    else None
+                ),
             }
             for p in participants
         ]
+    }
+
+
+@router.get("/{drill_id}/roster-candidates")
+async def get_roster_candidates(
+    drill_id: int,
+    db: AsyncSession = Depends(get_session),
+    token: TokenData = Depends(require_role(Role.ADMIN, Role.LEAD)),
+):
+    """Return eligible Red/Blue accounts for the operator roster."""
+    drill = await get_drill(db, drill_id)
+    if not drill:
+        raise HTTPException(status_code=404, detail="Drill not found")
+    enrolled_ids = (
+        await db.execute(
+            select(DrillParticipant.user_id).where(DrillParticipant.drill_id == drill_id)
+        )
+    ).scalars().all()
+    users = (
+        await db.execute(
+            select(User)
+            .where(User.role.in_([Role.RED.value, Role.BLUE.value]), User.disabled.is_(False))
+            .order_by(User.role, User.sub)
+        )
+    ).scalars().all()
+    enrolled = {int(user_id) for user_id in enrolled_ids}
+    return {
+        "drill_id": drill.id,
+        "drill_status": drill.status.value,
+        "candidates": [
+            {
+                "id": user.id,
+                "sub": user.sub,
+                "role": user.role,
+                "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
+            }
+            for user in users
+            if user.id not in enrolled
+        ],
     }
 
 
@@ -1997,15 +2087,40 @@ async def post_participant(
     drill_id: int,
     data: ParticipantAdd,
     db: AsyncSession = Depends(get_session),
+    token: TokenData = Depends(require_role(Role.ADMIN, Role.LEAD)),
 ):
     """Add a participant to a drill."""
     drill = await get_drill(db, drill_id)
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
+    if drill.status != DrillStatus.SCHEDULED:
+        raise HTTPException(status_code=409, detail="Roster is locked after the drill starts.")
+    side = str(data.role or "").lower()
+    if side not in {"red", "blue"}:
+        raise HTTPException(status_code=422, detail="Participant side must be red or blue.")
+    user = await db.get(User, data.user_id)
+    if user is None or user.disabled:
+        raise HTTPException(status_code=404, detail="Eligible participant account not found")
+    if str(user.role or "").lower() != side:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Account {user.sub!r} has role {user.role!r}; enroll it on the matching side.",
+        )
     try:
         participant = await add_participant(
-            db, drill_id, data.user_id, data.team_id, data.role
+            db, drill_id, data.user_id, data.team_id, side
         )
+        db.add(
+            DrillEvent(
+                drill_id=drill_id,
+                kind="roster",
+                title=f"{side.title()} participant enrolled",
+                detail=user.sub,
+                side=side,
+                actor=token.sub,
+            )
+        )
+        await db.commit()
         return {"message": "Participant added", "participant_id": participant.id}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -2016,14 +2131,36 @@ async def delete_participant(
     drill_id: int,
     user_id: int,
     db: AsyncSession = Depends(get_session),
+    token: TokenData = Depends(require_role(Role.ADMIN, Role.LEAD)),
 ):
     """Remove a participant from a drill."""
     drill = await get_drill(db, drill_id)
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
+    if drill.status != DrillStatus.SCHEDULED:
+        raise HTTPException(status_code=409, detail="Roster is locked after the drill starts.")
+    participant = (
+        await db.execute(
+            select(DrillParticipant).where(
+                DrillParticipant.drill_id == drill_id,
+                DrillParticipant.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
     removed = await remove_participant(db, drill_id, user_id)
     if not removed:
         raise HTTPException(status_code=404, detail="Participant not found")
+    db.add(
+        DrillEvent(
+            drill_id=drill_id,
+            kind="roster",
+            title="Participant removed from roster",
+            detail=str(user_id),
+            side=participant.role if participant else None,
+            actor=token.sub,
+        )
+    )
+    await db.commit()
     return {"message": "Participant removed"}
 
 

@@ -3,6 +3,8 @@ kind: Scenario
 metadata:
   name: file-breach-investigation
   title: "File Breach Investigation"
+  organization: "Syarikat Karya Bestari"
+  summary: "Red tests public-web-to-file-to-backup access while Blue investigates the route and preserves evidence."
   version: 3
   difficulty: intermediate
   duration_min: 90
@@ -17,6 +19,23 @@ metadata:
       name: div:ide core
 
 spec:
+  attack_path:
+    - asset: web_gateway
+      goal: "Reach the public web host"
+    - asset: file_server
+      goal: "Pivot to internal files"
+    - asset: backup_server
+      goal: "Reach the backup service"
+  play_guide:
+    red:
+      - "From the attacker workstation, identify the public web host and test the intended entry route."
+      - "Follow the routed path to the internal file server, then the backup service."
+      - "Capture the web, file, and backup flags and record evidence of each step."
+    blue:
+      - "Review the central event stream for the attacker source and web activity."
+      - "Trace the web-to-file pivot across router and host events."
+      - "Preserve evidence and submit the attacker, web, and pivot detection flags."
+  vulnerabilities: []
   objectives:
     red:
       - "Use the attacker workstation to reach the public web host."
@@ -70,6 +89,7 @@ spec:
 
   assets:
     - role: red_workstation
+      vm_name: RED01
       kind: vm
       template: tpl-kali-gui-xrdp
       networks: [red_vlan]
@@ -80,6 +100,7 @@ spec:
         disk_gb: 32
 
     - role: red_staging
+      vm_name: STG01
       kind: vm
       template: tpl-debian-file-server-wazuh
       networks: [red_vlan]
@@ -90,6 +111,7 @@ spec:
         disk_gb: 20
 
     - role: router_fw
+      vm_name: FW01
       kind: vm
       template: tpl-opnsense
       network_mode: trunk
@@ -100,6 +122,7 @@ spec:
         disk_gb: 16
 
     - role: web_gateway
+      vm_name: WEB01
       kind: vm
       template: tpl-debian-dmz-docker-wazuh
       networks: [dmz_vlan]
@@ -109,6 +132,7 @@ spec:
         disk_gb: 20
 
     - role: file_server
+      vm_name: FILE01
       kind: vm
       template: tpl-debian-file-server-wazuh
       networks: [dc02_vlan]
@@ -118,6 +142,7 @@ spec:
         disk_gb: 24
 
     - role: backup_server
+      vm_name: BAK01
       kind: vm
       template: tpl-debian-backup-server-wazuh
       networks: [backup_vlan]
@@ -127,6 +152,7 @@ spec:
         disk_gb: 20
 
     - role: blue_workstation
+      vm_name: BLUE01
       kind: vm
       template: tpl-debian-blue-gui-wazuh-xrdp
       networks: [dc02_vlan]
@@ -137,6 +163,7 @@ spec:
         disk_gb: 24
 
     - role: log_aggregator
+      vm_name: LOG01
       kind: vm
       template: tpl-debian-log-aggregator-wazuh
       networks: [dc02_vlan]

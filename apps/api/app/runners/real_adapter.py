@@ -700,6 +700,10 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 await asyncio.sleep(delay_s)
         raise ProxmoxAPIError(f"PVE {description} failed after lock retries")
 
+    async def set_vm_name(self, vmid: int, node: str, name: str) -> None:
+        """Update only the PVE VM name; keep guest identity and VMID intact."""
+        await self._call(lambda: self._get_client().nodes(node).qemu(vmid).config.put(name=name))
+
     async def start_vm(self, vmid: int, node: str) -> None:
         log.info("pve_runner.starting_vm vmid=%s node=%s", vmid, node)
         

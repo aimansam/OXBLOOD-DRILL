@@ -3,6 +3,8 @@ kind: Scenario
 metadata:
   name: enterprise-file-breach
   title: "Enterprise File Breach"
+  organization: "Kumpulan Bintang Utara"
+  summary: "Red tests the DMZ-to-identity-to-backup path while Blue traces and contains the movement."
   version: 7
   difficulty: advanced
   duration_min: 120
@@ -14,6 +16,25 @@ metadata:
     - log-investigation
 
 spec:
+  attack_path:
+    - asset: dmz_gateway
+      goal: "Reach the exposed web service"
+    - asset: dc01
+      goal: "Pivot into the identity segment"
+    - asset: file_server
+      goal: "Access protected files"
+    - asset: backup_server
+      goal: "Reach the backup service"
+  play_guide:
+    red:
+      - "From the red workstation, check the declared DMZ web service and record the entry point."
+      - "Test the intended route from the DMZ toward DC01, then the file and backup services."
+      - "Collect the web, file, and backup flags and note how each boundary was crossed."
+    blue:
+      - "Watch DMZ web and firewall events for the first suspicious source."
+      - "Correlate DMZ-to-identity traffic with file and backup access."
+      - "Contain the path before backup access and submit source, pivot, and containment evidence."
+  vulnerabilities: []
   provisioning:
     # Shared backing disks keep this seven-VM enterprise range inside the
     # available SSD capacity. Every run is still destroyed during cleanup.
@@ -58,6 +79,8 @@ spec:
       dhcp: false
   assets:
     - role: red_workstation
+      vm_name: RED01
+      restore_commands: ["netplan apply"]
       kind: vm
       template: tpl-kali-gui-xrdp
       networks: [red_vlan]
@@ -68,6 +91,7 @@ spec:
         disk_gb: 32
 
     - role: router_fw
+      vm_name: FW01
       kind: vm
       template: tpl-opnsense
       network_mode: trunk
@@ -78,6 +102,7 @@ spec:
         disk_gb: 16
 
     - role: dmz_gateway
+      vm_name: DMZ01
       kind: vm
       template: tpl-debian-dmz-docker-wazuh
       networks: [dmz_vlan]
@@ -87,6 +112,7 @@ spec:
         disk_gb: 20
 
     - role: dc01
+      vm_name: DC01
       kind: vm
       template: tpl-win2022-ad-auto
       networks: [dc01_vlan]
@@ -142,6 +168,7 @@ spec:
               - "Set-DnsClientServerAddress -InterfaceIndex $ifIndex -ServerAddresses 10.30.40.10"
 
     - role: file_server
+      vm_name: FILE01
       kind: vm
       template: tpl-debian-file-server-wazuh
       networks: [dc01_vlan]
@@ -151,6 +178,7 @@ spec:
         disk_gb: 24
 
     - role: backup_server
+      vm_name: BAK01
       kind: vm
       template: tpl-debian-backup-server-wazuh
       networks: [backup_vlan]
@@ -160,6 +188,7 @@ spec:
         disk_gb: 24
 
     - role: blue_workstation
+      vm_name: BLUE01
       kind: vm
       template: tpl-debian-blue-gui-wazuh-xrdp
       networks: [dc01_vlan]

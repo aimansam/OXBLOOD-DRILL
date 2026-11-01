@@ -31,6 +31,18 @@ def _run(coro):
         loop.close()
 
 
+def test_team_enrollment_does_not_fail_vm_preparation():
+    from app.routers.drills_v2 import _provision_checks_ready
+
+    checks = [
+        {"id": "range-machines", "required": True, "state": "ready"},
+        {"id": "mission-roster", "required": True, "state": "needs_attention"},
+    ]
+    assert _provision_checks_ready({"checks": checks})
+    checks[0]["state"] = "needs_attention"
+    assert not _provision_checks_ready({"checks": checks})
+
+
 @pytest.mark.parametrize("phase", ["starting", "validating", "validation_failed", "started"])
 def test_prepared_range_reserves_environment_without_timer(sessionmaker, phase):
     from app.modules.drills.lock import acquire_environment_lock, environment_lock_status
@@ -277,7 +289,10 @@ def test_participants_endpoint_returns_auth_display_name(sessionmaker):
     app.dependency_overrides[get_session] = _override_session
     try:
         client = TestClient(app)
-        response = client.get(f"/api/v2/drills/{drill_id}/participants")
+        response = client.get(
+            f"/api/v2/drills/{drill_id}/participants",
+            headers={"X-Divide-Token": sign_token("admin", "admin", 3600)},
+        )
     finally:
         app.dependency_overrides.pop(get_session, None)
 
@@ -763,6 +778,32 @@ def test_v2_range_health_reports_human_readiness(sessionmaker, monkeypatch):
                 name="red-flag",
                 value="FLAG{x}",
             )
+            red = auth_models.User(
+                sub="red.ready",
+                password_hash="test",
+                role="red",
+            )
+            blue = auth_models.User(
+                sub="blue.ready",
+                password_hash="test",
+                role="blue",
+            )
+            session.add_all([red, blue])
+            await session.flush()
+            session.add_all([
+                m.DrillParticipant(
+                    drill_id=drill.id,
+                    user_id=red.id,
+                    role="red",
+                    status="registered",
+                ),
+                m.DrillParticipant(
+                    drill_id=drill.id,
+                    user_id=blue.id,
+                    role="blue",
+                    status="registered",
+                ),
+            ])
             await session.commit()
             return drill.id
 
@@ -804,6 +845,7 @@ def test_v2_range_health_reports_human_readiness(sessionmaker, monkeypatch):
     assert {check["label"] for check in body["checks"]} == {
         "Red workstation is ready",
         "Flags are loaded",
+        "Required teams are enrolled",
         "Guest setup completed",
         "All range machines are running",
     }

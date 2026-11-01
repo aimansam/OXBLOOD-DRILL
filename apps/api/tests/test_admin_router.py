@@ -109,6 +109,71 @@ def test_pve_guest_inventory_requires_admin_and_returns_live_guest_data(client, 
     }
 
 
+@pytest.mark.asyncio
+async def test_pve_guest_inventory_drill_scope_uses_registered_vms(client, admin_headers):
+    from uuid import uuid4
+
+    from sqlalchemy import delete
+
+    from app.db import models as catalog
+    from app.db.models_oxblood import Drill, DrillStatus
+    from app.db.session import get_sessionmaker
+    from app.services.db import get_engine
+
+    # The v1 test database migrates the catalog; the v2 drill table is
+    # normally created by the OxBlood schema and must be added here.
+    async with get_engine().begin() as conn:
+        await conn.run_sync(Drill.__table__.create, checkfirst=True)
+
+    async with get_sessionmaker()() as db:
+        scenario = catalog.Scenario(
+            name=f"inventory-{uuid4().hex[:12]}", title="Inventory scope",
+            difficulty="easy", duration_min=30, spec={},
+        )
+        db.add(scenario)
+        await db.flush()
+        live_run = catalog.Run(scenario_id=scenario.id)
+        old_run = catalog.Run(scenario_id=scenario.id)
+        db.add_all([live_run, old_run])
+        await db.flush()
+        drill = Drill(title="Current drill", status=DrillStatus.ACTIVE,
+                      environment_config={"provision_run_id": live_run.id})
+        db.add_all([
+            catalog.SnapshotBaseline(
+                scenario_id=scenario.id, scenario_version=1, role="dc01",
+                template="test", pve_vmid=987601, pve_node="pve",
+            ),
+            catalog.Asset(run_id=live_run.id, role="red", template="test", pve_vmid=987602),
+            catalog.Asset(run_id=old_run.id, role="old", template="test", pve_vmid=987603),
+            drill,
+        ])
+        await db.commit()
+        scenario_id, live_id, old_id, drill_id = scenario.id, live_run.id, old_run.id, drill.id
+
+    guests = [
+        {"vmid": 987601, "status": "stopped"},
+        {"vmid": 987602, "status": "running"},
+        {"vmid": 987603, "status": "running"},
+        {"vmid": 987604, "status": "running"},
+    ]
+    try:
+        with patch("app.routers.admin.list_virtual_machines", return_value=guests):
+            scoped = client.get("/api/v1/admin/pve-guests?drill_only=true", headers=admin_headers)
+            full = client.get("/api/v1/admin/pve-guests", headers=admin_headers)
+        assert scoped.status_code == 200
+        assert {item["vmid"] for item in scoped.json()["items"]} == {987601, 987602}
+        assert scoped.json()["total_registered"] == 2
+        assert full.json()["total"] == 4
+    finally:
+        async with get_sessionmaker()() as db:
+            await db.execute(delete(Drill).where(Drill.id == drill_id))
+            await db.execute(delete(catalog.SnapshotBaseline).where(catalog.SnapshotBaseline.scenario_id == scenario_id))
+            await db.execute(delete(catalog.Asset).where(catalog.Asset.run_id.in_((live_id, old_id))))
+            await db.execute(delete(catalog.Run).where(catalog.Run.id.in_((live_id, old_id))))
+            await db.execute(delete(catalog.Scenario).where(catalog.Scenario.id == scenario_id))
+            await db.commit()
+
+
 def test_drill_template_status_when_ready(client, admin_headers):
     """drill-template-status returns ready=True when PVE lists the template."""
     with patch("app.services.proxmox.list_templates") as lt:

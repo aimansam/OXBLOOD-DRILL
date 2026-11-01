@@ -34,10 +34,12 @@ from typing import Annotated, Any
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Role, TokenData, current_token, require_role
 from app.db import models as db_models
+from app.db.models_oxblood import Drill, DrillStatus
 from app.db.session import get_session
 from app.services import admin as admin_svc
 from app.services import pve_config as pve_config_svc
@@ -352,7 +354,10 @@ async def drill_template_status() -> dict[str, Any]:
 
 
 @router.get("/pve-guests", summary="Current Proxmox guest inventory")
-async def pve_guest_inventory() -> dict[str, Any]:
+async def pve_guest_inventory(
+    drill_only: bool = False,
+    db: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
     """Read live guest state for the operator dashboard (admin-only router)."""
     try:
         items = list_virtual_machines()
@@ -360,7 +365,41 @@ async def pve_guest_inventory() -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ProxmoxAPIError as exc:
         raise HTTPException(status_code=502, detail=f"Proxmox inventory unavailable: {exc}") from exc
-    return {"items": items, "total": len(items)}
+    if not drill_only:
+        return {"items": items, "total": len(items)}
+
+    # Snapshot baselines are persistent drill VMs. Include assets from current
+    # drill runs for scenarios that still use disposable provisioning.
+    registered = {
+        int(vmid)
+        for vmid in (await db.execute(select(db_models.SnapshotBaseline.pve_vmid))).scalars()
+    }
+    environments = (
+        await db.execute(
+            select(Drill.environment_config).where(
+                Drill.status.in_((DrillStatus.SCHEDULED, DrillStatus.ACTIVE, DrillStatus.PAUSED)),
+                Drill.deleted_at.is_(None),
+            )
+        )
+    ).scalars()
+    run_ids = {
+        int(env["provision_run_id"])
+        for env in environments
+        if isinstance(env, dict) and env.get("provision_run_id")
+    }
+    if run_ids:
+        vmids = (
+            await db.execute(
+                select(db_models.Asset.pve_vmid).where(
+                    db_models.Asset.run_id.in_(run_ids),
+                    db_models.Asset.pve_vmid.is_not(None),
+                    db_models.Asset.cleaned_at.is_(None),
+                )
+            )
+        ).scalars()
+        registered.update(int(vmid) for vmid in vmids)
+    scoped = [guest for guest in items if int(guest["vmid"]) in registered]
+    return {"items": scoped, "total": len(scoped), "total_registered": len(registered)}
 
 
 @router.post(

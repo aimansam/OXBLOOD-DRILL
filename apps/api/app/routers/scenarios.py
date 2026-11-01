@@ -47,10 +47,16 @@ def _get_validator() -> Draft202012Validator:
 
 
 def _row_to_dict(row: db_models.Scenario) -> dict:
+    document = row.spec if isinstance(row.spec, dict) else {}
+    metadata = document.get("metadata") if isinstance(document.get("metadata"), dict) else {}
+    exercise = document.get("spec") if isinstance(document.get("spec"), dict) else document
     return {
         "id": row.id,
         "name": row.name,
         "title": row.title,
+        "organization": metadata.get("organization") or None,
+        "summary": metadata.get("summary") or None,
+        "vulnerabilities": exercise.get("vulnerabilities") or [],
         "version": row.version,
         "difficulty": row.difficulty,
         "duration_min": row.duration_min,

@@ -51,6 +51,18 @@ from app.services.pve_bridges import BridgePlanError, plan_bridges_from_db
 log = logging.getLogger(__name__)
 
 
+def _vm_name(asset_spec: dict, role: str) -> str | None:
+    """Return a stable PVE-safe short name, including counted VM instances."""
+    stem = str(asset_spec.get("vm_name") or "").strip()
+    if not stem:
+        return None
+    if int(asset_spec.get("count") or 1) > 1:
+        match = re.search(r"_(\d+)$", role)
+        if match:
+            return f"{stem}{int(match.group(1)):02d}"
+    return stem
+
+
 def _static_ip_configs(asset: dict, scenario_spec: dict) -> dict[int, str]:
     """Build deterministic PVE cloud-init addresses for a scenario asset.
 
@@ -535,6 +547,7 @@ class Runner:
                         await self._restore_baseline_asset(
                             session=session,
                             asset=asset,
+                            asset_spec=asset_spec,
                             baseline=baseline,
                             actor=req.started_by,
                         )
@@ -918,6 +931,7 @@ class Runner:
                                 await self._adapter.restore_vm_snapshot(
                                     asset.pve_vmid, asset.pve_node, baseline.snapshot_name
                                 )
+                            await self._reapply_baseline_name(session, asset, baseline)
                         else:
                             await self._adapter.destroy_vm(asset.pve_vmid, asset.pve_node)
                         # Q17: explicit success marker. Previously the
@@ -1003,6 +1017,7 @@ class Runner:
                                 await self._adapter.restore_vm_snapshot(
                                     asset.pve_vmid, asset.pve_node, baseline.snapshot_name
                                 )
+                            await self._reapply_baseline_name(session, asset, baseline)
                         else:
                             await self._adapter.destroy_vm(asset.pve_vmid, asset.pve_node)
                     except Exception as exc:  # noqa: BLE001
@@ -1050,11 +1065,36 @@ class Runner:
             )
         ).scalar_one_or_none()
 
+    async def _reapply_baseline_name(
+        self,
+        session: AsyncSession,
+        asset: models.Asset,
+        baseline: models.SnapshotBaseline,
+    ) -> None:
+        """Snapshot rollback restores the old PVE name; apply the scenario name again."""
+        scenario = await session.get(models.Scenario, baseline.scenario_id)
+        if scenario is None:
+            return
+        document = scenario.spec if isinstance(scenario.spec, dict) else {}
+        spec = document.get("spec") or document
+        base_role = re.sub(r"_\d+$", "", asset.role)
+        asset_spec = next(
+            (row for row in spec.get("assets", []) if row.get("role") == base_role),
+            None,
+        )
+        short_name = _vm_name(asset_spec, asset.role) if asset_spec else None
+        if short_name:
+            try:
+                await self._adapter.set_vm_name(baseline.pve_vmid, baseline.pve_node, short_name)
+            except Exception as exc:  # Display name must not block cleanup.
+                log.warning("runner.baseline.rename_failed vmid=%s name=%s error=%s", baseline.pve_vmid, short_name, exc)
+
     async def _restore_baseline_asset(
         self,
         *,
         session: AsyncSession,
         asset: models.Asset,
+        asset_spec: dict,
         baseline: models.SnapshotBaseline,
         actor: str | None,
     ) -> None:
@@ -1067,7 +1107,20 @@ class Runner:
                 await self._adapter.restore_vm_snapshot(
                     baseline.pve_vmid, baseline.pve_node, baseline.snapshot_name
                 )
+            short_name = _vm_name(asset_spec, asset.role)
+            if short_name:
+                try:
+                    await self._adapter.set_vm_name(baseline.pve_vmid, baseline.pve_node, short_name)
+                except Exception as exc:  # Cosmetic name must not prevent range recovery.
+                    log.warning("runner.baseline.rename_failed vmid=%s name=%s error=%s", baseline.pve_vmid, short_name, exc)
             await self._adapter.start_vm(baseline.pve_vmid, baseline.pve_node)
+            restore_commands = asset_spec.get("restore_commands") or []
+            if restore_commands:
+                await self._adapter.apply_guest_seed(
+                    baseline.pve_vmid,
+                    baseline.pve_node,
+                    SeedSpec(role=asset.role, runcmd=list(restore_commands)),
+                )
             state = await self._adapter.get_vm_state(baseline.pve_vmid, baseline.pve_node)
         asset.pve_vmid = baseline.pve_vmid
         asset.pve_node = baseline.pve_node
@@ -1126,10 +1179,9 @@ class Runner:
             linked_clone = provisioning.get("mode") == "linked_clone"
             # PVE 9 enforces strict DNS-1123 names on the clone VMID; underscores
             # in the role (e.g. ``drill_vm``) violate that. We strip them from
-            # both role and a sanitized copy for the VM name only; the asset's
-            # ``role`` field on the DB row stays untouched.
+            # Keep the stable role in the DB while using the short name in PVE.
             role = asset.role
-            sanitized_role = role.replace("_", "")
+            sanitized_role = _vm_name(asset_spec, role) or role.replace("_", "")
             clone = CloneSpec(
                 source_vmid=template_vmid,
                 new_vmid=new_vmid,
@@ -1545,6 +1597,7 @@ class Runner:
                             await self._adapter.restore_vm_snapshot(
                                 a.pve_vmid, a.pve_node, baseline.snapshot_name
                             )
+                        await self._reapply_baseline_name(session, a, baseline)
                     else:
                         await self._adapter.destroy_vm(a.pve_vmid, a.pve_node)
                 a.status = AssetStatus.STOPPED

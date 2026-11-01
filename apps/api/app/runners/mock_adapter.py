@@ -138,6 +138,9 @@ class MockProxmoxAdapter(ProxmoxAdapter):
         self.started_with_nics.append((vmid, list(vm.nics)))
         vm.status = "running"
 
+    async def set_vm_name(self, vmid: int, node: str, name: str) -> None:
+        self._require_vm(vmid, node).name = name
+
     async def ensure_vm_running(
         self, name: str, node: str, timeout_s: float = 90.0
     ) -> VmState:

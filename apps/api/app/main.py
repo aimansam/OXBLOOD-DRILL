@@ -19,7 +19,7 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db import models
 from app.observability.middleware import PrometheusMiddleware
-from app.routers import admin, audit, auth, debrief, drills, events, exercises, health, me, proxmox, reports, scenarios, templates, drills_v2, submissions_v2, reports_v2
+from app.routers import admin, audit, auth, debrief, drills, events, exercises, health, me, proxmox, reports, scenarios, templates, drills_v2, invitations, submissions_v2, reports_v2
 # Learn routers (labs_v2, learning_paths_v2, user_profiles) moved to the
 # Learn product — Drill no longer mounts them.
 from app.services import orphan_cleanup as orphan_svc
@@ -604,6 +604,7 @@ def create_app() -> FastAPI:
     # v2 API endpoints (Drill schema). Learn endpoints (labs_v2,
     # learning_paths_v2, user_profiles_v2) live in the Learn product.
     app.include_router(drills_v2.router, tags=["drills_v2"])
+    app.include_router(invitations.router)
     app.include_router(submissions_v2.router, tags=["submissions_v2"])
     app.include_router(reports_v2.router, tags=["reports_v2"])
 
