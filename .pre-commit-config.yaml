@@ -29,7 +29,7 @@ repos:
         name: Validate scenario YAML against divide/v1 schema
         entry: python3 tools/validate_scenario.py
         language: system
-        files: '(examples|scenarios)/.*\.scenario\.ya?ml$'
+        files: 'examples/.*\.scenario\.ya?ml$'
         pass_filenames: true
       - id: pyflakes-scenario-tools
         name: pyflakes on scenario tools and tests

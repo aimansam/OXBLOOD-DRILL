@@ -24,3 +24,6 @@ deploy/certs/*.key
 deploy/.env
 tools/cloud-images/*.qcow2
 tools/*.vfd
+node_modules/
+backups/*.sql
+*.tsbuildinfo
