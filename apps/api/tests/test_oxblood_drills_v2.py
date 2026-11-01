@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from app.core.auth import sign_token
 from app.db import models as auth_models
 from app.db import models_oxblood as m
 from app.db.session import get_session
-from app.core.auth import sign_token
 from app.runners.adapter import ConsoleTicket, VmState
 from app.services.drill_service import (
     create_drill,
@@ -104,10 +104,11 @@ def test_prepare_is_idempotent_and_does_not_start_exercise(sessionmaker, monkeyp
 
 @pytest.mark.parametrize("ready", [False, True])
 def test_start_requires_fresh_readiness(sessionmaker, monkeypatch, ready):
+    from unittest.mock import AsyncMock
+
     from app.core.auth import TokenData
     from app.routers import drills_v2
     from fastapi import HTTPException
-    from unittest.mock import AsyncMock
 
     monkeypatch.setattr(drills_v2, "_refresh_drill_provision_state", AsyncMock(return_value={"errors": []}))
     probe = AsyncMock(return_value={"mood": "ready" if ready else "needs_attention", "checks": [], "checked_at": "now"})
@@ -135,8 +136,9 @@ def test_start_requires_fresh_readiness(sessionmaker, monkeypatch, ready):
 
 
 def test_readiness_requires_every_address_and_completed_setup(sessionmaker, monkeypatch):
-    from app.routers import drills_v2
     from unittest.mock import AsyncMock
+
+    from app.routers import drills_v2
 
     monkeypatch.setattr(drills_v2, "_tcp_connect_ok", AsyncMock(return_value=(True, "reachable")))
 
@@ -625,7 +627,7 @@ def test_v2_status_refresh_updates_asset_state(sessionmaker, monkeypatch):
             run = auth_models.Run(
                 scenario_id=scenario.id,
                 status=auth_models.RunStatus.RUNNING,
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
             )
             session.add(run)
             await session.flush()
@@ -748,7 +750,7 @@ def test_v2_range_health_reports_human_readiness(sessionmaker, monkeypatch):
             run = auth_models.Run(
                 scenario_id=scenario.id,
                 status=auth_models.RunStatus.RUNNING,
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
             )
             session.add(run)
             await session.flush()
@@ -996,7 +998,7 @@ def test_cleanup_cancels_worker_and_uses_newest_run(sessionmaker, monkeypatch):
             await session.flush()
             drill = await create_drill(session, title="Cleanup race", scenario_id=scenario.id)
             drill.status = m.DrillStatus.CANCELLED
-            drill.actual_start_at = datetime.now(timezone.utc)
+            drill.actual_start_at = datetime.now(UTC)
             drill.environment_config = {"provision_run_id": 238}
             old_run = auth_models.Run(
                 scenario_id=scenario.id,
@@ -1055,7 +1057,7 @@ def test_v2_get_marks_overdue_active_drill_completed(sessionmaker):
                 duration_limit_minutes=1,
             )
             drill.status = m.DrillStatus.ACTIVE
-            drill.actual_start_at = datetime.now(timezone.utc) - timedelta(minutes=2)
+            drill.actual_start_at = datetime.now(UTC) - timedelta(minutes=2)
             await session.commit()
             return drill.id
 
@@ -1109,7 +1111,7 @@ def test_v2_console_requires_login_and_returns_allowed_ticket(sessionmaker, monk
             run = auth_models.Run(
                 scenario_id=scenario.id,
                 status=auth_models.RunStatus.RUNNING,
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
             )
             session.add(run)
             await session.flush()

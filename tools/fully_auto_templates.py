@@ -3,12 +3,11 @@
 import os
 import sys
 import time
-from pathlib import Path
 
 sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/apps/api')
 
-from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config
+from proxmoxer import ProxmoxAPI
 
 
 def get_client():
@@ -92,7 +91,7 @@ def create_kali_template(client, node):
     source_vmid = 107  # tpl-debian-cloudinit
     vmid = int(client.cluster.nextid.get())
     
-    print(f"  Cloning from Debian base...")
+    print("  Cloning from Debian base...")
     client.nodes(node).qemu(source_vmid).clone.post(
         newid=vmid,
         name=name,
@@ -122,11 +121,11 @@ runcmd:
     with open(cloud_init_path, 'w') as f:
         f.write(cloud_init_script)
     
-    print(f"  Starting VM for Kali tools installation...")
+    print("  Starting VM for Kali tools installation...")
     client.nodes(node).qemu(vmid).status.start.post()
     
-    print(f"   Waiting for installation to complete (5-10 min)...")
-    print(f"     VM will shut down automatically when done")
+    print("   Waiting for installation to complete (5-10 min)...")
+    print("     VM will shut down automatically when done")
     
     # Wait for VM to shut down (installation complete)
     if wait_for_vm_status(client, node, vmid, 'stopped', timeout=900):
@@ -199,15 +198,15 @@ def create_windows_templates(client, node):
         )
         
         print(f"  ✅ {name} created (vmid={vmid})")
-        print(f"     Starting automated Windows installation...")
+        print("     Starting automated Windows installation...")
         
         # Start VM
         client.nodes(node).qemu(vmid).status.start.post()
         
-        print(f"     ⏳ Windows will install automatically (30-45 min)")
-        print(f"     VM will shut down when done")
+        print("     ⏳ Windows will install automatically (30-45 min)")
+        print("     VM will shut down when done")
     
-    print(f"\n  All Windows VMs started. Waiting for installations...")
+    print("\n  All Windows VMs started. Waiting for installations...")
 
 
 def monitor_and_convert(client, node):

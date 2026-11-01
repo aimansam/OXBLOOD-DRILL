@@ -16,8 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,11 +25,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Role, current_token, require_role
-from app.db import models as db_models
 from app.db.models import Run, TelemetryEvent, TelemetrySeverity
 from app.db.session import get_session
 from app.services.event_bus import bus
-
 
 router = APIRouter()
 
@@ -138,7 +135,7 @@ async def ingest_event(
                 detail="ts must be ISO 8601",
             )
     else:
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
 
     await _load_run_or_404(session, run_id)
 
@@ -336,7 +333,7 @@ async def stream_events(
                     event = await asyncio.wait_for(
                         queue.get(), timeout=10.0
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Heartbeat. SSE clients use heartbeats to
                     # detect dead connections through proxies.
                     yield ": ping\n\n"
@@ -373,4 +370,4 @@ def _sse_format(event_name: str, data: dict[str, Any]) -> str:
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()

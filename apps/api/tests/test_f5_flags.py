@@ -12,15 +12,10 @@ Total: 27 tests.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.core.auth import sign_token
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
 from app.db import models
 from app.db.base import Base
 from app.db.session import get_sessionmaker
@@ -31,7 +26,9 @@ from app.services.flags import (
     verify_flag_value,
 )
 from app.services.scoring import score, score_breakdown
-
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 # --- scoring primitives -------------------------------------------------
 
@@ -173,7 +170,7 @@ def test_verify_flag_value_wrong():
 
 def test_capture_seconds_clamped_to_zero():
     """If now < started_at (clock skew), clamp to 0."""
-    start = datetime.now(timezone.utc) - timedelta(seconds=60)
+    start = datetime.now(UTC) - timedelta(seconds=60)
     now = start - timedelta(seconds=30)
     # capture is "earlier than start" (impossible); clamp to 0.
     assert capture_seconds(start, now) == 0
@@ -186,7 +183,7 @@ def test_capture_seconds_zero_when_started_at_none():
 
 def test_capture_seconds_negative_clamped():
     """If now < started_at (clock skew), clamp to 0."""
-    start = datetime.now(timezone.utc)
+    start = datetime.now(UTC)
     now = start - timedelta(seconds=5)
     assert capture_seconds(start, now) == 0
 
@@ -228,7 +225,7 @@ async def _seed_scenario_with_flag():
             scenario_id=scen.id,
             status=models.RunStatus.RUNNING,
             started_by="alice",
-            started_at=datetime.now(timezone.utc) - timedelta(seconds=30),
+            started_at=datetime.now(UTC) - timedelta(seconds=30),
         )
         session.add(run)
         await session.commit()
@@ -347,8 +344,8 @@ async def _seed_terminal_run():
             scenario_id=scen.id,
             status=models.RunStatus.SUCCEEDED,
             started_by="alice",
-            started_at=datetime.now(timezone.utc) - timedelta(seconds=120),
-            ended_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC) - timedelta(seconds=120),
+            ended_at=datetime.now(UTC),
         )
         session.add(run)
         await session.commit()
@@ -426,7 +423,6 @@ def test_alembic_0005_migration_runs():
 
 @pytest.fixture
 def mock_adapter_with_vm():
-    from app.runners.adapter import CloneSpec
     from app.runners.mock_adapter import MockProxmoxAdapter
     a = MockProxmoxAdapter(templates={"tpl-x": 9000})
     return a
@@ -442,7 +438,6 @@ async def test_runner_writes_flag_planted_audit(
     operator might have set planted_on_role=router_fw but not
     declared that role as an asset).
     """
-    from app.runners.mock_adapter import MockProxmoxAdapter
     from app.runners.runner import Runner, RunRequest
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
@@ -501,7 +496,6 @@ async def test_runner_logs_warning_when_planted_on_unknown_role(
     """A flag pointing at a role the scenario doesn't declare
     still records the audit row (with asset_id=None). Operators
     see this in the audit log and the demo scenario explains."""
-    import logging
     from unittest.mock import patch
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")

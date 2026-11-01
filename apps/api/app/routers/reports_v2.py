@@ -4,18 +4,30 @@ Provides endpoints for report management, findings, evidence, and benchmarks.
 """
 from __future__ import annotations
 
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.models_oxblood import EvidenceType, ReportStatus, SeverityLevel
 from app.db.session import get_session
-from app.db.models_oxblood import ReportStatus, SeverityLevel, EvidenceType
 from app.services.report_service import (
-    list_reports, get_report, create_report, update_report, submit_report, grade_report,
-    list_findings, create_finding, update_finding, delete_finding,
-    list_finding_evidence, add_evidence, delete_evidence,
-    get_user_benchmark, calculate_and_update_benchmark, get_benchmark_history, get_global_benchmarks,
+    add_evidence,
+    calculate_and_update_benchmark,
+    create_finding,
+    create_report,
+    delete_evidence,
+    delete_finding,
+    get_benchmark_history,
+    get_global_benchmarks,
+    get_report,
+    get_user_benchmark,
+    grade_report,
+    list_finding_evidence,
+    list_findings,
+    list_reports,
+    submit_report,
+    update_finding,
+    update_report,
 )
 
 router = APIRouter(prefix="/api/v2", tags=["Reports & Benchmarks v2"])
@@ -29,57 +41,57 @@ class ReportCreate(BaseModel):
     title: str
     summary: str
     content: str
-    drill_id: Optional[int] = None
-    user_id: Optional[int] = None
-    team_id: Optional[int] = None
+    drill_id: int | None = None
+    user_id: int | None = None
+    team_id: int | None = None
     report_type: str = "after_action"
 
 
 class ReportUpdate(BaseModel):
-    title: Optional[str] = None
-    summary: Optional[str] = None
-    content: Optional[str] = None
+    title: str | None = None
+    summary: str | None = None
+    content: str | None = None
 
 
 class ReportGrade(BaseModel):
     graded_by: int
     quality_score: float
     grade: str
-    feedback: Optional[str] = None
+    feedback: str | None = None
 
 
 class FindingCreate(BaseModel):
     title: str
     description: str
     severity: SeverityLevel
-    category: Optional[str] = None
-    evidence: Optional[str] = None
-    impact: Optional[str] = None
-    recommendation: Optional[str] = None
-    cvss_score: Optional[float] = None
-    cwe_id: Optional[str] = None
+    category: str | None = None
+    evidence: str | None = None
+    impact: str | None = None
+    recommendation: str | None = None
+    cvss_score: float | None = None
+    cwe_id: str | None = None
     sort_order: int = 0
 
 
 class FindingUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    severity: Optional[SeverityLevel] = None
-    category: Optional[str] = None
-    evidence: Optional[str] = None
-    impact: Optional[str] = None
-    recommendation: Optional[str] = None
-    cvss_score: Optional[float] = None
-    cwe_id: Optional[str] = None
-    sort_order: Optional[int] = None
+    title: str | None = None
+    description: str | None = None
+    severity: SeverityLevel | None = None
+    category: str | None = None
+    evidence: str | None = None
+    impact: str | None = None
+    recommendation: str | None = None
+    cvss_score: float | None = None
+    cwe_id: str | None = None
+    sort_order: int | None = None
 
 
 class EvidenceCreate(BaseModel):
     evidence_type: EvidenceType
     file_path: str
     file_size: int
-    mime_type: Optional[str] = None
-    description: Optional[str] = None
+    mime_type: str | None = None
+    description: str | None = None
 
 
 # ============================================================================
@@ -212,9 +224,9 @@ async def post_report(
 
 @router.get("/reports")
 async def get_reports(
-    user_id: Optional[int] = Query(None, description="Filter by user"),
-    drill_id: Optional[int] = Query(None, description="Filter by drill"),
-    status: Optional[ReportStatus] = Query(None, description="Filter by status"),
+    user_id: int | None = Query(None, description="Filter by user"),
+    drill_id: int | None = Query(None, description="Filter by drill"),
+    status: ReportStatus | None = Query(None, description="Filter by status"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),

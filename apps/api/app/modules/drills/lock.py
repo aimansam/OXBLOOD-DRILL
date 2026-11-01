@@ -1,7 +1,7 @@
 """Exclusive ownership for the shared cyber-drill environment."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -32,7 +32,7 @@ async def _other_environment_owner(db: AsyncSession, drill_id: int | None = None
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 async def _lock_row(db: AsyncSession, *, for_update: bool = False) -> DrillEnvironmentLock:
@@ -177,12 +177,7 @@ async def environment_lock_status(db: AsyncSession) -> dict:
     row = await _lock_row(db)
     if row.status in ACTIVE_LOCK_STATUSES and row.drill_id is not None:
         drill = await db.get(Drill, row.drill_id)
-        if drill is None or drill.deleted_at is not None:
-            row.drill_id = None
-            row.status = "released"
-            row.released_at = _now()
-            await db.commit()
-        elif drill.status in {DrillStatus.COMPLETED, DrillStatus.CANCELLED} and (drill.environment_config or {}).get("cleanup_status") == "stopped":
+        if drill is None or drill.deleted_at is not None or drill.status in {DrillStatus.COMPLETED, DrillStatus.CANCELLED} and (drill.environment_config or {}).get("cleanup_status") == "stopped":
             row.drill_id = None
             row.status = "released"
             row.released_at = _now()

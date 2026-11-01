@@ -3,28 +3,45 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import selectinload
 
 from app import __version__
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db import models
 from app.observability.middleware import PrometheusMiddleware
-from app.routers import admin, audit, auth, debrief, drills, events, exercises, health, me, proxmox, reports, scenarios, templates, drills_v2, invitations, submissions_v2, reports_v2
+from app.routers import (
+    admin,
+    audit,
+    auth,
+    debrief,
+    drills,
+    drills_v2,
+    events,
+    exercises,
+    health,
+    invitations,
+    me,
+    proxmox,
+    reports,
+    reports_v2,
+    scenarios,
+    submissions_v2,
+    templates,
+)
+from app.runners.runner import build_runner
+
 # Learn routers (labs_v2, learning_paths_v2, user_profiles) moved to the
 # Learn product — Drill no longer mounts them.
 from app.services import orphan_cleanup as orphan_svc
 from app.services.scenario_sync import sync_files
-from app.runners.runner import build_runner
 
 log = structlog.get_logger()
 
@@ -243,8 +260,8 @@ async def lifespan(app: FastAPI):
     oxblood_timeout_interval_sec = max(5, pve_sync_interval_sec)
     if oxblood_timeout_interval_sec > 0:
         async def _oxblood_timeout_loop() -> None:
-            from app.db.session import get_sessionmaker
             from app.db.models_oxblood import DrillEvent
+            from app.db.session import get_sessionmaker
             from app.runners.runner import RunnerError, build_runner
             from app.services.drill_service import timeout_overdue_drills
 
@@ -339,11 +356,12 @@ async def lifespan(app: FastAPI):
     # Detects VM deletion and auto-transitions runs to FAILED.
     if pve_sync_interval_sec > 0:
         async def _pve_sync_loop() -> None:
-            from app.db.session import get_sessionmaker
-            from app.runners.runner import build_runner
-            from app.db.models import RunStatus, AssetStatus, AuditAction, Run
             from sqlalchemy import select
             from sqlalchemy.orm import selectinload
+
+            from app.db.models import AssetStatus, AuditAction, Run, RunStatus
+            from app.db.session import get_sessionmaker
+            from app.runners.runner import build_runner
 
             sm = get_sessionmaker()
             log.info(
@@ -388,7 +406,7 @@ async def lifespan(app: FastAPI):
                                         if asset.status != AssetStatus.STOPPED:
                                             old_status = asset.status
                                             asset.status = AssetStatus.STOPPED
-                                            asset.cleaned_at = datetime.now(timezone.utc)
+                                            asset.cleaned_at = datetime.now(UTC)
                                             await session.flush()
 
                                             # Write audit log
@@ -414,7 +432,7 @@ async def lifespan(app: FastAPI):
                                             )
                                             if all_stopped:
                                                 run.status = RunStatus.FAILED
-                                                run.ended_at = datetime.now(timezone.utc)
+                                                run.ended_at = datetime.now(UTC)
                                                 run.error = "VM deleted or stopped outside of div:ide control"
                                                 await session.flush()
 

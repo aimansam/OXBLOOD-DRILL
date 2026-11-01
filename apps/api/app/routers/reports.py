@@ -199,8 +199,8 @@ async def get_drill_report(
         )
     ).scalars().all()
 
-    from app.runners.runner import _adapter_label
     from app.runners.mock_adapter import MockProxmoxAdapter
+    from app.runners.runner import _adapter_label
 
     adapter_label = _adapter_label(MockProxmoxAdapter())
 

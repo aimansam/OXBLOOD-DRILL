@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
+from collections.abc import Callable
 from threading import Lock
-from typing import Any, Callable
-
+from typing import Any
 
 # Ring buffer size: 1024 events. ~64 KB for typical events;
 # ~256 KB worst case (full payload). Plenty for SSE reconnect

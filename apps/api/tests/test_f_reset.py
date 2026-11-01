@@ -30,12 +30,10 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from app.db import models as db_models
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
-
-from app.db import models as db_models
-
 
 # --- helpers --------------------------------------------------------------
 
@@ -554,8 +552,8 @@ class TestIssueResetLink:
         # Query the audit log via the model's SQLAlchemy mapper.
         # The conftest sets DIVIDE_DB_URL to a sqlite+aiosqlite URL;
         # we need a plain sync sqlite URL to read with create_engine.
-        from sqlalchemy import create_engine, select  # noqa: F401
         from app.db import models as db_models  # noqa: F401
+        from sqlalchemy import create_engine, select  # noqa: F401
 
         url = os.environ["DIVIDE_DB_URL"].replace(
             "sqlite+aiosqlite://", "sqlite:///"

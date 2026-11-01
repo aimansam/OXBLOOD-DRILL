@@ -14,9 +14,8 @@ import os
 os.environ.setdefault("DIVIDE_PORTAL_DIR", "apps/portal")
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.main import app  # noqa: E402
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(scope="session")

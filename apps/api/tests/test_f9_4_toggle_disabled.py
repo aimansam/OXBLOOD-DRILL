@@ -15,15 +15,12 @@ autouse fixture, mirroring the F10 / F11 pattern).
 from __future__ import annotations
 
 import asyncio
-import time
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import delete
-
 from app.core.auth import sign_token
 from app.db import models as db_models
 from app.db.session import get_sessionmaker
+from sqlalchemy import delete
 
 
 def _admin_token(sub: str = "alice") -> str:
@@ -91,7 +88,6 @@ async def _seed_user(sub: str, role: str) -> None:
 async def _seed_user_disabled(sub: str, role: str, *, disabled: bool) -> None:
     """Seed a user with an explicit disabled flag (for the
     "already disabled -> enabled" toggle case)."""
-    from sqlalchemy import select
 
     from app.services.users import hash_password
 

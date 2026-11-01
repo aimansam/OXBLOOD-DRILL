@@ -11,19 +11,15 @@ Total: 24 tests.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
-
-from sqlalchemy import select
-
 from app.core.auth import sign_token
 from app.db import models
-from app.db.base import Base
 from app.db.session import get_sessionmaker
 from app.runners.mock_adapter import MockProxmoxAdapter
-
+from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 # --- ExerciseStatus FSM -------------------------------------------------
 
@@ -479,9 +475,9 @@ def test_post_drill_with_exercise_id_creates_runs_with_team():
     and run.team; the run proceeds as a normal single-team start."""
     import json
     import uuid
-    from jsonschema import Draft202012Validator
+
     from app.services.scenario_sync import _find_schema
-    from pathlib import Path as _Path
+    from jsonschema import Draft202012Validator
     schema = json.loads(_find_schema().read_text())
 
     # Use the demo scenario as the scenarios source; instantiate
@@ -766,7 +762,6 @@ def test_flag_capture_bumps_team_score():
     # Capture the flag from blue's perspective (red-side flag is
     # hunted by blue). Use a Started_at 30s in the past so the
     # scoring window makes the points nonzero.
-    from datetime import datetime, timedelta, timezone
     async def _backdate():
         async with sm() as session:
             r_row = await session.execute(
@@ -779,7 +774,7 @@ def test_flag_capture_bumps_team_score():
             # scoring window makes the points nonzero.
             r_obj.status = models.RunStatus.RUNNING
             r_obj.ended_at = None
-            r_obj.started_at = datetime.now(timezone.utc) - timedelta(seconds=10)
+            r_obj.started_at = datetime.now(UTC) - timedelta(seconds=10)
             await session.commit()
     asyncio.run(_backdate())
 

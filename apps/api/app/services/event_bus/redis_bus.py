@@ -46,7 +46,8 @@ import json
 import logging
 import queue as _queue
 import threading
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import redis as redis_sync
 
@@ -72,7 +73,7 @@ class RedisEventBus:
         url: str,
         *,
         sync_client: redis_sync.Redis | None = None,
-        async_client_factory: "Callable[[], Any] | None" = None,
+        async_client_factory: Callable[[], Any] | None = None,
     ) -> None:
         """Construct a Redis-backed event bus.
 

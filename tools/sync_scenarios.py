@@ -56,7 +56,7 @@ def _ensure_schema() -> None:
         sys.exit(2)
 
 
-async def _run(paths: list[Path], archive_missing: bool) -> "SyncReport":
+async def _run(paths: list[Path], archive_missing: bool) -> SyncReport:
     sm = get_sessionmaker()
     async with sm() as session:
         return await sync_files(session, paths, archive_missing=archive_missing)

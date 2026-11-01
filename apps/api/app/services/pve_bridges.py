@@ -35,8 +35,8 @@ to create the SDN zone + Vnets.
 from __future__ import annotations
 
 import ipaddress
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -309,8 +309,9 @@ def plan_bridges(scenarios: Iterable[dict]) -> BridgePlan:
 
 async def plan_bridges_from_db(session: AsyncSession) -> BridgePlan:
     """Read scenarios from the DB and return the plan."""
-    from app.db import models as db_models
     from sqlalchemy import select
+
+    from app.db import models as db_models
 
     rows = (
         await session.execute(

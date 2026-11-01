@@ -14,17 +14,17 @@ We exercise:
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
 from app.db import models
 from app.db.base import Base
 from app.db.models import AssetStatus, AuditAction, RunStatus
 from app.runners.adapter import CloneSpec
 from app.runners.mock_adapter import MockProxmoxAdapter
 from app.runners.runner import Runner, RunnerError, RunRequest, _static_ip_configs, _vm_name
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
 def test_vm_name_uses_short_code_and_counted_instance() -> None:
@@ -369,14 +369,15 @@ async def test_stop_run_is_idempotent(session: AsyncSession) -> None:
 
 @pytest.mark.asyncio
 async def test_v2_preparation_never_recovers_a_legacy_watchdog(session: AsyncSession, monkeypatch) -> None:
+    from datetime import datetime, timedelta
+
     from app.core.config import settings
-    from datetime import datetime, timedelta, timezone
     monkeypatch.setattr(settings, "drill_timeout_enabled", True)
     scenario = _scenario_with("prepared-timer", [_asset("desktop")])
     session.add(scenario)
     await session.flush()
     run = models.Run(scenario_id=scenario.id, status=RunStatus.RUNNING, timeout_min=-1,
-                     started_at=datetime.now(timezone.utc) - timedelta(hours=3))
+                     started_at=datetime.now(UTC) - timedelta(hours=3))
     session.add(run)
     await session.commit()
     assert Runner.get_timeout_sec(run.id, run.started_at, timeout_min=-1) is None

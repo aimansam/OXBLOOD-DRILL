@@ -37,7 +37,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-
 revision = "0010_user_reset_tokens"
 down_revision = "0009_wg_peer"
 branch_labels = None

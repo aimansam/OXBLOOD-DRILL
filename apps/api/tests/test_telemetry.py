@@ -18,8 +18,6 @@ import asyncio
 import logging
 from typing import Any
 
-import pytest
-
 
 class _CapturingSink:
     """Sink that records every event it receives. For tests."""

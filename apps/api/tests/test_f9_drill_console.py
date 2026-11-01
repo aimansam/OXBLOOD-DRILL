@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import asyncio
 import time
+from datetime import UTC
 
 import pytest
-from fastapi.testclient import TestClient
 
 
 def _now_name(prefix: str) -> str:
@@ -50,7 +50,6 @@ def _run_async(coro):
         already been bound. We install a fresh loop locally
         instead.
     """
-    import asyncio
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
@@ -68,10 +67,9 @@ def _clean_db_after():
 
     Mirrors the pattern in ``test_reports.py::_clean_db_after``.
     """
-    from sqlalchemy import delete
-
     from app.db import models as db_models
     from app.db.session import get_sessionmaker
+    from sqlalchemy import delete
 
     sm = get_sessionmaker()
     yield  # test runs first
@@ -103,7 +101,7 @@ def _clean_db_after():
 
 async def _seed_single_team_run() -> tuple[int, int]:
     """Seed a scenario + Run with no Exercise binding. Returns (run_id, scenario_id)."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from app.db import models as db_models
     from app.db.session import get_sessionmaker
@@ -134,8 +132,8 @@ async def _seed_single_team_run() -> tuple[int, int]:
             scenario_id=s.id,
             status=db_models.RunStatus.SUCCEEDED,
             started_by="alice",
-            started_at=datetime.now(timezone.utc),
-            ended_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
+            ended_at=datetime.now(UTC),
         )
         session.add(run)
         await session.flush()
@@ -145,7 +143,7 @@ async def _seed_single_team_run() -> tuple[int, int]:
 
 async def _seed_multi_team_run() -> tuple[int, int, int]:
     """Seed an Exercise + Run bound to it. Returns (run_id, scenario_id, exercise_id)."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from app.db import models as db_models
     from app.db.session import get_sessionmaker
@@ -177,7 +175,7 @@ async def _seed_multi_team_run() -> tuple[int, int, int]:
             title="F9 Multi-Team",
             scenario_id=s.id,
             status=db_models.ExerciseStatus.LIVE,
-            starts_at=datetime.now(timezone.utc),
+            starts_at=datetime.now(UTC),
             created_by="alice",
         )
         session.add(ex)
@@ -187,7 +185,7 @@ async def _seed_multi_team_run() -> tuple[int, int, int]:
             exercise_id=ex.id,
             status=db_models.RunStatus.RUNNING,
             started_by="alice",
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
         )
         session.add(run)
         await session.flush()

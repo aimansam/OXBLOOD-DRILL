@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import hmac
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -35,15 +35,15 @@ class FlagError(Exception):
         self.message = message
 
     @classmethod
-    def not_found(cls, flag_id: str) -> "FlagError":
+    def not_found(cls, flag_id: str) -> FlagError:
         return cls("flag_not_found", f"flag {flag_id!r} not in scenario")
 
     @classmethod
-    def wrong_value(cls) -> "FlagError":
+    def wrong_value(cls) -> FlagError:
         return cls("flag_mismatch", "submitted value does not match")
 
     @classmethod
-    def run_not_active(cls, status: str) -> "FlagError":
+    def run_not_active(cls, status: str) -> FlagError:
         return cls(
             "run_terminal",
             f"run is {status}; flags can only be captured while the run is active",
@@ -52,7 +52,7 @@ class FlagError(Exception):
     @classmethod
     def wrong_team(
         cls, team: str, flag_side: str, runner_role: str
-    ) -> "FlagError":
+    ) -> FlagError:
         return cls(
             "wrong_team",
             (
@@ -64,7 +64,7 @@ class FlagError(Exception):
     @classmethod
     def duplicate(
         cls, team: str, flag_id: str
-    ) -> "FlagError":
+    ) -> FlagError:
         return cls(
             "duplicate",
             f"team {team!r} already captured flag {flag_id!r}",
@@ -88,7 +88,7 @@ class FlagSpec:
     base_points: int
 
     @classmethod
-    def from_raw(cls, raw: dict[str, Any]) -> "FlagSpec":
+    def from_raw(cls, raw: dict[str, Any]) -> FlagSpec:
         return cls(
             flag_id=str(raw["id"]),
             side=str(raw["side"]),
@@ -143,8 +143,8 @@ def capture_seconds(
     if started_at is None:
         return 0
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
     if started_at.tzinfo is None:
-        started_at = started_at.replace(tzinfo=timezone.utc)
+        started_at = started_at.replace(tzinfo=UTC)
     delta = (now - started_at).total_seconds()
     return max(0, int(delta))

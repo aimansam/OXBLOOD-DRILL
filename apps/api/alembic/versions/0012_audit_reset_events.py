@@ -26,7 +26,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-
 revision = "0012_audit_reset_events"
 down_revision = "0011_pve_config"
 branch_labels = None

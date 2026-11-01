@@ -16,7 +16,6 @@ Covers:
 from __future__ import annotations
 
 import os
-import asyncio
 from unittest.mock import MagicMock
 
 import pytest
@@ -81,9 +80,8 @@ async def test_current_token_anonymous_when_neither_present():
 @pytest.mark.asyncio
 async def test_current_token_rejects_invalid_query_token():
     """Bad token via query -> 401 (re-raised HTTPException)."""
-    from fastapi import HTTPException
-
     from app.core.auth import current_token
+    from fastapi import HTTPException
 
     request = MagicMock()
     request.query_params = {"token": "garbage"}

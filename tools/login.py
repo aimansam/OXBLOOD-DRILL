@@ -42,7 +42,6 @@ import json
 import sys
 import urllib.error
 import urllib.request
-from pathlib import Path
 
 DEFAULT_API = "http://localhost:8000"
 

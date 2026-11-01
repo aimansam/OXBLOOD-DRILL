@@ -16,7 +16,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-
 revision = "0008_telemetry_events"
 down_revision = "0007_templates"
 branch_labels = None

@@ -28,11 +28,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import httpx
 import pytest
-
+from app.services.pve_bridges import BridgePlan, plan_bridges
 from app.services.pve_sdn import (
     DEFAULT_ZONE,
     SdnAuth,
@@ -46,8 +47,6 @@ from app.services.pve_sdn import (
     read_sdn_state,
     to_apply_result,
 )
-from app.services.pve_bridges import BridgePlan, BridgeSpec, plan_bridges
-
 
 # --- helpers --------------------------------------------------------------
 

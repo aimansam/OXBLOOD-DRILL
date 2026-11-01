@@ -20,13 +20,11 @@ import time
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-
 from app.core.config import ProxmoxSettings
 from app.runners.adapter import CloneSpec, SeedSpec
 from app.runners.mock_adapter import MockProxmoxAdapter
 from app.runners.real_adapter import RealProxmoxAdapter
 from app.services.proxmox import ProxmoxAPIError, ProxmoxNotConfiguredError
-
 
 # --- construction ----------------------------------------------------------
 
@@ -1164,8 +1162,8 @@ def test_factory_picks_mock_without_env(monkeypatch):
     monkeypatch.delenv("PROXMOX_HOST", raising=False)
     monkeypatch.delenv("PROXMOX_TOKEN_ID", raising=False)
     monkeypatch.delenv("PROXMOX_TOKEN_SECRET", raising=False)
-    from app.runners.runner import _default_adapter
     from app.runners.mock_adapter import MockProxmoxAdapter
+    from app.runners.runner import _default_adapter
 
     assert isinstance(_default_adapter(), MockProxmoxAdapter)
 
@@ -1176,8 +1174,8 @@ def test_factory_picks_real_with_env(monkeypatch):
     monkeypatch.setenv("PROXMOX_TOKEN_SECRET", "s3cret")
     # `get_settings()` is lru_cached — clear it so the env above takes effect.
     from app.core import config as cfg_module
-    from app.runners.runner import _default_adapter
     from app.runners.real_adapter import RealProxmoxAdapter
+    from app.runners.runner import _default_adapter
 
     cfg_module.get_settings.cache_clear()
     try:
@@ -1191,8 +1189,8 @@ def test_factory_picks_real_with_db_overlay(monkeypatch):
     monkeypatch.delenv("PROXMOX_TOKEN_ID", raising=False)
     monkeypatch.delenv("PROXMOX_TOKEN_SECRET", raising=False)
     from app.core import config as cfg_module
-    from app.runners.runner import _default_adapter
     from app.runners.real_adapter import RealProxmoxAdapter
+    from app.runners.runner import _default_adapter
     from app.services.proxmox import set_db_overlay
 
     cfg_module.get_settings.cache_clear()
@@ -1225,8 +1223,8 @@ def test_factory_falls_back_to_mock_on_bad_config(monkeypatch):
     monkeypatch.setenv("PROXMOX_TOKEN_ID", "u!t")
     monkeypatch.setenv("PROXMOX_TOKEN_SECRET", "s3cret")
     from app.core import config as cfg_module
-    from app.runners.runner import _default_adapter
     from app.runners.mock_adapter import MockProxmoxAdapter
+    from app.runners.runner import _default_adapter
 
     cfg_module.get_settings.cache_clear()
     try:

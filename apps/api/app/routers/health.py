@@ -32,7 +32,6 @@ async def healthz() -> HealthResponse:
 @router.get("/readyz", response_model=ReadinessResponse, summary="Readiness probe")
 async def readyz() -> ReadinessResponse:
     """Return 200 if all critical dependencies are reachable."""
-    from app.core.config import settings
 
     checks: dict[str, str] = {}
 

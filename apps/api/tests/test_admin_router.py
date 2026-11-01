@@ -113,12 +113,11 @@ def test_pve_guest_inventory_requires_admin_and_returns_live_guest_data(client, 
 async def test_pve_guest_inventory_drill_scope_uses_registered_vms(client, admin_headers):
     from uuid import uuid4
 
-    from sqlalchemy import delete
-
     from app.db import models as catalog
     from app.db.models_oxblood import Drill, DrillStatus
     from app.db.session import get_sessionmaker
     from app.services.db import get_engine
+    from sqlalchemy import delete
 
     # The v1 test database migrates the catalog; the v2 drill table is
     # normally created by the OxBlood schema and must be added here.

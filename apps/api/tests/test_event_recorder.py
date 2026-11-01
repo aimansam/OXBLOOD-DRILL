@@ -19,7 +19,7 @@ return ``None`` and let the outer transaction continue.
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -114,10 +114,8 @@ async def test_event_recorder_re_raises_programming_errors():
     A ProgrammingError surfaces a real operator-visible 500
     instead of silently dropping every event.
     """
-    from sqlalchemy.exc import ProgrammingError
-
-    from app.services import event_recorder
     from app.services.event_recorder import record_event
+    from sqlalchemy.exc import ProgrammingError
 
     session = MagicMock()
     session.rollback = AsyncMock()

@@ -31,11 +31,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Callable
+from typing import Any
 
 import httpx
 import pytest
-
 from app.services.pve_bridges import (
     BridgePlan,
     BridgePlanError,
@@ -46,7 +45,6 @@ from app.services.pve_sdn import (
     SdnPermissionError,
     apply_direct_plan,
 )
-
 
 # --- helpers --------------------------------------------------------------
 

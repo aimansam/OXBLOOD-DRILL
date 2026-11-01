@@ -12,15 +12,7 @@ Contract:
 """
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-
-from app.main import app
-from app.db.session import get_session
-from app.db import models as db_models
-from app.services.users import create_user
-from app.core.auth import Role
 
 # Re-use the in-memory SQLite session fixture already established
 # by the test suite (conftest.py provides `session` and `client`).

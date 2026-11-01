@@ -176,7 +176,6 @@ class _MinioTelemetrySink:
         self.name = name
 
     async def send(self, event: dict[str, Any]) -> None:
-        import io
 
         body = json.dumps(event, default=str).encode("utf-8")
         run_id = event.get("run_id", "anon")

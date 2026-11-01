@@ -17,20 +17,17 @@ success, raises on failure).
 from __future__ import annotations
 
 import asyncio
-import os
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import select
-
-from app.core.config import settings
 from app.db.models import PveConfig
-from app.services import pve_config as pve_config_svc
 from app.services import proxmox as proxmox_svc
+from app.services import pve_config as pve_config_svc
 from app.services.proxmox import (
     ProxmoxAPIError,
     set_db_overlay,
 )
+from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 
 def _overlay() -> dict | None:

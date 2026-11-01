@@ -41,8 +41,9 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Any, Callable, Protocol, runtime_checkable
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any, Protocol, runtime_checkable
 
 from .in_process import InProcessEventBus
 
@@ -86,7 +87,7 @@ class EventBus(Protocol):
 
     def subscribe(
         self, maxsize: int = 256
-    ) -> "tuple[Any, Callable[[], None]]":
+    ) -> tuple[Any, Callable[[], None]]:
         """Return ``(queue, unsubscribe)``.
 
         ``queue.get()`` returns the next event. ``unsubscribe()``
@@ -119,9 +120,9 @@ def build_event_bus() -> EventBus:
     """
     override = os.environ.get("DIVIDE_EVENT_BUS", "").strip().lower()
     if override == "redis":
-        from .redis_bus import RedisEventBus
-
         from app.core.config import settings
+
+        from .redis_bus import RedisEventBus
 
         _log.info("event_bus: RedisEventBus selected (DIVIDE_EVENT_BUS=redis)")
         return RedisEventBus(settings.redis_url)
@@ -153,7 +154,7 @@ def reset_for_tests() -> None:
 def utcnow_iso() -> str:
     """ISO-8601 UTC timestamp. Used as ``ts`` when caller doesn't
     supply one."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # Backward-compat alias. Pre-R1 code did

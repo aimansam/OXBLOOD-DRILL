@@ -13,10 +13,7 @@ to return a sentinel dict.
 """
 from __future__ import annotations
 
-import os
-
 import pytest
-
 from app.services import admin as admin_svc
 from app.services import service_status as svc
 

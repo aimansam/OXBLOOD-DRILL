@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone, timedelta
-import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from datetime import UTC, datetime, timedelta
 
+import pytest
 from app.db import models
 from app.db.base import Base
 from app.db.models import AuditAction, AuditLog, RunStatus
 from app.runners.mock_adapter import MockProxmoxAdapter
 from app.runners.runner import Runner, RunnerError
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ async def test_runner_extend_timeout_happy_path(session: AsyncSession):
         scenario_id=scen.id,
         status=RunStatus.RUNNING,
         started_by="alice",
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
     )
     session.add(run)
     await session.commit()
@@ -58,7 +58,7 @@ async def test_runner_extend_timeout_happy_path(session: AsyncSession):
     runner = Runner(adapter=MockProxmoxAdapter())
     
     # Pre-set deadline
-    Runner._active_deadlines[run.id] = datetime.now(timezone.utc) + timedelta(minutes=10)
+    Runner._active_deadlines[run.id] = datetime.now(UTC) + timedelta(minutes=10)
 
     res = await runner.extend_timeout(
         run_id=run.id,
@@ -97,7 +97,7 @@ async def test_runner_extend_timeout_terminal_raises(session: AsyncSession):
         scenario_id=scen.id,
         status=RunStatus.SUCCEEDED,
         started_by="alice",
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
     )
     session.add(run)
     await session.commit()

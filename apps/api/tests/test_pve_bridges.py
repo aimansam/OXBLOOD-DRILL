@@ -14,16 +14,13 @@ declaring the same bridge slot with different CIDRs.
 from __future__ import annotations
 
 import pytest
-
-from fastapi.testclient import TestClient
-
 from app.services.pve_bridges import (
     BRIDGE_START,
-    BridgePlan,
     BridgePlanError,
     BridgeSpec,
     plan_bridges,
 )
+from fastapi.testclient import TestClient
 
 
 class TestPlanBridges:

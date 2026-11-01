@@ -16,8 +16,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).resolve().parent.parent
 
 
@@ -156,7 +154,6 @@ def test_login_tool_supports_password_flag_for_ci():
 
 
 def test_login_tool_executable():
-    import os
 
     p = REPO / "tools" / "login.py"
     mode = p.stat().st_mode

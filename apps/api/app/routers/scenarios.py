@@ -8,22 +8,24 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, status
 from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import ValidationError
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db import models as db_models
 from app.db.session import get_session
 from app.services.scenario_sync import (
-    _format_checker,  # noqa: F401  -- shared with sync service
     _find_schema as _find_scenario_schema,
+)
+from app.services.scenario_sync import (
+    _format_checker,  # noqa: F401  -- shared with sync service
 )
 
 router = APIRouter()
@@ -240,7 +242,7 @@ async def archive_scenario(
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"scenario {name!r} not found")
-    row.archived_at = datetime.now(timezone.utc)
+    row.archived_at = datetime.now(UTC)
     await session.commit()
     return {"name": row.name, "archived_at": row.archived_at.isoformat()}
 

@@ -34,7 +34,6 @@ from app.db import models as db_models
 from app.db.models import Run, Template
 from app.db.session import get_session
 
-
 router = APIRouter()
 
 

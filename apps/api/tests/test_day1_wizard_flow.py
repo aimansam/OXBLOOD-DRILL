@@ -40,15 +40,14 @@ from typing import Any
 import httpx
 import pytest
 import yaml
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
-
 from app.db import models as db_models
+from app.routers import drills as drills_router
 from app.runners.mock_adapter import MockProxmoxAdapter
 from app.runners.runner import Runner
-from app.routers import drills as drills_router
-from app.services import pve_sdn
 from app.services import proxmox as proxmox_svc
+from app.services import pve_sdn
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, select
 
 
 def _sync_engine():
@@ -222,8 +221,8 @@ def pve_token(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], Any]:
     async def _reseed() -> None:
         from app.core.config import get_settings
         get_settings.cache_clear()
-        from app.services.scenario_sync import sync_files
         from app.db.session import get_sessionmaker
+        from app.services.scenario_sync import sync_files
         await sync_files(
             settings_dir=get_settings(),
             session_factory=get_sessionmaker(),

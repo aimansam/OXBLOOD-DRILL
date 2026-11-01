@@ -25,8 +25,8 @@ from __future__ import annotations
 
 import io
 from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import PlainTextResponse
@@ -180,8 +180,8 @@ def _fmt_dt(dt: datetime | None) -> str:
     if dt is None:
         return "-"
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc).isoformat()
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC).isoformat()
 
 
 def _fmt_duration(seconds: int | None) -> str:

@@ -13,7 +13,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-
 revision = "0009_wg_peer"
 down_revision = "0008_telemetry_events"
 branch_labels = None

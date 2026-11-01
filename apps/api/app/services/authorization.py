@@ -68,7 +68,7 @@ SEE_OWN_ROLES: frozenset[str] = frozenset(
 )
 
 
-def visible_runs_query(token: "TokenData | None") -> Select:
+def visible_runs_query(token: TokenData | None) -> Select:
     """Build a SELECT for the Run rows this token is allowed to see.
 
     Use as the base query in list endpoints::
@@ -97,7 +97,7 @@ def visible_runs_query(token: "TokenData | None") -> Select:
     return q.where(false())
 
 
-def can_view_run(token: "TokenData | None", run: db_models.Run) -> bool:
+def can_view_run(token: TokenData | None, run: db_models.Run) -> bool:
     """Single-row visibility check. Used by GET /drills/{id} and
     GET /drills/{id}/audit to decide between 200 and 403.
 

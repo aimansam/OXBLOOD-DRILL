@@ -31,7 +31,7 @@ import logging
 import os
 import shutil
 import socket
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
@@ -111,7 +111,7 @@ async def _audit_recency(db: AsyncSession) -> dict[str, Any]:
         ).scalar_one_or_none()
         if row is None:
             return {"latest": None, "state": "empty"}
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         age = now - row
         state = (
             "fresh"
@@ -144,7 +144,7 @@ async def get_service_status(db: AsyncSession) -> dict[str, Any]:
         pve_ok = False
 
     return {
-        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "captured_at": datetime.now(UTC).isoformat(),
         "pve": {
             "reachable": pve.get("reachable", False),
             "version": pve.get("version"),

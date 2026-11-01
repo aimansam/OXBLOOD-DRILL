@@ -13,13 +13,12 @@ manage a live event loop in pytest.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import select
-
 from app.db import models as db_models
 from app.db.session import get_sessionmaker
+from sqlalchemy import select
 
 
 @pytest.fixture
@@ -68,7 +67,7 @@ def seed_one_run():
                 scenario_id=s.id,
                 status=db_models.RunStatus.RUNNING,
                 started_by="alice",
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
             )
             session.add(r)
             await session.flush()
@@ -132,7 +131,7 @@ def test_watchdog_no_op_when_run_already_terminal(runner, seed_one_run):
                 )
             ).scalar_one()
             row.status = db_models.RunStatus.CANCELLED
-            row.ended_at = datetime.now(timezone.utc)
+            row.ended_at = datetime.now(UTC)
             await s.commit()
 
         # Fire the watchdog — must not flip anything.

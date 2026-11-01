@@ -69,7 +69,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func as sql_func, select
+from sqlalchemy import func as sql_func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Role, current_token, require_role, sign_token
@@ -553,10 +554,6 @@ async def toggle_disabled_endpoint(
     Set semantics can be added later if the admin UI grows
     checkbox-style controls.
     """
-    from app.services.users import (
-        UserNotFoundError,
-        set_user_disabled,
-    )
 
     current = await get_by_sub(session, sub)
     if current is None:
@@ -856,14 +853,13 @@ async def get_vpn_config(
       * 401 — no/invalid token.
       * 503 — wg-easy not reachable (server_pubkey placeholder used).
     """
+    from app.core.config import settings
     from app.services.vpn import (
         assign_peer_id,
         build_client_config,
         client_ip,
         server_ip,
-        peer_public_key,
     )
-    from app.core.config import settings
 
     sub = token.sub
 
@@ -884,7 +880,9 @@ async def get_vpn_config(
 
     # Determine peer_index: count all users with a wg_peer_id < this one
     # (lexicographic on UUID, stable for ordering purposes).
-    from sqlalchemy import func as sql_func, select as sql_select
+    from sqlalchemy import func as sql_func
+    from sqlalchemy import select as sql_select
+
     from app.db import models as db_models
 
     count_row = await session.execute(

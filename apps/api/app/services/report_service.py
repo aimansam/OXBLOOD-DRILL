@@ -5,16 +5,21 @@ and benchmark calculation.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
-from sqlalchemy import select, func
+from datetime import UTC, datetime
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_oxblood import (
-    Report, ReportFinding, Evidence, Benchmark, BenchmarkHistory,
-    ReportStatus, SeverityLevel, EvidenceType,
+    Benchmark,
+    BenchmarkHistory,
+    Evidence,
+    EvidenceType,
+    Report,
+    ReportFinding,
+    ReportStatus,
+    SeverityLevel,
 )
-
 
 # ============================================================================
 # Report CRUD
@@ -22,9 +27,9 @@ from app.db.models_oxblood import (
 
 async def list_reports(
     db: AsyncSession,
-    user_id: Optional[int] = None,
-    drill_id: Optional[int] = None,
-    status: Optional[ReportStatus] = None,
+    user_id: int | None = None,
+    drill_id: int | None = None,
+    status: ReportStatus | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> list[Report]:
@@ -41,7 +46,7 @@ async def list_reports(
     return result.scalars().all()
 
 
-async def get_report(db: AsyncSession, report_id: int) -> Optional[Report]:
+async def get_report(db: AsyncSession, report_id: int) -> Report | None:
     """Get a report by ID."""
     result = await db.execute(
         select(Report).where(Report.id == report_id)
@@ -54,9 +59,9 @@ async def create_report(
     title: str,
     summary: str,
     content: str,
-    drill_id: Optional[int] = None,
-    user_id: Optional[int] = None,
-    team_id: Optional[int] = None,
+    drill_id: int | None = None,
+    user_id: int | None = None,
+    team_id: int | None = None,
     report_type: str = "after_action",
 ) -> Report:
     """Create a new report."""
@@ -81,7 +86,7 @@ async def update_report(
     db: AsyncSession,
     report_id: int,
     **kwargs
-) -> Optional[Report]:
+) -> Report | None:
     """Update a report."""
     report = await get_report(db, report_id)
     if not report:
@@ -97,13 +102,13 @@ async def update_report(
     return report
 
 
-async def submit_report(db: AsyncSession, report_id: int) -> Optional[Report]:
+async def submit_report(db: AsyncSession, report_id: int) -> Report | None:
     """Submit a report for review."""
     report = await get_report(db, report_id)
     if not report:
         return None
     report.status = ReportStatus.SUBMITTED
-    report.submitted_at = datetime.now(timezone.utc)
+    report.submitted_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(report)
     return report
@@ -115,14 +120,14 @@ async def grade_report(
     graded_by: int,
     quality_score: float,
     grade: str,
-    feedback: Optional[str] = None,
-) -> Optional[Report]:
+    feedback: str | None = None,
+) -> Report | None:
     """Grade a submitted report."""
     report = await get_report(db, report_id)
     if not report:
         return None
     report.status = ReportStatus.GRADED
-    report.graded_at = datetime.now(timezone.utc)
+    report.graded_at = datetime.now(UTC)
     report.graded_by = graded_by
     report.quality_score = quality_score
     report.grade = grade
@@ -152,12 +157,12 @@ async def create_finding(
     title: str,
     description: str,
     severity: SeverityLevel,
-    category: Optional[str] = None,
-    evidence: Optional[str] = None,
-    impact: Optional[str] = None,
-    recommendation: Optional[str] = None,
-    cvss_score: Optional[float] = None,
-    cwe_id: Optional[str] = None,
+    category: str | None = None,
+    evidence: str | None = None,
+    impact: str | None = None,
+    recommendation: str | None = None,
+    cvss_score: float | None = None,
+    cwe_id: str | None = None,
     sort_order: int = 0,
 ) -> ReportFinding:
     """Add a finding to a report."""
@@ -184,7 +189,7 @@ async def update_finding(
     db: AsyncSession,
     finding_id: int,
     **kwargs
-) -> Optional[ReportFinding]:
+) -> ReportFinding | None:
     """Update a finding."""
     result = await db.execute(
         select(ReportFinding).where(ReportFinding.id == finding_id)
@@ -231,8 +236,8 @@ async def add_evidence(
     evidence_type: EvidenceType,
     file_path: str,
     file_size: int,
-    mime_type: Optional[str] = None,
-    description: Optional[str] = None,
+    mime_type: str | None = None,
+    description: str | None = None,
 ) -> Evidence:
     """Add evidence to a finding."""
     evidence = Evidence(
@@ -266,7 +271,7 @@ async def delete_evidence(db: AsyncSession, evidence_id: int) -> bool:
 # Benchmarks
 # ============================================================================
 
-async def get_user_benchmark(db: AsyncSession, user_id: int) -> Optional[Benchmark]:
+async def get_user_benchmark(db: AsyncSession, user_id: int) -> Benchmark | None:
     """Get current benchmark for a user."""
     result = await db.execute(
         select(Benchmark).where(Benchmark.user_id == user_id)
@@ -279,7 +284,7 @@ async def calculate_and_update_benchmark(
     user_id: int,
 ) -> Benchmark:
     """Calculate and update user's benchmark based on their performance."""
-    from app.db.models_oxblood import Score, FirstBlood
+    from app.db.models_oxblood import Score
     
     # Get user's scores
     score_result = await db.execute(
@@ -321,7 +326,7 @@ async def calculate_and_update_benchmark(
     benchmark.total_drills_completed = drills_completed
     benchmark.total_flags_captured = total_flags
     benchmark.average_completion_time_seconds = int(avg_time) if avg_time > 0 else None
-    benchmark.last_calculated_at = datetime.now(timezone.utc)
+    benchmark.last_calculated_at = datetime.now(UTC)
     
     await db.flush()
     

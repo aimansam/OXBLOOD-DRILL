@@ -30,10 +30,10 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable, Sequence
 
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
@@ -294,7 +294,6 @@ async def _upsert_one(
         await session.execute(select(models.Scenario).where(models.Scenario.name == name))
     ).scalar_one_or_none()
 
-    spec_blob = data.get("spec") or {}
     new_payload = dict(
         title=metadata["title"],
         version=metadata["version"],
@@ -352,7 +351,7 @@ async def _archive_missing(
 ) -> None:
     """Mark every still-published scenario as archived if its source
     path is no longer present in the sync set."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     rows = (
         await session.execute(
             select(models.Scenario).where(models.Scenario.archived_at.is_(None))

@@ -11,12 +11,7 @@ with migration 0017) so "who reset what when" is answerable.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
 from app.db import models
 from app.db.base import Base
 from app.db.models import (
@@ -25,6 +20,8 @@ from app.db.models import (
     AuditLog,
     RunStatus,
 )
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
 @pytest.fixture
@@ -241,8 +238,8 @@ async def test_stop_on_already_terminal_run_is_noop(session):
     session.add(asset)
     await session.commit()
 
-    from app.runners.runner import Runner
     from app.runners.mock_adapter import MockProxmoxAdapter
+    from app.runners.runner import Runner
 
     runner = Runner(adapter=MockProxmoxAdapter())
     out = await runner.stop_run(

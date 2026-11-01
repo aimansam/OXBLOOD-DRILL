@@ -13,6 +13,8 @@ live in ``test_authorization.py``.
 """
 from __future__ import annotations
 
+from datetime import UTC
+
 import pytest
 
 
@@ -197,14 +199,13 @@ def test_start_drill_maps_proxmox_api_error_to_502(client):
     -- useless to a new operator. After the fix, the helpful P1
     error text reaches the browser.
     """
-    from unittest.mock import patch
-
-    from app.services.proxmox import ProxmoxAPIError
-
     # Bootstrap admin + create a scenario in the test DB. Use a
     # unique scenario name so the row doesn't shadow catalog rows
     # in the test DB (which is session-scoped -- other tests see it).
     import secrets
+    from unittest.mock import patch
+
+    from app.services.proxmox import ProxmoxAPIError
 
     tok = _setup_admin(client)
     headers = {"X-Divide-Token": tok}
@@ -252,11 +253,10 @@ def test_start_drill_maps_sdn_permission_error_to_403(client):
     same 403 path as the wizard's Step 0; the response should be
     identical so the UI surfaces the same ``pveum aclmod ...`` line.
     """
+    import secrets
     from unittest.mock import patch
 
     from app.services.pve_sdn import SdnPermissionError
-
-    import secrets
 
     tok = _setup_admin(client)
     headers = {"X-Divide-Token": tok}
@@ -329,11 +329,11 @@ def _cleanup_test_row(scen_name: str) -> None:
     across tests in the same pytest invocation. Each Q7 test owns
     its own scenario row and removes it after asserting.
     """
-    from sqlalchemy import delete
+    import asyncio
 
     from app.db import models as db_models
     from app.db.session import get_sessionmaker
-    import asyncio
+    from sqlalchemy import delete
 
     sm = get_sessionmaker()
 
@@ -351,11 +351,11 @@ def _cleanup_test_row(scen_name: str) -> None:
 
 def _cleanup_admin(sub: str) -> None:
     """Delete the test admin user so other tests see an empty DB."""
-    from sqlalchemy import delete
+    import asyncio
 
     from app.db import models as db_models
     from app.db.session import get_sessionmaker
-    import asyncio
+    from sqlalchemy import delete
 
     sm = get_sessionmaker()
 
@@ -384,13 +384,11 @@ def _create_scenario_for_test(client, name: str) -> int:
     scoped; cleaning up between Q7 tests keeps ``test_list_scenarios_*
     Returns_empty`` etc. green.
     """
-    from datetime import datetime, timezone
-
-    from sqlalchemy import select
+    from datetime import datetime
 
     from app.db import models as db_models
     from app.db.session import get_sessionmaker
-    import secrets
+    from sqlalchemy import select
 
     sm = get_sessionmaker()
     spec = {
@@ -422,8 +420,8 @@ def _create_scenario_for_test(client, name: str) -> int:
                 spec=spec,
                 authors=[{"handle": "test", "name": "test"}],
                 source_path=f"/workdir/examples/scenarios/{name}.scenario.yaml",
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
             )
             s.add(row)
             await s.commit()

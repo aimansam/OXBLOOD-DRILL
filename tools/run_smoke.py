@@ -18,19 +18,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
 from app.db import models
 from app.db.base import Base
 from app.db.session import get_sessionmaker
-from app.runners.adapter import ProxmoxAdapter
 from app.runners.mock_adapter import MockProxmoxAdapter
 from app.runners.runner import Runner, RunRequest
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import create_async_engine
 
 ROOT = Path(__file__).resolve().parent.parent
 

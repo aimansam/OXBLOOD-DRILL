@@ -1,12 +1,18 @@
 """Tests for WireGuard VPN service + GET /api/v1/auth/vpn-config endpoint."""
 from __future__ import annotations
+
 import base64
+
 import pytest
-from fastapi.testclient import TestClient
 from app.services.vpn import (
-    _clamp, _keypair, assign_peer_id, build_client_config,
-    client_ip, peer_public_key, server_ip,
+    _clamp,
+    _keypair,
+    build_client_config,
+    client_ip,
+    peer_public_key,
+    server_ip,
 )
+from fastapi.testclient import TestClient
 
 _SECRET = "test-secret-32-chars-minimum-aaaa"
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from datetime import UTC
 
 import pytest
 from fastapi.testclient import TestClient
@@ -28,9 +29,7 @@ async def _seed_terminal_run(
     status_value: str = "succeeded",
 ) -> tuple[int, int]:
     """Seed a scenario + run with assets + audit rows. Returns (run_id, scenario_id)."""
-    from datetime import datetime, timezone
-
-    from sqlalchemy import func as sql_func
+    from datetime import datetime
 
     from app.db import models as db_models
     from app.db.session import get_sessionmaker
@@ -90,7 +89,7 @@ async def _seed_terminal_run(
             actor=started_by,
             run_id=run.id,
             scenario_id=s.id,
-            at=datetime.now(timezone.utc),
+            at=datetime.now(UTC),
         )
         session.add(audit)
         await session.commit()
@@ -128,10 +127,9 @@ def _clean_scenarios():
     EMPTY database. Our seed_terminal_run leaves rows behind; an
     autouse teardown is the cheapest way to keep both passing.
     """
-    from sqlalchemy import delete
-
     from app.db import models as db_models
     from app.db.session import get_sessionmaker
+    from sqlalchemy import delete
 
     sm = get_sessionmaker()
     yield  # test runs first

@@ -23,17 +23,12 @@ Why two RedisEventBus instances per test?
 """
 from __future__ import annotations
 
-import asyncio
-import json
-import threading
 import time
 
 import fakeredis
 import fakeredis.aioredis as faio
 import pytest
-
 from app.services.event_bus.redis_bus import RedisEventBus
-
 
 # --- shared fake-Redis fixture -----------------------------------------
 

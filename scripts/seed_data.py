@@ -11,11 +11,10 @@ Options:
     --token    Use existing auth token instead of logging in
 """
 
-import json
-import sys
 import argparse
+import json
 import subprocess
-from datetime import datetime, timedelta, timezone
+import sys
 
 API_BASE = "http://localhost:8000"
 
@@ -30,7 +29,7 @@ def run_api(method, endpoint, data=None, token=None):
     result = subprocess.run(cmd, capture_output=True, text=True)
     try:
         return json.loads(result.stdout)
-    except:
+    except Exception:
         return {"_raw": result.stdout[:200], "_error": True}
 
 def get_token():
@@ -211,7 +210,7 @@ def main():
     print("  Seeding Complete!")
     print("=" * 60)
     print()
-    print(f"Created:")
+    print("Created:")
     print(f"  - {len(drills)} drills")
     print(f"  - {len(labs)} labs")
     print(f"  - {len(reports)} reports")

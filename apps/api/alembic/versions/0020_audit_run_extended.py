@@ -12,7 +12,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-
 revision = "0020_audit_run_extended"
 down_revision = "0019_asset_status_synced"
 branch_labels = None

@@ -115,7 +115,7 @@ async def main() -> int:
                 placeholders = ", ".join(f":{c}" for c in cols)
                 # ON CONFLICT DO NOTHING needs a PK; fall back to plain insert
                 # if the table lacks one (none of the Learn tables do).
-                await dconn.execute(text(f"SELECT 1"))
+                await dconn.execute(text("SELECT 1"))
                 for i in range(0, len(rows), 500):
                     chunk = [dict(r) for r in rows[i : i + 500]]
                     await dconn.execute(

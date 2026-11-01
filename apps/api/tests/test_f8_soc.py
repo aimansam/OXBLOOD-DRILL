@@ -13,19 +13,15 @@ F8.2 (SSE) and F8.3 (SOC UI + runbook) are separate test files.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
-import json
 import uuid
-
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import select
+from datetime import UTC, datetime, timedelta
 
 from app.core.auth import sign_token
 from app.db import models
 from app.db.session import get_sessionmaker
 from app.services.event_bus import bus, reset_for_tests
-
+from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 # --- model -------------------------------------------------------------
 
@@ -144,7 +140,7 @@ def test_bus_unsubscribe_stops_fanout():
             raise AssertionError(
                 f"got unexpected event after unsubscribe: {ev}"
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass  # expected
 
     asyncio.run(_go())
@@ -366,8 +362,8 @@ def test_post_drill_emits_run_started_event():
 
     scenario_id = asyncio.run(_seed())
     from app.main import app
-    from app.runners.runner import Runner
     from app.runners.mock_adapter import MockProxmoxAdapter
+    from app.runners.runner import Runner
     def _patched():
         a = MockProxmoxAdapter()
         a.seed_template("tpl-x")
@@ -417,8 +413,8 @@ def test_post_drill_emits_asset_running_event():
 
     scenario_id = asyncio.run(_seed())
     from app.main import app
-    from app.runners.runner import Runner
     from app.runners.mock_adapter import MockProxmoxAdapter
+    from app.runners.runner import Runner
     def _patched():
         a = MockProxmoxAdapter()
         a.seed_template("tpl-x")
@@ -464,8 +460,8 @@ def test_post_drill_emits_run_completed_event():
 
     scenario_id = asyncio.run(_seed())
     from app.main import app
-    from app.runners.runner import Runner
     from app.runners.mock_adapter import MockProxmoxAdapter
+    from app.runners.runner import Runner
     def _patched():
         a = MockProxmoxAdapter()
         a.seed_template("tpl-x")
@@ -542,7 +538,7 @@ def test_flag_capture_emits_flag_captured_event():
                     )
                 )
             ).scalar_one()
-            r_row.started_at = datetime.now(timezone.utc) - timedelta(seconds=10)
+            r_row.started_at = datetime.now(UTC) - timedelta(seconds=10)
             await session.commit()
     asyncio.run(_backdate())
 
@@ -601,7 +597,6 @@ def test_sse_stream_endpoint_metadata():
 
 def test_sse_stream_404_for_unknown_run():
     import httpx
-
     from app.main import app
     admin_token = sign_token(sub="root", role="admin", ttl_s=300)
 

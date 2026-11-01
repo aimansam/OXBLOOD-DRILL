@@ -14,7 +14,7 @@ Design notes
 from __future__ import annotations
 
 import enum
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -228,13 +228,13 @@ class Run(Base, TimestampMixin):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     scenario: Mapped[Scenario] = relationship(back_populates="runs")
-    exercise: Mapped["Exercise | None"] = relationship(
+    exercise: Mapped[Exercise | None] = relationship(
         back_populates="runs"
     )
     assets: Mapped[list[Asset]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
-    flag_submissions: Mapped[list["FlagSubmission"]] = relationship(
+    flag_submissions: Mapped[list[FlagSubmission]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
 
@@ -297,7 +297,7 @@ class Asset(Base, TimestampMixin):
     # (not hard-deleted) so the run's history stays intact;
     # audit_log.asset_id has ON DELETE SET NULL anyway, but we'd
     # rather preserve the link.
-    cleaned_at: Mapped["datetime | None"] = mapped_column(
+    cleaned_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
@@ -401,14 +401,14 @@ class FlagSubmission(Base, TimestampMixin):
     # Captured-at is the moment the server validated the flag.
     captured_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
     )
     # Frozen so re-grading a scoring rule later doesn't rewrite
     # historical scores.
     points: Mapped[int] = mapped_column(Integer, nullable=False)
     elapsed_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    run: Mapped["Run"] = relationship(back_populates="flag_submissions")
+    run: Mapped[Run] = relationship(back_populates="flag_submissions")
 
     def __repr__(self) -> str:  # pragma: no cover
         return (
@@ -596,7 +596,7 @@ class ExerciseStatus(str, enum.Enum):
     ARCHIVED = "archived"
 
     @classmethod
-    def can_transition(cls, src: "ExerciseStatus", dst: "ExerciseStatus") -> bool:
+    def can_transition(cls, src: ExerciseStatus, dst: ExerciseStatus) -> bool:
         """Return True iff ``src -> dst`` is a valid transition.
 
         Frozen transitions:
@@ -673,7 +673,7 @@ class Exercise(Base, TimestampMixin):
     runs: Mapped[list[Run]] = relationship(
         back_populates="exercise", cascade="all, delete-orphan"
     )
-    teams: Mapped[list["Team"]] = relationship(
+    teams: Mapped[list[Team]] = relationship(
         back_populates="exercise",
         cascade="all, delete-orphan",
     )
@@ -723,7 +723,7 @@ class Team(Base, TimestampMixin):
     score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     exercise: Mapped[Exercise] = relationship(back_populates="teams")
-    memberships: Mapped[list["TeamMembership"]] = relationship(
+    memberships: Mapped[list[TeamMembership]] = relationship(
         back_populates="team",
         cascade="all, delete-orphan",
     )
@@ -867,7 +867,7 @@ class TelemetrySeverity(str, enum.Enum):
     HIGH = "high"
 
     @classmethod
-    def can_transition(cls, src: "TelemetrySeverity", dst: "TelemetrySeverity") -> bool:
+    def can_transition(cls, src: TelemetrySeverity, dst: TelemetrySeverity) -> bool:
         # No FSM here -- severity is a tag, not a state.
         return True
 

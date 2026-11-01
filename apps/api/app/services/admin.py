@@ -29,7 +29,7 @@ import hashlib
 import json
 import os
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any

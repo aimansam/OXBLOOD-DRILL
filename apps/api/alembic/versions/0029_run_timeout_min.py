@@ -8,7 +8,6 @@ Create Date: 2026-09-22
 import sqlalchemy as sa
 from alembic import op
 
-
 revision = "0029_run_timeout_min"
 down_revision = "0028_pve_seed_snippet_storage"
 branch_labels = None

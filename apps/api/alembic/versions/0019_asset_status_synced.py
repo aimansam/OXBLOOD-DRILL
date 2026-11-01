@@ -21,7 +21,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-
 revision = "0019_asset_status_synced"
 down_revision = "0018_telemetry_severity_enum"
 branch_labels = None

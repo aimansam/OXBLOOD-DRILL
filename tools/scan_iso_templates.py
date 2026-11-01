@@ -16,8 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "apps" / "api"))
 
-from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config
+from proxmoxer import ProxmoxAPI
 
 # Pattern matching: template name patterns -> ISO name patterns
 TEMPLATE_ISO_PATTERNS = {

@@ -13,19 +13,34 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "ASYNC"]
-ignore = ["E501"]
+ignore = [
+    "E501",
+    # Style-only simplifications; not worth churn in working code.
+    "SIM102", "SIM103", "SIM105", "SIM108", "SIM109", "SIM115", "SIM117",
+    "UP031",
+    # `class X(str, Enum)` -> StrEnum changes str() output; keep as-is.
+    "UP042",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # S101: asserts in tests are fine.
 # B011: asserts in tests are fine.
 # B008: FastAPI's `= Depends(...)` is the canonical way to declare
 #        dependency injection for both routers and test fixtures.
-"tests/*" = ["S101", "B011", "B008"]
-"apps/api/tests/*" = ["S101", "B011", "B008"]
-"scripts/*" = ["T201", "INP001"]
+"tests/*" = ["S101", "B011", "B008", "F841", "B904", "ASYNC240", "N806"]
+"apps/api/tests/*" = ["S101", "B011", "B008", "F841", "B904", "B017", "B026", "N805", "N806", "ASYNC240"]
+"scripts/*" = ["T201", "INP001", "F841"]
+"tools/*" = ["B904", "E722", "E702", "ASYNC240"]
 # FastAPI routers use `= Depends(...)` as a canonical pattern -- this is
 # the framework's recommended way to declare DB session injection.
-"apps/api/app/routers/*" = ["B008"]
+# B904: routers map low-level errors to HTTPException; the chained cause
+#       is intentionally not exposed.
+"apps/api/app/routers/*" = ["B008", "B904"]
+# Crypto helper keeps RFC-style single-letter names.
+"apps/api/app/services/vpn.py" = ["N806", "E702"]
+# Closures in these loops are awaited within the same iteration.
+"apps/api/app/runners/real_adapter.py" = ["B023"]
+"apps/api/app/services/admin.py" = ["ASYNC230"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -36,7 +51,7 @@ disallow_untyped_defs = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["apps/api/tests"]
+testpaths = ["apps/api/tests", "tests"]
 pythonpath = ["apps/api"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short"

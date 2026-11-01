@@ -3,12 +3,11 @@
 import os
 import sys
 import time
-from pathlib import Path
 
 sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/apps/api')
 
-from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config
+from proxmoxer import ProxmoxAPI
 
 
 def get_client():
@@ -51,7 +50,7 @@ def import_template(client, node, name, image_path, cpu, ram, disk):
     )
     
     # Import disk
-    print(f"    Importing disk (this may take a minute)...")
+    print("    Importing disk (this may take a minute)...")
     client.nodes(node).qemu(vmid).config.post(
         scsi0=f'local-lvm:0,import-from={image_path}'
     )

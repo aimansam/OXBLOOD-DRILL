@@ -26,13 +26,22 @@ do not hit any ``/admin/*`` endpoint.
 """
 from __future__ import annotations
 
-import os
 import ipaddress
+import os
 from pathlib import Path
 from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,17 +50,19 @@ from app.core.auth import Role, TokenData, current_token, require_role
 from app.db import models as db_models
 from app.db.models_oxblood import Drill, DrillStatus
 from app.db.session import get_session
+from app.runners.runner import RunnerError, build_runner
 from app.services import admin as admin_svc
-from app.services import pve_config as pve_config_svc
 from app.services import orphan_cleanup as orphan_svc
+from app.services import pve_config as pve_config_svc
 from app.services.proxmox import (
     ProxmoxAPIError,
     ProxmoxNotConfiguredError,
-    clear_cache as clear_proxmox_cache,
     list_storage,
     list_virtual_machines,
 )
-from app.runners.runner import RunnerError, build_runner
+from app.services.proxmox import (
+    clear_cache as clear_proxmox_cache,
+)
 
 log = structlog.get_logger()
 
@@ -425,15 +436,14 @@ async def start_first_drill(
     This keeps the wizard's "Start first drill" button working
     without leaking auth tokens into a self-call.
     """
-    from app.runners.runner import (
-        RunRequest,
-        RunnerError,
-        build_runner,
-    )
-
     from sqlalchemy import select
 
     from app.db import models as db_models
+    from app.runners.runner import (
+        RunnerError,
+        RunRequest,
+        build_runner,
+    )
     from app.services.proxmox import ProxmoxAPIError
     from app.services.pve_sdn import SdnPermissionError
 
@@ -1024,8 +1034,8 @@ async def post_pve_config(
     # Write the new creds into the overlay so the probe uses them
     # (without committing to the DB yet). If the probe fails the
     # operator sees the actual PVE error and we abort -- no DB churn.
-    from app.services.proxmox import set_db_overlay
     from app.core.config import settings as _settings
+    from app.services.proxmox import set_db_overlay
 
     clone_storage = (
         (body.clone_storage or "").strip()
@@ -1152,7 +1162,6 @@ async def delete_pve_config(
 # VMID). The runner gives us the same adapter that started the drill,
 # so credentials + node config match.
 
-from app.db.models import AssetStatus  # noqa: E402
 
 
 class OrphanCandidate(BaseModel):

@@ -10,9 +10,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
 from app.db import models
 from app.db.base import Base
 from app.services.scenario_sync import (
@@ -20,6 +17,8 @@ from app.services.scenario_sync import (
     collect_yaml_files,
     sync_files,
 )
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
 @pytest.fixture

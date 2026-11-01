@@ -87,7 +87,7 @@ def test_api_client_surfaces_fastapi_error_detail() -> None:
 def test_participants_endpoint_returns_display_names() -> None:
     router = (API / "routers" / "drills_v2.py").read_text()
 
-    assert "from app.db.models import User" in router
+    assert re.search(r"from app\.db\.models import [^\n]*\bUser\b", router)
     assert '"sub": users_by_id[p.user_id].sub' in router
     assert '"username": users_by_id[p.user_id].sub' in router
 

@@ -13,14 +13,11 @@ from __future__ import annotations
 import asyncio
 import uuid
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import select
-
 from app.core.auth import sign_token
 from app.db import models
 from app.db.session import get_sessionmaker
-
+from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 # --- model -------------------------------------------------------------
 
@@ -83,8 +80,8 @@ def _make_run(**kwargs):
 
 def test_snapshot_includes_scenario_id_and_name():
     """The snapshot must be self-contained (scenario_id, name)."""
-    from app.routers.templates import _build_snapshot
     from app.db.models import Template  # noqa: F401  -- ensure registered
+    from app.routers.templates import _build_snapshot
     sm = get_sessionmaker()
 
     async def _seed():
@@ -424,8 +421,8 @@ def test_post_drill_with_template_id_spawns_run_with_template_id():
         )}
     )
     # Patch build_runner so we don't need PVE templates.
-    from app.runners.runner import Runner
     from app.runners.mock_adapter import MockProxmoxAdapter
+    from app.runners.runner import Runner
     def _patched():
         a = MockProxmoxAdapter()
         a.seed_template("tpl-x")

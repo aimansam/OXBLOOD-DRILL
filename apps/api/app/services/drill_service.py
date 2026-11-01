@@ -5,8 +5,7 @@ Handles drill CRUD, lifecycle management, participants, teams, and announcements
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,7 +49,7 @@ def _sanitize_text(text: str) -> str:
 
 async def list_drills(
     db: AsyncSession,
-    status: Optional[DrillStatus] = None,
+    status: DrillStatus | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> list[Drill]:
@@ -63,7 +62,7 @@ async def list_drills(
     return result.scalars().all()
 
 
-async def get_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
+async def get_drill(db: AsyncSession, drill_id: int) -> Drill | None:
     """Get a drill by ID."""
     result = await db.execute(
         select(Drill).where(Drill.id == drill_id, Drill.deleted_at.is_(None))
@@ -74,17 +73,17 @@ async def get_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
 async def create_drill(
     db: AsyncSession,
     title: str,
-    description: Optional[str] = None,
-    lab_id: Optional[int] = None,
-    scenario_id: Optional[int] = None,
+    description: str | None = None,
+    lab_id: int | None = None,
+    scenario_id: int | None = None,
     drill_type: str = "individual",
-    scheduled_start_at: Optional[datetime] = None,
-    scheduled_end_at: Optional[datetime] = None,
-    duration_limit_minutes: Optional[int] = None,
-    max_participants: Optional[int] = None,
-    rules: Optional[dict] = None,
-    environment_config: Optional[dict] = None,
-    created_by: Optional[int] = None,
+    scheduled_start_at: datetime | None = None,
+    scheduled_end_at: datetime | None = None,
+    duration_limit_minutes: int | None = None,
+    max_participants: int | None = None,
+    rules: dict | None = None,
+    environment_config: dict | None = None,
+    created_by: int | None = None,
 ) -> Drill:
     """Create a new drill."""
     # Validate input
@@ -145,7 +144,7 @@ async def create_drill(
     return drill
 
 
-async def update_drill(db: AsyncSession, drill_id: int, **kwargs) -> Optional[Drill]:
+async def update_drill(db: AsyncSession, drill_id: int, **kwargs) -> Drill | None:
     """Update a drill."""
     drill = await get_drill(db, drill_id)
     if not drill:
@@ -173,13 +172,13 @@ async def update_drill(db: AsyncSession, drill_id: int, **kwargs) -> Optional[Dr
     return drill
 
 
-async def cancel_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
+async def cancel_drill(db: AsyncSession, drill_id: int) -> Drill | None:
     """Cancel a drill (soft delete)."""
     drill = await get_drill(db, drill_id)
     if not drill:
         return None
     drill.status = DrillStatus.CANCELLED
-    drill.deleted_at = datetime.now(timezone.utc)
+    drill.deleted_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(drill)
     return drill
@@ -189,7 +188,7 @@ async def cancel_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
 # Drill Lifecycle
 # ============================================================================
 
-async def start_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
+async def start_drill(db: AsyncSession, drill_id: int) -> Drill | None:
     """Start a drill."""
     drill = await get_drill(db, drill_id)
     if not drill:
@@ -197,14 +196,14 @@ async def start_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
     if drill.status != DrillStatus.SCHEDULED:
         raise ValueError(f"Cannot start drill in {drill.status} state")
     drill.status = DrillStatus.ACTIVE
-    drill.actual_start_at = datetime.now(timezone.utc)
+    drill.actual_start_at = datetime.now(UTC)
     db.add(DrillEvent(drill_id=drill.id, kind="lifecycle", title="Drill started"))
     await db.commit()
     await db.refresh(drill)
     return drill
 
 
-async def pause_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
+async def pause_drill(db: AsyncSession, drill_id: int) -> Drill | None:
     """Pause a drill."""
     drill = await get_drill(db, drill_id)
     if not drill:
@@ -218,7 +217,7 @@ async def pause_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
     return drill
 
 
-async def resume_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
+async def resume_drill(db: AsyncSession, drill_id: int) -> Drill | None:
     """Resume a paused drill."""
     drill = await get_drill(db, drill_id)
     if not drill:
@@ -232,7 +231,7 @@ async def resume_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
     return drill
 
 
-async def stop_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
+async def stop_drill(db: AsyncSession, drill_id: int) -> Drill | None:
     """Stop a drill."""
     drill = await get_drill(db, drill_id)
     if not drill:
@@ -240,7 +239,7 @@ async def stop_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
     if drill.status not in [DrillStatus.ACTIVE, DrillStatus.PAUSED]:
         raise ValueError(f"Cannot stop drill in {drill.status} state")
     drill.status = DrillStatus.COMPLETED
-    drill.actual_end_at = datetime.now(timezone.utc)
+    drill.actual_end_at = datetime.now(UTC)
     db.add(DrillEvent(drill_id=drill.id, kind="lifecycle", title="Drill completed"))
     await db.commit()
     await db.refresh(drill)
@@ -253,22 +252,22 @@ def is_drill_overdue(drill: Drill, now: datetime | None = None) -> bool:
         return False
     if not drill.actual_start_at or not drill.duration_limit_minutes:
         return False
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     started = drill.actual_start_at
     if started.tzinfo is None:
-        started = started.replace(tzinfo=timezone.utc)
+        started = started.replace(tzinfo=UTC)
     deadline = started + timedelta(minutes=drill.duration_limit_minutes)
     return now >= deadline
 
 
-async def timeout_drill(db: AsyncSession, drill_id: int) -> Optional[Drill]:
+async def timeout_drill(db: AsyncSession, drill_id: int) -> Drill | None:
     """Mark an overdue active drill complete because its time limit expired."""
     drill = await get_drill(db, drill_id)
     if not drill:
         return None
     if not is_drill_overdue(drill):
         return drill
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     env = dict(drill.environment_config or {})
     env["timeout_status"] = "reached"
     env["timeout_at"] = now.isoformat()
@@ -304,10 +303,10 @@ async def timeout_overdue_drills(db: AsyncSession) -> list[Drill]:
             continue
         env = dict(drill.environment_config or {})
         env["timeout_status"] = "reached"
-        env["timeout_at"] = datetime.now(timezone.utc).isoformat()
+        env["timeout_at"] = datetime.now(UTC).isoformat()
         drill.environment_config = env
         drill.status = DrillStatus.COMPLETED
-        drill.actual_end_at = datetime.now(timezone.utc)
+        drill.actual_end_at = datetime.now(UTC)
         db.add(
             DrillEvent(
                 drill_id=drill.id,
@@ -340,7 +339,7 @@ async def add_participant(
     db: AsyncSession,
     drill_id: int,
     user_id: int,
-    team_id: Optional[int] = None,
+    team_id: int | None = None,
     role: str = "participant",
 ) -> DrillParticipant:
     """Add a participant to a drill."""
@@ -413,7 +412,7 @@ async def create_announcement(
     title: str,
     content: str,
     priority: str = "normal",
-    published_by: Optional[int] = None,
+    published_by: int | None = None,
 ) -> DrillAnnouncement:
     """Create a drill announcement."""
     # Validate and sanitize input
@@ -477,9 +476,9 @@ async def create_drill_objective(
     db: AsyncSession,
     drill_id: int,
     title: str,
-    description: Optional[str] = None,
+    description: str | None = None,
     points: int = 0,
-    side: Optional[str] = None,
+    side: str | None = None,
     sort_order: int = 0,
 ) -> DrillObjective:
     """Create a drill objective."""
@@ -529,7 +528,7 @@ async def create_drill_flag(
     value: str,
     name: str = "flag",
     points: int = 100,
-    objective_id: Optional[int] = None,
+    objective_id: int | None = None,
     decay_window_seconds: int = 1800,
     sort_order: int = 0,
 ) -> DrillFlag:
@@ -759,9 +758,9 @@ async def list_drill_scenarios(db: AsyncSession, drill_id: int) -> list[DrillSce
 async def link_scenario(
     db: AsyncSession,
     drill_id: int,
-    lab_id: Optional[int] = None,
-    scenario_id: Optional[int] = None,
-    scenario_config: Optional[dict] = None,
+    lab_id: int | None = None,
+    scenario_id: int | None = None,
+    scenario_config: dict | None = None,
 ) -> DrillScenario:
     """Link a scenario to a drill.
 

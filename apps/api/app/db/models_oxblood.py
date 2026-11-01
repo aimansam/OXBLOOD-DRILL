@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
-from typing import Any, Optional
 
 from sqlalchemy import (
     JSON,
@@ -160,14 +159,14 @@ class User(Base):
     sub: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    password_hash: Mapped[Optional[str]] = mapped_column(String(255))
+    password_hash: Mapped[str | None] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, name='user_role', values_callable=lambda x: [e.value for e in x]), nullable=False, default=UserRole.STUDENT)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
     __table_args__ = (
@@ -184,26 +183,26 @@ class Drill(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
     # Read-only reference to the Learn catalog (Learn DB owns labs).
     # No FK constraint so Learn tables can live in a separate database.
     # New code should use scenario_id (Drill catalog, scenarios table).
-    lab_id: Mapped[Optional[int]] = mapped_column(Integer)
-    scenario_id: Mapped[Optional[int]] = mapped_column(Integer)
+    lab_id: Mapped[int | None] = mapped_column(Integer)
+    scenario_id: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[DrillStatus] = mapped_column(Enum(DrillStatus, name='drill_status', values_callable=lambda x: [e.value for e in x]), nullable=False, default=DrillStatus.SCHEDULED)
     drill_type: Mapped[str] = mapped_column(String(50), nullable=False, default="individual")
-    scheduled_start_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    scheduled_end_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    actual_start_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    actual_end_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    duration_limit_minutes: Mapped[Optional[int]] = mapped_column(Integer)
-    max_participants: Mapped[Optional[int]] = mapped_column(Integer)
+    scheduled_start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    scheduled_end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    actual_start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    actual_end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_limit_minutes: Mapped[int | None] = mapped_column(Integer)
+    max_participants: Mapped[int | None] = mapped_column(Integer)
     rules: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     environment_config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         Index("idx_drills_status", "status"),
@@ -228,12 +227,12 @@ class DrillEnvironmentLock(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     lock_key: Mapped[str] = mapped_column(String(32), nullable=False, default="default")
-    drill_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    owner_sub: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    owner_role: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    drill_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    owner_sub: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    owner_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="released")
-    acquired_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    released_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    acquired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
@@ -250,8 +249,8 @@ class DrillScenario(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     drill_id: Mapped[int] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False)
-    lab_id: Mapped[Optional[int]] = mapped_column(Integer)
-    scenario_id: Mapped[Optional[int]] = mapped_column(Integer)
+    lab_id: Mapped[int | None] = mapped_column(Integer)
+    scenario_id: Mapped[int | None] = mapped_column(Integer)
     scenario_config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -268,11 +267,11 @@ class DrillParticipant(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     drill_id: Mapped[int] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    team_id: Mapped[Optional[int]] = mapped_column(Integer)  # history ref; teams table removed
+    team_id: Mapped[int | None] = mapped_column(Integer)  # history ref; teams table removed
     role: Mapped[str] = mapped_column(String(50), nullable=False, default="participant")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="registered")
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         UniqueConstraint("drill_id", "user_id", name="uq_drill_participants"),
@@ -290,9 +289,9 @@ class DrillInvitation(Base):
     created_by: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    redeemed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    redeemed_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    redeemed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    redeemed_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (Index("ix_drill_invitations_drill_id", "drill_id"),)
 
@@ -311,9 +310,9 @@ class DrillEvent(Base):
     drill_id: Mapped[int] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False)
     kind: Mapped[str] = mapped_column(String(40), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    detail: Mapped[Optional[str]] = mapped_column(Text)
-    side: Mapped[Optional[str]] = mapped_column(String(20))
-    actor: Mapped[Optional[str]] = mapped_column(String(255))
+    detail: Mapped[str | None] = mapped_column(Text)
+    side: Mapped[str | None] = mapped_column(String(20))
+    actor: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
@@ -332,11 +331,11 @@ class DrillObjective(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     drill_id: Mapped[int] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False)
-    lab_objective_id: Mapped[Optional[int]] = mapped_column(Integer)
+    lab_objective_id: Mapped[int | None] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
     points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    side: Mapped[Optional[str]] = mapped_column(String(20))
+    side: Mapped[str | None] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -353,7 +352,7 @@ class DrillFlag(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     drill_id: Mapped[int] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False)
-    objective_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("drill_objectives.id", ondelete="SET NULL"))
+    objective_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("drill_objectives.id", ondelete="SET NULL"))
     name: Mapped[str] = mapped_column(String(255), nullable=False, default="flag")
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     points: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
@@ -375,7 +374,7 @@ class DrillAnnouncement(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     priority: Mapped[str] = mapped_column(String(20), nullable=False, default="normal")
-    published_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    published_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
@@ -389,15 +388,15 @@ class Submission(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    drill_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"))
-    lab_id: Mapped[Optional[int]] = mapped_column(Integer)  # history ref; labs table removed
-    team_id: Mapped[Optional[int]] = mapped_column(Integer)  # history ref; teams table removed
+    drill_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"))
+    lab_id: Mapped[int | None] = mapped_column(Integer)  # history ref; labs table removed
+    team_id: Mapped[int | None] = mapped_column(Integer)  # history ref; teams table removed
     submission_type: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[SubmissionStatus] = mapped_column(Enum(SubmissionStatus, name='submission_status', values_callable=lambda x: [e.value for e in x]), nullable=False, default=SubmissionStatus.PENDING)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    reviewed_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
-    review_notes: Mapped[Optional[str]] = mapped_column(Text)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    review_notes: Mapped[str | None] = mapped_column(Text)
 
 
 class FlagSubmission(Base):
@@ -425,13 +424,13 @@ class EvidenceSubmission(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     submission_id: Mapped[int] = mapped_column(Integer, ForeignKey("submissions.id", ondelete="CASCADE"), nullable=False)
-    objective_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("drill_objectives.id", ondelete="SET NULL"))
+    objective_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("drill_objectives.id", ondelete="SET NULL"))
     evidence_type: Mapped[EvidenceType] = mapped_column(Enum(EvidenceType, name='evidence_type', values_callable=lambda x: [e.value for e in x]), nullable=False)
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    mime_type: Mapped[Optional[str]] = mapped_column(String(100))
-    description: Mapped[Optional[str]] = mapped_column(Text)
-    captured_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    mime_type: Mapped[str | None] = mapped_column(String(100))
+    description: Mapped[str | None] = mapped_column(Text)
+    captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ReportSubmission(Base):
@@ -442,10 +441,10 @@ class ReportSubmission(Base):
     submission_id: Mapped[int] = mapped_column(Integer, ForeignKey("submissions.id", ondelete="CASCADE"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    file_path: Mapped[Optional[str]] = mapped_column(String(500))
-    word_count: Mapped[Optional[int]] = mapped_column(Integer)
-    quality_score: Mapped[Optional[float]] = mapped_column(Numeric(5, 2))
-    grade: Mapped[Optional[str]] = mapped_column(String(10))
+    file_path: Mapped[str | None] = mapped_column(String(500))
+    word_count: Mapped[int | None] = mapped_column(Integer)
+    quality_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    grade: Mapped[str | None] = mapped_column(String(10))
 
 
 class SubmissionAttempt(Base):
@@ -459,7 +458,7 @@ class SubmissionAttempt(Base):
     flag_value: Mapped[str] = mapped_column(String(255), nullable=False)
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    ip_address: Mapped[Optional[str]] = mapped_column(String(45))
+    ip_address: Mapped[str | None] = mapped_column(String(45))
 
     __table_args__ = (
         UniqueConstraint("user_id", "lab_flag_id", "attempt_number", name="uq_submission_attempts"),
@@ -477,8 +476,8 @@ class Score(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    drill_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"))
-    team_id: Mapped[Optional[int]] = mapped_column(Integer)  # history ref; teams table removed
+    drill_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"))
+    team_id: Mapped[int | None] = mapped_column(Integer)  # history ref; teams table removed
     total_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     flags_captured: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     objectives_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -486,8 +485,8 @@ class Score(Base):
     penalty_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     time_bonus_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     first_blood_bonus: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    completion_time_seconds: Mapped[Optional[int]] = mapped_column(Integer)
-    rank_position: Mapped[Optional[int]] = mapped_column(Integer)
+    completion_time_seconds: Mapped[int | None] = mapped_column(Integer)
+    rank_position: Mapped[int | None] = mapped_column(Integer)
     last_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
@@ -502,8 +501,8 @@ class ScoreHistory(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    drill_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"))
-    team_id: Mapped[Optional[int]] = mapped_column(Integer)  # history ref; teams table removed
+    drill_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"))
+    team_id: Mapped[int | None] = mapped_column(Integer)  # history ref; teams table removed
     action: Mapped[str] = mapped_column(String(50), nullable=False)
     points_change: Mapped[int] = mapped_column(Integer, nullable=False)
     previous_total: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -520,7 +519,7 @@ class FirstBlood(Base):
     drill_id: Mapped[int] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False)
     lab_flag_id: Mapped[int] = mapped_column(Integer, ForeignKey("drill_flags.id", ondelete="CASCADE"), nullable=False)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    team_id: Mapped[Optional[int]] = mapped_column(Integer)  # history ref; teams table removed
+    team_id: Mapped[int | None] = mapped_column(Integer)  # history ref; teams table removed
     captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
@@ -550,7 +549,7 @@ class Benchmark(Base):
     reporting_score: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=0)
     total_drills_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_flags_captured: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    average_completion_time_seconds: Mapped[Optional[int]] = mapped_column(Integer)
+    average_completion_time_seconds: Mapped[int | None] = mapped_column(Integer)
     last_calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
@@ -560,7 +559,7 @@ class BenchmarkHistory(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    drill_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("drills.id", ondelete="SET NULL"))
+    drill_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("drills.id", ondelete="SET NULL"))
     overall_score: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
     offensive_score: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
     defensive_score: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
@@ -583,22 +582,22 @@ class Report(Base):
     __tablename__ = "reports"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    drill_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"))
-    user_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
-    team_id: Mapped[Optional[int]] = mapped_column(Integer)  # history ref; teams table removed
+    drill_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("drills.id", ondelete="CASCADE"))
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    team_id: Mapped[int | None] = mapped_column(Integer)  # history ref; teams table removed
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[ReportStatus] = mapped_column(Enum(ReportStatus, name='report_status', values_callable=lambda x: [e.value for e in x]), nullable=False, default=ReportStatus.DRAFT)
     report_type: Mapped[str] = mapped_column(String(50), nullable=False, default="after_action")
-    quality_score: Mapped[Optional[float]] = mapped_column(Numeric(5, 2))
-    grade: Mapped[Optional[str]] = mapped_column(String(10))
-    word_count: Mapped[Optional[int]] = mapped_column(Integer)
-    file_path: Mapped[Optional[str]] = mapped_column(String(500))
-    submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    graded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    graded_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
-    instructor_feedback: Mapped[Optional[str]] = mapped_column(Text)
+    quality_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    grade: Mapped[str | None] = mapped_column(String(10))
+    word_count: Mapped[int | None] = mapped_column(Integer)
+    file_path: Mapped[str | None] = mapped_column(String(500))
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    graded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    graded_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    instructor_feedback: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -612,12 +611,12 @@ class ReportFinding(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     severity: Mapped[SeverityLevel] = mapped_column(Enum(SeverityLevel, name='severity_level', values_callable=lambda x: [e.value for e in x]), nullable=False)
-    category: Mapped[Optional[str]] = mapped_column(String(50))
-    evidence: Mapped[Optional[str]] = mapped_column(Text)
-    impact: Mapped[Optional[str]] = mapped_column(Text)
-    recommendation: Mapped[Optional[str]] = mapped_column(Text)
-    cvss_score: Mapped[Optional[float]] = mapped_column(Numeric(3, 1))
-    cwe_id: Mapped[Optional[str]] = mapped_column(String(20))
+    category: Mapped[str | None] = mapped_column(String(50))
+    evidence: Mapped[str | None] = mapped_column(Text)
+    impact: Mapped[str | None] = mapped_column(Text)
+    recommendation: Mapped[str | None] = mapped_column(Text)
+    cvss_score: Mapped[float | None] = mapped_column(Numeric(3, 1))
+    cwe_id: Mapped[str | None] = mapped_column(String(20))
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
@@ -631,9 +630,9 @@ class Evidence(Base):
     evidence_type: Mapped[EvidenceType] = mapped_column(Enum(EvidenceType, name='evidence_type', values_callable=lambda x: [e.value for e in x]), nullable=False)
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    mime_type: Mapped[Optional[str]] = mapped_column(String(100))
-    description: Mapped[Optional[str]] = mapped_column(Text)
-    captured_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    mime_type: Mapped[str | None] = mapped_column(String(100))
+    description: Mapped[str | None] = mapped_column(Text)
+    captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 

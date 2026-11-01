@@ -37,9 +37,8 @@ from __future__ import annotations
 from typing import NamedTuple
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.core.auth import Role, sign_token
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
@@ -143,8 +142,8 @@ def test_rbac_authorization_service_see_all_roles():
     """
     from app.services.authorization import SEE_ALL_ROLES, SEE_OWN_ROLES
 
-    assert SEE_ALL_ROLES == frozenset({"admin", "lead", "observer"})
-    assert SEE_OWN_ROLES == frozenset({"red", "blue"})
+    assert frozenset({"admin", "lead", "observer"}) == SEE_ALL_ROLES
+    assert frozenset({"red", "blue"}) == SEE_OWN_ROLES
 
 
 def test_rbac_authorization_service_can_view_run_own():
@@ -215,7 +214,6 @@ def test_rbac_visible_runs_query_empty_for_anon():
     Defense in depth: even if a future endpoint forgets the
     require_token gate, the visibility filter won't leak data.
     """
-    from sqlalchemy import false
 
     from app.services.authorization import visible_runs_query
 

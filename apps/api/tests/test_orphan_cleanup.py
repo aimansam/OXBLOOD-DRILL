@@ -7,16 +7,15 @@ covered by live curl in the Q22 deployment.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
 from app.db import models
 from app.db.base import Base
 from app.services import orphan_cleanup as svc
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
 @pytest.fixture
@@ -70,7 +69,7 @@ async def _mk_orphan(
     )
     s.add(a)
     await s.flush()
-    ancient = datetime.now(timezone.utc) - timedelta(seconds=age_seconds)
+    ancient = datetime.now(UTC) - timedelta(seconds=age_seconds)
     a.created_at = ancient
     a.updated_at = ancient
     await s.commit()
@@ -187,7 +186,7 @@ async def test_list_orphans_skips_missing_vmid(session):
     )
     session.add(a)
     await session.flush()
-    ancient = datetime.now(timezone.utc) - timedelta(seconds=600)
+    ancient = datetime.now(UTC) - timedelta(seconds=600)
     a.created_at = ancient
     a.updated_at = ancient
     await session.commit()

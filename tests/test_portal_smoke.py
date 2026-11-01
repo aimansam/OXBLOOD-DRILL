@@ -28,7 +28,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-
 # Each entry: page_name -> (relative_path, list of substring fragments
 # the JS must contain referring to API endpoints). Substrings are the
 # smallest distinct token that identifies the call (e.g. for

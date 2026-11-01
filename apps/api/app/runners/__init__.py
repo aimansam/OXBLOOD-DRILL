@@ -13,8 +13,8 @@ factory so callers can do:
     )
 """
 from app.runners.adapter import (
-    CloneSpec,
     ClonedVM,
+    CloneSpec,
     ProxmoxAdapter,
     VmState,
 )

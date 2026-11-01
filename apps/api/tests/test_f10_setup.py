@@ -23,15 +23,12 @@ URL to grow the user table after deployment.
 from __future__ import annotations
 
 import asyncio
-import time
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import delete
-
 from app.core.auth import sign_token
 from app.db import models as db_models
 from app.db.session import get_sessionmaker
+from sqlalchemy import delete
 
 
 def _admin_token(sub: str = "alice") -> str:

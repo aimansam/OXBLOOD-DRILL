@@ -5,17 +5,25 @@ leaderboard generation, and first blood tracking.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
-from sqlalchemy import select, delete, func, and_
+from datetime import UTC, datetime
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_oxblood import (
-    Submission, FlagSubmission, EvidenceSubmission, Score, ScoreHistory,
-    FirstBlood, Drill, DrillParticipant, DrillObjective,
-    DrillFlag, SubmissionStatus, EvidenceType,
+    Drill,
+    DrillFlag,
+    DrillObjective,
+    DrillParticipant,
+    EvidenceSubmission,
+    EvidenceType,
+    FirstBlood,
+    FlagSubmission,
+    Score,
+    ScoreHistory,
+    Submission,
+    SubmissionStatus,
 )
-
 
 # ============================================================================
 # Flag Submission & Validation
@@ -24,12 +32,12 @@ from app.db.models_oxblood import (
 async def submit_flag(
     db: AsyncSession,
     user_id: int,
-    drill_id: Optional[int],
-    lab_id: Optional[int],
+    drill_id: int | None,
+    lab_id: int | None,
     lab_flag_id: int,
     flag_value: str,
     hints_used: int = 0,
-    team_id: Optional[int] = None,
+    team_id: int | None = None,
     drill_flag=None,
 ) -> dict:
     """Submit a flag and calculate points (Drill-native drill_flags)."""
@@ -51,7 +59,7 @@ async def submit_flag(
         )
         drill = drill_result.scalar_one_or_none()
         if drill and drill.actual_start_at:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             elapsed_seconds = int((now - drill.actual_start_at).total_seconds())
     
     # Validate flag
@@ -161,8 +169,8 @@ async def check_and_record_first_blood(
     drill_id: int,
     lab_flag_id: int,
     user_id: int,
-    team_id: Optional[int] = None,
-) -> Optional[FirstBlood]:
+    team_id: int | None = None,
+) -> FirstBlood | None:
     """Check if this is the first capture and record it."""
     # Check if first blood already exists
     existing = await db.execute(
@@ -193,7 +201,7 @@ async def check_and_record_first_blood(
 async def list_user_submissions(
     db: AsyncSession,
     user_id: int,
-    drill_id: Optional[int] = None,
+    drill_id: int | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> list[Submission]:
@@ -206,7 +214,7 @@ async def list_user_submissions(
     return result.scalars().all()
 
 
-async def get_submission(db: AsyncSession, submission_id: int) -> Optional[Submission]:
+async def get_submission(db: AsyncSession, submission_id: int) -> Submission | None:
     """Get a submission by ID."""
     result = await db.execute(
         select(Submission).where(Submission.id == submission_id)
@@ -214,7 +222,7 @@ async def get_submission(db: AsyncSession, submission_id: int) -> Optional[Submi
     return result.scalar_one_or_none()
 
 
-async def get_flag_submission(db: AsyncSession, submission_id: int) -> Optional[FlagSubmission]:
+async def get_flag_submission(db: AsyncSession, submission_id: int) -> FlagSubmission | None:
     """Get flag submission details."""
     result = await db.execute(
         select(FlagSubmission).where(FlagSubmission.submission_id == submission_id)
@@ -232,9 +240,9 @@ async def upload_evidence(
     evidence_type: EvidenceType,
     file_path: str,
     file_size: int,
-    mime_type: Optional[str] = None,
-    description: Optional[str] = None,
-    objective_id: Optional[int] = None,
+    mime_type: str | None = None,
+    description: str | None = None,
+    objective_id: int | None = None,
 ) -> EvidenceSubmission:
     """Upload evidence for a submission."""
     # Verify submission exists
@@ -312,7 +320,7 @@ async def update_user_score(
     drill_id: int,
     points_earned: int,
     action: str,
-    team_id: Optional[int] = None,
+    team_id: int | None = None,
 ) -> Score:
     """Update user's score for a drill."""
     # Get or create score record
@@ -331,7 +339,7 @@ async def update_user_score(
             score.flags_captured += 1
         if "objective" in action:
             score.objectives_completed += 1
-        score.last_updated_at = datetime.now(timezone.utc)
+        score.last_updated_at = datetime.now(UTC)
     else:
         previous_total = 0
         score = Score(
@@ -384,7 +392,7 @@ async def record_milestone_score(
     drill_id: int,
     milestone: str,
     elapsed_seconds: int,
-    team_id: Optional[int] = None,
+    team_id: int | None = None,
 ) -> dict:
     """Award a response milestone once and retain its timing in score history."""
     action = "milestone_%s" % milestone
@@ -429,7 +437,7 @@ async def get_user_scores(db: AsyncSession, user_id: int) -> list[Score]:
 
 async def get_leaderboard(
     db: AsyncSession,
-    drill_id: Optional[int] = None,
+    drill_id: int | None = None,
     limit: int = 100,
 ) -> list[dict]:
     """Get leaderboard with user details."""
@@ -481,7 +489,7 @@ async def get_leaderboard(
 async def get_score_history(
     db: AsyncSession,
     user_id: int,
-    drill_id: Optional[int] = None,
+    drill_id: int | None = None,
 ) -> list[ScoreHistory]:
     """Get score change history."""
     query = select(ScoreHistory).where(ScoreHistory.user_id == user_id)

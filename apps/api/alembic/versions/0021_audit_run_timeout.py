@@ -6,7 +6,6 @@ Create Date: 2026-09-01
 
 """
 from alembic import op
-import sqlalchemy as sa
 
 revision = '0021_audit_run_timeout'
 down_revision = '0020_audit_run_extended'

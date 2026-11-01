@@ -24,8 +24,9 @@ table is the source of truth for ``README.md §2`` §2.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -34,18 +35,19 @@ from sqlalchemy.orm import selectinload
 
 from app.core.auth import Role, current_token, require_role
 from app.db import models as db_models
+from app.db.models import Exercise, Team
 from app.db.session import get_session
 from app.observability import record_cancel
 from app.runners.runner import Runner, RunnerError, RunRequest, build_runner
-from app.db.models import Exercise, ExerciseStatus, Team
-from app.services.flags import FlagError, capture_seconds, resolve_flag, verify_flag_value
-from app.services.scoring import score as score_points, score_breakdown
 from app.services.authorization import can_view_run, visible_runs_query
+from app.services.flags import FlagError, capture_seconds, resolve_flag, verify_flag_value
 from app.services.proxmox import ProxmoxAPIError
 from app.services.pve_sdn import SdnPermissionError
-from app.services.rate_limit import check_drill_start_limit
+from app.services.scoring import score as score_points
+from app.services.scoring import score_breakdown
 
 router = APIRouter()
+log = structlog.get_logger()
 
 
 def _get_runner() -> Runner:
@@ -680,7 +682,7 @@ async def sync_asset_status(
         asset.status = mapped_status
         # If PVE says missing, stamp cleaned_at so the janitor skips it.
         if pve_missing and asset.cleaned_at is None:
-            asset.cleaned_at = datetime.now(timezone.utc)
+            asset.cleaned_at = datetime.now(UTC)
         await session.flush()
 
         # Q26: write audit row.
@@ -708,7 +710,7 @@ async def sync_asset_status(
         "drifted": drifted,
         "cleaned_at": asset.cleaned_at.isoformat() if asset.cleaned_at else None,
         "pve_ip": state.ip if not pve_missing else None,
-        "last_synced_at": datetime.now(timezone.utc).isoformat(),
+        "last_synced_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -799,7 +801,7 @@ async def delete_asset(
 
     # Q27: update the asset row.
     asset.status = db_models.AssetStatus.STOPPED
-    asset.cleaned_at = datetime.now(timezone.utc)
+    asset.cleaned_at = datetime.now(UTC)
     await session.flush()
 
     # Q27: write audit row.
@@ -979,7 +981,6 @@ async def submit_flag(
     #   * the run's started_by
     #   * member of the run's exercise (so a red/blue team member
     #     can capture flags against their team's run)
-    from app.core.auth import Role as _Role
     from app.db.models import TeamMembership
     role = token.role if hasattr(token, "role") else None
     role_value = role.value if hasattr(role, "value") else role
@@ -1083,8 +1084,8 @@ async def submit_flag(
             detail=FlagError.duplicate(team, flag_spec.flag_id).message,
         )
     # F8: emit flag.captured event.
-    from app.services.event_recorder import record_event
     from app.db.models import TelemetrySeverity
+    from app.services.event_recorder import record_event
     await record_event(
         session,
         run_id=run_id,

@@ -40,7 +40,6 @@ from fastapi import HTTPException, status
 
 from app.services import cache as _cache_module
 
-
 # --- module-level tunables (env-overridable) -------------------------------
 #
 # These defaults are intentionally not in pydantic-settings yet; if

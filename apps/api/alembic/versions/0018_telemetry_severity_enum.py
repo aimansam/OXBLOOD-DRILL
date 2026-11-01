@@ -38,7 +38,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-
 revision = "0018_telemetry_severity_enum"
 down_revision = "0017_audit_run_reset"
 branch_labels = None

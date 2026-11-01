@@ -349,7 +349,6 @@ def _role_app():
     below use this to assert both the happy and unhappy paths.
     """
     from app.core.auth import Role, require_role
-
     from fastapi import FastAPI
 
     app = FastAPI()
@@ -395,7 +394,6 @@ def test_require_role_rejects_other_role_with_403():
 
 
 def test_require_role_returns_401_when_no_token():
-    from app.core.auth import Role
 
     app = _role_app()
     client = TestClient(app)
@@ -425,7 +423,7 @@ def test_require_role_rejects_unknown_role_string():
     tightened) must be rejected. Unknown role ≠ any of the listed
     values, so 403 is the right answer.
     """
-    from app.core.auth import Role, sign_token
+    from app.core.auth import sign_token
 
     app = _role_app()
     client = TestClient(app)
@@ -441,7 +439,6 @@ def test_require_role_factory_rejects_empty_allow_list():
     gate.
     """
     import pytest
-
     from app.core.auth import require_role
 
     with pytest.raises(ValueError, match="at least one Role"):

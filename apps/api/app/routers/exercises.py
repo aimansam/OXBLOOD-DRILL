@@ -29,16 +29,14 @@ RBAC so a member of an exercise can see the runs that affect it.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.auth import Role, current_token, require_role
-from app.db import models as db_models
 from app.db.models import (
     Exercise,
     ExerciseStatus,
@@ -47,7 +45,6 @@ from app.db.models import (
     TeamRole,
 )
 from app.db.session import get_session
-
 
 router = APIRouter()
 
@@ -95,8 +92,6 @@ def _can_view(token, exercise: Exercise, membership_sub: str | None = None) -> b
     if membership_sub is not None:
         # Caller already verified membership in this exercise.
         return True
-    # Fallback: defer to the can_view_run-style check using ``sub``.
-    sub = getattr(token, "sub", None)
     # We need a fresh DB lookup to be sure; the caller does it.
     return False
 
@@ -398,7 +393,7 @@ async def start_exercise(
         ex.transition_to(ExerciseStatus.LIVE)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-    ex.starts_at = ex.starts_at or datetime.now(timezone.utc)
+    ex.starts_at = ex.starts_at or datetime.now(UTC)
     await session.commit()
     await session.refresh(ex)
     return _serialize_exercise(ex, list(ex.teams or []))
@@ -419,7 +414,7 @@ async def stop_exercise(
         ex.transition_to(ExerciseStatus.ENDED)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-    ex.ends_at = ex.ends_at or datetime.now(timezone.utc)
+    ex.ends_at = ex.ends_at or datetime.now(UTC)
     await session.commit()
     await session.refresh(ex)
     return _serialize_exercise(ex, list(ex.teams or []))

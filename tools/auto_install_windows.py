@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Fully automated Windows installation using SSH for file transfers."""
 import os
+import subprocess
 import sys
 import time
-import subprocess
 from pathlib import Path
 
 sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/apps/api')
 
-from proxmoxer import ProxmoxAPI
 from app.services.proxmox import _validate_config
-
+from proxmoxer import ProxmoxAPI
 
 # VM configurations
 WINDOWS_VMS = [
@@ -90,7 +89,7 @@ def scp_file(local_path, remote_path):
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
         return result.returncode == 0
-    except:
+    except Exception:
         return False
 
 
@@ -232,7 +231,7 @@ def create_floppy_on_pve(vm_config):
             print(f"       Error: {stderr}")
             return False
     
-    print(f"    ✅ Floppy created on PVE")
+    print("    ✅ Floppy created on PVE")
     return True
 
 
@@ -246,7 +245,7 @@ def attach_floppy_to_vm(client, node, vm_config):
         client.nodes(node).qemu(vmid).config.post(
             floppy0=f'local:{vmid}/vm-{vmid}-disk-1.vfd'
         )
-        print(f"    ✅ Floppy attached")
+        print("    ✅ Floppy attached")
         return True
     except Exception as e:
         print(f"    ❌ Failed to attach floppy: {e}")
@@ -353,23 +352,23 @@ def main():
             continue
         
         # Also attach VirtIO ISO for drivers
-        print(f"  Attaching VirtIO ISO...")
+        print("  Attaching VirtIO ISO...")
         try:
             client.nodes(node).qemu(vm_config['vmid']).config.post(
                 ide3='local:iso/virtio-win-0.1.285.iso,media=cdrom'
             )
-            print(f"    ✅ VirtIO ISO attached")
+            print("    ✅ VirtIO ISO attached")
         except Exception as e:
             print(f"    ⚠️  Could not attach VirtIO ISO: {e}")
         
         # Start VM
-        print(f"  Starting VM...")
+        print("  Starting VM...")
         if not start_vm(client, node, vm_config['vmid']):
             print(f"❌ Failed to start {vm_config['name']}")
             print()
             continue
         
-        print(f"  ✅ VM started - Windows installation in progress")
+        print("  ✅ VM started - Windows installation in progress")
         print()
     
     print()

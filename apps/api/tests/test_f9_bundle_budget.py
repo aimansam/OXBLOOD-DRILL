@@ -20,9 +20,6 @@ breaks the comparison logic.
 from __future__ import annotations
 
 import os
-import subprocess
-import sys
-
 
 LIMIT_KB = 280.00
 

@@ -10,8 +10,9 @@ This is a reverse proxy that:
 """
 
 import os
-from flask import Flask, abort, send_from_directory, request, Response
+
 import requests
+from flask import Flask, Response, abort, request, send_from_directory
 
 app = Flask(__name__)
 

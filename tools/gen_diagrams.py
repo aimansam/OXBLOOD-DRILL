@@ -12,9 +12,10 @@ Outputs:
     assets/diagrams/05-phase4-polish.png
 """
 import os
+
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Rectangle
 from matplotlib.lines import Line2D
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
 # Resolve output dir relative to this script: tools/ -> ../assets/diagrams
 _HERE = os.path.dirname(os.path.abspath(__file__))

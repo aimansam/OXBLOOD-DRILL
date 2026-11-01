@@ -39,6 +39,7 @@ import base64
 import ipaddress
 import logging
 import re
+from collections.abc import Callable
 from contextlib import suppress
 from typing import Any
 
@@ -1069,7 +1070,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 script_parts.extend(
                     [
                         f"p=$(printf %s {encoded_path} | base64 -d)",
-                        f"mkdir -p \"$(dirname \"$p\")\"",
+                        "mkdir -p \"$(dirname \"$p\")\"",
                         f"printf %s {encoded} | base64 -d > \"$p\"",
                         "chown root:root \"$p\"",
                         "chmod 0600 \"$p\"",
@@ -1863,9 +1864,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 # E1000 driver; VirtIO requires NetKVM to be preinstalled.
                 nic_option = existing.split(",", 1)[0] if existing else ""
                 model = nic_option.split("=", 1)[0]
-                if model not in {"e1000", "virtio"}:
-                    nic_option = "e1000"
-                elif not nic_option:
+                if model not in {"e1000", "virtio"} or not nic_option:
                     nic_option = "e1000"
                 client.nodes(node).qemu(vmid).config.post(**{net_name: f"{nic_option},bridge={bridge}{tag}{trunk_option}"})
                 return

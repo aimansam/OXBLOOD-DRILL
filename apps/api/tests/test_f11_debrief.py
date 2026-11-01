@@ -22,15 +22,13 @@ from __future__ import annotations
 
 import asyncio
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import delete
-
 from app.core.auth import sign_token
 from app.db import models as db_models
 from app.db.session import get_sessionmaker
+from sqlalchemy import delete
 
 
 def _now_name(prefix: str) -> str:
@@ -97,7 +95,7 @@ async def _seed_terminal_run_with_events(
     telemetry events. Returns (run_id, scenario_id)."""
     sm = get_sessionmaker()
     name = _now_name("f11-debrief")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     async with sm() as session:
         s = db_models.Scenario(
             name=name,

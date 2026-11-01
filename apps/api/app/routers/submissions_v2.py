@@ -4,22 +4,30 @@ Provides endpoints for flag submissions, evidence uploads, scoring, leaderboards
 """
 from __future__ import annotations
 
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from app.core.auth import current_token
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_session
+from app.core.auth import current_token
 from app.db.models_oxblood import DrillFlag, EvidenceType
+from app.db.session import get_session
 from app.services.drill_service import record_drill_event
 from app.services.submission_service import (
-    submit_flag, list_user_submissions, get_submission, get_flag_submission,
-    upload_evidence, list_submission_evidence,
-    get_drill_scores, get_user_scores, get_leaderboard, get_score_history,
-    get_drill_first_bloods, get_user_first_bloods,
-    get_drill_stats, get_user_stats,
+    get_drill_first_bloods,
+    get_drill_scores,
+    get_drill_stats,
+    get_flag_submission,
+    get_leaderboard,
+    get_score_history,
+    get_submission,
+    get_user_first_bloods,
+    get_user_scores,
+    get_user_stats,
+    list_submission_evidence,
+    list_user_submissions,
+    submit_flag,
+    upload_evidence,
 )
 
 router = APIRouter(prefix="/api/v2", tags=["Submissions & Scoring v2"])
@@ -30,21 +38,21 @@ router = APIRouter(prefix="/api/v2", tags=["Submissions & Scoring v2"])
 # ============================================================================
 
 class FlagSubmissionCreate(BaseModel):
-    drill_id: Optional[int] = None
-    lab_id: Optional[int] = None
+    drill_id: int | None = None
+    lab_id: int | None = None
     lab_flag_id: int
     flag_value: str
     hints_used: int = 0
-    team_id: Optional[int] = None
+    team_id: int | None = None
 
 
 class EvidenceUpload(BaseModel):
     evidence_type: EvidenceType
     file_path: str
     file_size: int
-    mime_type: Optional[str] = None
-    description: Optional[str] = None
-    objective_id: Optional[int] = None
+    mime_type: str | None = None
+    description: str | None = None
+    objective_id: int | None = None
 
 
 # ============================================================================
@@ -249,7 +257,7 @@ async def post_submission(
 @router.get("/submissions")
 async def get_submissions(
     user_id: int = Query(..., description="User ID"),
-    drill_id: Optional[int] = Query(None, description="Filter by drill"),
+    drill_id: int | None = Query(None, description="Filter by drill"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
@@ -347,6 +355,7 @@ async def get_drill_submissions(
 ):
     """List all submissions for a drill."""
     from sqlalchemy import select
+
     from app.db.models_oxblood import Submission
     
     query = select(Submission).where(Submission.drill_id == drill_id)
@@ -420,7 +429,7 @@ async def get_drill_leaderboard(
 @router.get("/scores/history")
 async def get_score_history_endpoint(
     user_id: int = Query(..., description="User ID"),
-    drill_id: Optional[int] = Query(None, description="Filter by drill"),
+    drill_id: int | None = Query(None, description="Filter by drill"),
     session: AsyncSession = Depends(get_session),
 ):
     """Get score change history."""

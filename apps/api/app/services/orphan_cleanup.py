@@ -39,9 +39,9 @@ Audit:
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Iterable
+from datetime import UTC, datetime
 
 import structlog
 from sqlalchemy import select
@@ -58,7 +58,6 @@ from app.db.models import (
 )
 from app.runners.adapter import ProxmoxAdapter
 from app.services.proxmox import ProxmoxAPIError, get_proxmox_client
-
 
 log = structlog.get_logger(__name__)
 
@@ -158,7 +157,7 @@ async def list_orphans(
       * ``asset.created_at`` newer than grace -- too fresh; teardown
                                               might still be in flight
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     grace_cutoff = now.timestamp() - grace_minutes * 60
     baseline_vmids = await _snapshot_baseline_vmids(session)
     stmt = select(Asset, Run).join(Run, Asset.run_id == Run.id).where(
@@ -176,7 +175,7 @@ async def list_orphans(
         # back to created_at when updated_at isn't set (older rows).
         stamp = asset.updated_at or asset.created_at
         if stamp is not None and stamp.tzinfo is None:
-            stamp = stamp.replace(tzinfo=timezone.utc)
+            stamp = stamp.replace(tzinfo=UTC)
         age = (
             int(now.timestamp() - stamp.timestamp())
             if stamp is not None
@@ -266,7 +265,7 @@ async def list_pve_unused_vms(
     This catches leaks that DB-orphan cleanup misses: assets marked failed or
     stopped without ``cleaned_at``, and VMs whose DB rows are missing.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     grace_cutoff = now.timestamp() - grace_minutes * 60
     vms = _list_pve_divide_vms()
     if not vms:
@@ -320,7 +319,7 @@ async def list_pve_unused_vms(
             role = asset.role
             stamp = asset.updated_at or asset.created_at
             if stamp is not None and stamp.tzinfo is None:
-                stamp = stamp.replace(tzinfo=timezone.utc)
+                stamp = stamp.replace(tzinfo=UTC)
             age = int(now.timestamp() - stamp.timestamp()) if stamp else 0
             if run is not None and run.status in (RunStatus.RUNNING, RunStatus.PENDING):
                 continue
@@ -429,7 +428,7 @@ async def cleanup_orphans(
             )
             continue
         # Success: flip status + stamp cleaned_at + audit row.
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         previous_error = asset.error
         asset.status = AssetStatus.STOPPED
         asset.error = None
@@ -478,7 +477,7 @@ async def cleanup_pve_unused_vms(
         (c.vmid, c.node): c
         for c in await list_pve_unused_vms(session, grace_minutes=0)
     }
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     for target in target_list:
         vmid = int(target.get("vmid") or 0)

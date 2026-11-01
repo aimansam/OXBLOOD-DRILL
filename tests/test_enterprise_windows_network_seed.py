@@ -4,7 +4,6 @@ from pathlib import Path
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parent.parent
 SCENARIO = ROOT / "examples" / "scenarios" / "enterprise-file-breach.scenario.yaml"
 

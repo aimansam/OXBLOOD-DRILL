@@ -21,7 +21,7 @@ Why wrap both behind one function?
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +31,6 @@ from app.db.models import (
     TelemetrySeverity,
 )
 from app.services.event_bus import bus
-
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +71,7 @@ async def record_event(
     from sqlalchemy.exc import IntegrityError, ProgrammingError
 
     payload = payload or {}
-    ts = ts or datetime.now(timezone.utc)
+    ts = ts or datetime.now(UTC)
     event = TelemetryEvent(
         run_id=run_id,
         asset_id=asset_id,

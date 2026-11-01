@@ -32,7 +32,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-
 revision = "0011_pve_config"
 down_revision = "0010_user_reset_tokens"
 branch_labels = None

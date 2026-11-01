@@ -5,16 +5,15 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
 from app.core.auth import sign_token
 from app.db.models import User
 from app.db.models_oxblood import Drill, DrillEvent, DrillInvitation, DrillParticipant
 from app.db.session import get_session
 from app.routers.invitations import router
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 
 def run(coro):

@@ -12,7 +12,6 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Role, TokenData, require_role, sign_token
-from app.db.models import User
 from app.db.models_oxblood import Drill, DrillEvent, DrillInvitation, DrillParticipant, DrillStatus
 from app.db.session import get_session
 from app.services.users import DuplicateSubError, create_user

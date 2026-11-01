@@ -7,8 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -17,8 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Role, TokenData, current_token, require_role
 from app.db import models as catalog_models
-from app.db.models import User
-from app.db.models import AssetStatus, AuditAction, RunStatus
+from app.db.models import AssetStatus, AuditAction, RunStatus, User
 from app.db.models_oxblood import (
     Drill,
     DrillEvent,
@@ -30,9 +28,17 @@ from app.db.models_oxblood import (
 from app.db.session import get_session, get_sessionmaker
 from app.modules.drills.lifecycle import (
     drill_to_dict,
+)
+from app.modules.drills.lifecycle import (
     lifecycle_snapshot as _drill_lifecycle,
+)
+from app.modules.drills.lifecycle import (
     needs_provision_cleanup as _drill_needs_provision_cleanup,
+)
+from app.modules.drills.lifecycle import (
     provision_phase as _provision_phase,
+)
+from app.modules.drills.lifecycle import (
     provision_run_id as _drill_provision_run_id,
 )
 from app.modules.drills.lock import (
@@ -548,7 +554,7 @@ async def _stop_drill_provision_run(db: AsyncSession, drill) -> str | None:
     ):
         reason = f"OxBlood drill {drill.id} was cancelled during provisioning"
         run.status = RunStatus.CANCELLED
-        run.ended_at = datetime.now(timezone.utc)
+        run.ended_at = datetime.now(UTC)
         run.error = reason
         db.add(
             catalog_models.AuditLog(
@@ -585,34 +591,34 @@ async def _stop_drill_provision_run(db: AsyncSession, drill) -> str | None:
 
 class DrillCreate(BaseModel):
     title: str
-    description: Optional[str] = None
-    lab_id: Optional[int] = None  # read-only Learn ref (no FK)
-    scenario_id: Optional[int] = None  # Drill catalog (scenarios table)
+    description: str | None = None
+    lab_id: int | None = None  # read-only Learn ref (no FK)
+    scenario_id: int | None = None  # Drill catalog (scenarios table)
     drill_type: str = "individual"
-    scheduled_start_at: Optional[datetime] = None
-    scheduled_end_at: Optional[datetime] = None
-    duration_limit_minutes: Optional[int] = None
-    max_participants: Optional[int] = 10
-    rules: Optional[dict] = None
-    environment_config: Optional[dict] = None
+    scheduled_start_at: datetime | None = None
+    scheduled_end_at: datetime | None = None
+    duration_limit_minutes: int | None = None
+    max_participants: int | None = 10
+    rules: dict | None = None
+    environment_config: dict | None = None
 
 
 class DrillUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    drill_type: Optional[str] = None
-    scenario_id: Optional[int] = None
-    scheduled_start_at: Optional[datetime] = None
-    scheduled_end_at: Optional[datetime] = None
-    duration_limit_minutes: Optional[int] = None
-    max_participants: Optional[int] = None
-    rules: Optional[dict] = None
-    environment_config: Optional[dict] = None
+    title: str | None = None
+    description: str | None = None
+    drill_type: str | None = None
+    scenario_id: int | None = None
+    scheduled_start_at: datetime | None = None
+    scheduled_end_at: datetime | None = None
+    duration_limit_minutes: int | None = None
+    max_participants: int | None = None
+    rules: dict | None = None
+    environment_config: dict | None = None
 
 
 class ParticipantAdd(BaseModel):
     user_id: int
-    team_id: Optional[int] = None
+    team_id: int | None = None
     role: str = "participant"
 
 
@@ -624,16 +630,16 @@ class AnnouncementCreate(BaseModel):
 
 class ObjectiveCreate(BaseModel):
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     points: int = 0
-    side: Optional[str] = None
+    side: str | None = None
     sort_order: int = 0
 
 
 class ScenarioLink(BaseModel):
-    lab_id: Optional[int] = None  # read-only Learn ref (no FK)
-    scenario_id: Optional[int] = None  # Drill catalog (scenarios table)
-    scenario_config: Optional[dict] = None
+    lab_id: int | None = None  # read-only Learn ref (no FK)
+    scenario_id: int | None = None  # Drill catalog (scenarios table)
+    scenario_config: dict | None = None
 
 
 class ConsoleRequest(BaseModel):
@@ -642,8 +648,8 @@ class ConsoleRequest(BaseModel):
 
 class ScenarioStartRequest(BaseModel):
     scenario_id: int
-    duration_limit_minutes: Optional[int] = None
-    max_participants: Optional[int] = 10
+    duration_limit_minutes: int | None = None
+    max_participants: int | None = 10
 
 
 async def _refresh_drill_provision_state(db: AsyncSession, drill) -> dict:
@@ -852,7 +858,7 @@ async def _http_status_ok(
             return True, f"HTTP {expected_status} answered on {path or '/'}."
         return False, f"Expected HTTP {expected_status}, got {status or 'no status'}."
     except TimeoutError:
-        return False, f"HTTP service did not answer before timeout."
+        return False, "HTTP service did not answer before timeout."
     except OSError as exc:
         return False, f"HTTP service is not reachable: {exc.strerror or exc}"
 
@@ -1146,7 +1152,7 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
             "total": len(checks),
         },
         "checks": checks,
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -1156,7 +1162,7 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
 
 @router.get("")
 async def get_drills(
-    status: Optional[DrillStatus] = Query(None),
+    status: DrillStatus | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_session),
@@ -1694,7 +1700,7 @@ async def prepare_drill_endpoint(
                 env.pop("provision_error", None)
                 env.pop("cleanup_status", None)
                 env.pop("provision_run_id", None)
-                env["preparation_started_at"] = datetime.now(timezone.utc).isoformat()
+                env["preparation_started_at"] = datetime.now(UTC).isoformat()
                 env["run_owner_sub"] = token.sub
                 env["run_owner_role"] = token.role
                 drill.environment_config = env
@@ -1732,7 +1738,7 @@ async def prepare_drill_endpoint(
             raise HTTPException(status_code=409, detail="Preparation state changed. Refresh before retrying.")
         env["provision_status"] = "starting"
         env.pop("provision_error", None)
-        env["preparation_started_at"] = datetime.now(timezone.utc).isoformat()
+        env["preparation_started_at"] = datetime.now(UTC).isoformat()
         env["run_owner_sub"] = token.sub
         env["run_owner_role"] = token.role
         drill.environment_config = env
@@ -1829,7 +1835,7 @@ async def scenario_preflight(
     except (ProxmoxAPIError, RunnerError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"ready": bool(checks) and all(check["ready"] for check in checks), "node": node,
-            "checks": checks, "checked_at": datetime.now(timezone.utc).isoformat()}
+            "checks": checks, "checked_at": datetime.now(UTC).isoformat()}
 
 
 @router.post("/start-from-scenario")
@@ -1881,7 +1887,7 @@ async def start_from_scenario(
         )
         env = dict(created.environment_config or {})
         env["provision_status"] = "starting"
-        env["preparation_started_at"] = datetime.now(timezone.utc).isoformat()
+        env["preparation_started_at"] = datetime.now(UTC).isoformat()
         env["run_owner_sub"] = token.sub
         env["run_owner_role"] = token.role
         created.environment_config = env
@@ -1982,7 +1988,7 @@ async def stop_drill_endpoint(
         )
         if current.status == DrillStatus.SCHEDULED:
             current.status = DrillStatus.CANCELLED
-            current.actual_end_at = datetime.now(timezone.utc)
+            current.actual_end_at = datetime.now(UTC)
             db.add(DrillEvent(drill_id=drill_id, kind="lifecycle", title="Range preparation cancelled"))
             await db.commit()
             await db.refresh(current)
@@ -2269,7 +2275,7 @@ class FlagCreate(BaseModel):
     value: str
     name: str = "flag"
     points: int = 100
-    objective_id: Optional[int] = None
+    objective_id: int | None = None
     decay_window_seconds: int = 1800
     sort_order: int = 0
 
@@ -2437,13 +2443,13 @@ async def patch_objective_status(
 
 class TimelineNote(BaseModel):
     title: str
-    detail: Optional[str] = None
-    side: Optional[str] = None
+    detail: str | None = None
+    side: str | None = None
 
 
 class MilestoneCreate(BaseModel):
     milestone: str
-    detail: Optional[str] = None
+    detail: str | None = None
 
 
 @router.get("/{drill_id}/timeline")

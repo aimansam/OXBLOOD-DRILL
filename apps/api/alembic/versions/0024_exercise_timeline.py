@@ -8,9 +8,8 @@ down_revision: 0023_drill_flag_submissions
   announcements, lead notes). Lets the portal render one chronological
   exercise feed instead of stitching audit + announcements client-side.
 """
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = '0024_exercise_timeline'
 down_revision = '0023_drill_flag_submissions'

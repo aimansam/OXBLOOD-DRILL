@@ -12,14 +12,9 @@ These tests verify:
 from __future__ import annotations
 
 import asyncio
-import enum
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import event, select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
-from app.db import models
 from app.db.base import Base
 from app.db.models import (
     Asset,
@@ -30,7 +25,8 @@ from app.db.models import (
     RunStatus,
     Scenario,
 )
-
+from sqlalchemy import event, select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 # --- fixtures ---------------------------------------------------------------
 
@@ -137,7 +133,7 @@ async def test_full_lifecycle_round_trip(session: AsyncSession) -> None:
         scenario_id=scenario.id,
         status=RunStatus.RUNNING,
         started_by="alice",
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
     )
     session.add(run)
     await session.flush()
@@ -188,8 +184,8 @@ async def test_run_duration_sec_after_end(session: AsyncSession) -> None:
     session.add(scenario)
     await session.flush()
 
-    start = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-    end = datetime(2026, 1, 1, 12, 5, 30, tzinfo=timezone.utc)
+    start = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
+    end = datetime(2026, 1, 1, 12, 5, 30, tzinfo=UTC)
     run = Run(
         scenario_id=scenario.id,
         status=RunStatus.SUCCEEDED,
