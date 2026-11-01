@@ -21,6 +21,7 @@ The "team members" filter is intentionally NOT applied to
 templates.  Templates are shared, public-by-default range
 artifacts.  A future "private" tier can gate that if needed.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -50,22 +51,14 @@ def _serialize_template(t: Template) -> dict[str, Any]:
         "scenario_id": t.scenario_id,
         "snapshot": t.snapshot,
         "created_by": t.created_by,
-        "created_at": (
-            t.created_at.isoformat() if t.created_at else None
-        ),
-        "updated_at": (
-            t.updated_at.isoformat() if t.updated_at else None
-        ),
+        "created_at": (t.created_at.isoformat() if t.created_at else None),
+        "updated_at": (t.updated_at.isoformat() if t.updated_at else None),
     }
 
 
-async def _load_template_or_404(
-    session: AsyncSession, template_id: int
-) -> Template:
+async def _load_template_or_404(session: AsyncSession, template_id: int) -> Template:
     t = (
-        await session.execute(
-            select(Template).where(Template.id == template_id)
-        )
+        await session.execute(select(Template).where(Template.id == template_id))
     ).scalar_one_or_none()
     if t is None:
         raise HTTPException(
@@ -144,11 +137,7 @@ async def create_template(
     # fail to commit, reading attributes on `run` or `scen` from
     # a rolled-back session would trigger lazy-load and crash
     # (the lesson learned in F6).
-    run = (
-        await session.execute(
-            select(Run).where(Run.id == from_run_id)
-        )
-    ).scalar_one_or_none()
+    run = (await session.execute(select(Run).where(Run.id == from_run_id))).scalar_one_or_none()
     if run is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -164,17 +153,13 @@ async def create_template(
         )
     scenario = (
         await session.execute(
-            select(db_models.Scenario).where(
-                db_models.Scenario.id == run.scenario_id
-            )
+            select(db_models.Scenario).where(db_models.Scenario.id == run.scenario_id)
         )
     ).scalar_one_or_none()
     if scenario is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                f"run id={from_run_id} references missing scenario"
-            ),
+            detail=(f"run id={from_run_id} references missing scenario"),
         )
     scenario_id = scenario.id
     snapshot = _build_snapshot(run, scenario)
@@ -195,9 +180,7 @@ async def create_template(
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"a template named {name!r} already exists"
-            ),
+            detail=(f"a template named {name!r} already exists"),
         )
     return _serialize_template(template)
 
@@ -205,9 +188,17 @@ async def create_template(
 @router.get(
     "",
     summary="List templates",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def list_templates(
     session: AsyncSession = Depends(get_session),
@@ -217,11 +208,7 @@ async def list_templates(
 
     Filters apply if a future "private" tier is added.
     """
-    rows = (
-        await session.execute(
-            select(Template).order_by(Template.id.desc())
-        )
-    ).scalars().all()
+    rows = (await session.execute(select(Template).order_by(Template.id.desc()))).scalars().all()
     return {
         "items": [_serialize_template(t) for t in rows],
         "total": len(rows),
@@ -231,9 +218,17 @@ async def list_templates(
 @router.get(
     "/{template_id}",
     summary="Get one template",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def get_template(
     template_id: int,

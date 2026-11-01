@@ -31,6 +31,7 @@ The runner'\''s actual VM lifecycle uses MockProxmoxAdapter by
 default so we don'\''t need to mock proxmoxer for the clone/
 start path.
 """
+
 from __future__ import annotations
 
 import json
@@ -51,9 +52,7 @@ from sqlalchemy import create_engine, select
 
 
 def _sync_engine():
-    url = os.environ["DIVIDE_DB_URL"].replace(
-        "sqlite+aiosqlite://", "sqlite:///"
-    )
+    url = os.environ["DIVIDE_DB_URL"].replace("sqlite+aiosqlite://", "sqlite:///")
     return create_engine(url)
 
 
@@ -73,9 +72,7 @@ class _StubAsyncClient(httpx.AsyncClient):
 
     def __init__(self, **kwargs: Any) -> None:
         kwargs.pop("verify", None)
-        kwargs.setdefault(
-            "transport", self.__class__._shared_transport
-        )
+        kwargs.setdefault("transport", self.__class__._shared_transport)
         super().__init__(**kwargs)
 
 
@@ -109,45 +106,30 @@ def pve_token(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], Any]:
             body = json.loads(request.content.decode())
             store["vnets"].append(body)
             vnet_name = body.get("vnet")
-            if vnet_name and vnet_name not in [
-                i.get("iface") for i in store["node_ifaces"]
-            ]:
-                store["node_ifaces"].append(
-                    {"iface": vnet_name, "type": "bridge", "active": "1"}
-                )
+            if vnet_name and vnet_name not in [i.get("iface") for i in store["node_ifaces"]]:
+                store["node_ifaces"].append({"iface": vnet_name, "type": "bridge", "active": "1"})
             return httpx.Response(200, json={"data": None})
         # /nodes/{n}/network -- match any node name. Used by
         # list_node_ifaces during apply_sdn_plan'\''s propagation
         # poll AND by the runner'\''s create_bridge assertion.
-        if method == "GET" and path.startswith(
-            "/api2/json/nodes/"
-        ) and path.endswith("/network"):
-            return httpx.Response(
-                200, json={"data": store["node_ifaces"]}
-            )
-        if method == "POST" and path.startswith(
-            "/api2/json/nodes/"
-        ) and path.endswith("/network"):
+        if method == "GET" and path.startswith("/api2/json/nodes/") and path.endswith("/network"):
+            return httpx.Response(200, json={"data": store["node_ifaces"]})
+        if method == "POST" and path.startswith("/api2/json/nodes/") and path.endswith("/network"):
             body = json.loads(request.content.decode())
             iface = body.get("iface")
             if iface and iface not in [i.get("iface") for i in store["node_ifaces"]]:
                 created = dict(body)
                 created.setdefault("type", "bridge")
                 created["active"] = "1"
-                store["node_ifaces"].append(
-                    created
-                )
+                store["node_ifaces"].append(created)
             return httpx.Response(200, json={"data": None})
 
-        return httpx.Response(500, json={
-            "data": None, "message": f"unmocked {method} {path}"
-        })
+        return httpx.Response(500, json={"data": None, "message": f"unmocked {method} {path}"})
 
     transport = httpx.MockTransport(handler)
     _StubAsyncClient._shared_transport = transport
-    monkeypatch.setattr(
-        pve_sdn.httpx, "AsyncClient", _StubAsyncClient
-    )
+    monkeypatch.setattr(pve_sdn.httpx, "AsyncClient", _StubAsyncClient)
+
     # proxmoxer-based calls (used by the probe-before-commit at
     # POST /admin/pve-config, and by the runner'\''s
     # create_bridge assertion) need a separate stub -- the layer
@@ -155,7 +137,9 @@ def pve_token(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], Any]:
     # we monkeypatch those instead of going deeper.
     def _fake_get_version() -> dict:
         return {
-            "version": "9.1.7", "release": "9.1", "repoid": "x",
+            "version": "9.1.7",
+            "release": "9.1",
+            "repoid": "x",
             "host": "https://stub",
         }
 
@@ -210,19 +194,17 @@ def pve_token(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], Any]:
     # Point settings.scenarios_dir at the repo'\''s examples/scenarios
     # and run an explicit sync so first-live-drill is in the DB.
     import pathlib
-    examples = (
-        pathlib.Path(__file__).resolve().parents[2]
-        / "examples" / "scenarios"
-    )
-    monkeypatch.setenv(
-        "DIVIDE_SCENARIOS_DIR", str(examples)
-    )
+
+    examples = pathlib.Path(__file__).resolve().parents[2] / "examples" / "scenarios"
+    monkeypatch.setenv("DIVIDE_SCENARIOS_DIR", str(examples))
 
     async def _reseed() -> None:
         from app.core.config import get_settings
+
         get_settings.cache_clear()
         from app.db.session import get_sessionmaker
         from app.services.scenario_sync import sync_files
+
         await sync_files(
             settings_dir=get_settings(),
             session_factory=get_sessionmaker(),
@@ -231,9 +213,7 @@ def pve_token(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], Any]:
     return store, _reseed
 
 
-def test_full_day1_wizard_flow(
-    client: TestClient, pve_token: tuple[dict[str, Any], Any]
-) -> None:
+def test_full_day1_wizard_flow(client: TestClient, pve_token: tuple[dict[str, Any], Any]) -> None:
     """P10: Step -1 -> Step 0 -> launch a drill.
 
     This is the integration test that would have caught P1: the
@@ -253,17 +233,16 @@ def test_full_day1_wizard_flow(
     # fields we care about for the planner + runner bridge
     # assertion.
     from sqlalchemy import create_engine
-    engine = create_engine(
-        os.environ["DIVIDE_DB_URL"].replace(
-            "sqlite+aiosqlite://", "sqlite:///"
-        )
-    )
+
+    engine = create_engine(os.environ["DIVIDE_DB_URL"].replace("sqlite+aiosqlite://", "sqlite:///"))
     with engine.begin() as conn:
         # Read the YAML and pre-populate the scenarios row.
         import pathlib
+
         yaml_path = (
             pathlib.Path(__file__).resolve().parents[3]
-            / "examples" / "scenarios"
+            / "examples"
+            / "scenarios"
             / "first-live-drill.scenario.yaml"
         )
         with open(yaml_path) as fh:
@@ -367,8 +346,7 @@ def test_full_day1_wizard_flow(
             f"fix. Detail was: {detail_text!r}"
         )
         assert "ifreload" not in detail_text, (
-            f"P10 regression: bridge-not-found still names ifreload. "
-            f"Detail was: {detail_text!r}"
+            f"P10 regression: bridge-not-found still names ifreload. Detail was: {detail_text!r}"
         )
         assert "pvesh create /cluster/sdn/vnets" in detail_text, (
             f"P10: if the error is about a missing bridge, it should "
@@ -378,9 +356,7 @@ def test_full_day1_wizard_flow(
     # End-to-end smoke: the configuration row is persisted.
     engine = _sync_engine()
     with engine.connect() as conn:
-        rows = conn.execute(
-            select(db_models.PveConfig).where(db_models.PveConfig.id == 1)
-        ).all()
+        rows = conn.execute(select(db_models.PveConfig).where(db_models.PveConfig.id == 1)).all()
     assert len(rows) == 1
     assert rows[0].token_secret == "stub-secret"
     assert rows[0].clone_storage == "local-lvm"

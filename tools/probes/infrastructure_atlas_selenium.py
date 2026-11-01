@@ -33,9 +33,15 @@ def main():
     wait = WebDriverWait(driver, 45)
 
     def resize(width, height):
-        driver.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
-            "width": width, "height": height, "deviceScaleFactor": 1, "mobile": False,
-        })
+        driver.execute_cdp_cmd(
+            "Emulation.setDeviceMetricsOverride",
+            {
+                "width": width,
+                "height": height,
+                "deviceScaleFactor": 1,
+                "mobile": False,
+            },
+        )
 
     def settle():
         time.sleep(1)
@@ -48,7 +54,8 @@ def main():
 
     def check(label, fitted=False):
         settle()
-        result = driver.execute_script("""
+        result = driver.execute_script(
+            """
           const svg=document.getElementById('infrastructure-atlas-links');
           const world=document.getElementById('infrastructure-atlas-world');
           const origin=document.querySelector('.infrastructure-atlas-origin')?.getBoundingClientRect();
@@ -75,7 +82,9 @@ def main():
               errors.push('Clipped or obscured node: '+i);
           });
           return {errors,originOffset:offset,nodes:nodes.length};
-        """, fitted)
+        """,
+            fitted,
+        )
         driver.save_screenshot(str(artifacts / (label + ".png")))
         print(label, json.dumps(result), flush=True)
         if not inspect:
@@ -89,16 +98,21 @@ def main():
         wait.until(lambda d: d.execute_script("return !!window.app && !!app.user"))
         settle()
         driver.execute_script("app.loadPage('infrastructure')")
-        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, ".infrastructure-atlas-node")) == 7)
+        wait.until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, ".infrastructure-atlas-node")) == 7
+        )
         check("baseline" if inspect else "desktop-fit", fitted=True)
         if inspect:
             driver.execute_script("app.focusInfrastructureNode('guests')")
             settle()
-            print("inspector-close-hit", driver.execute_script("""
+            print(
+                "inspector-close-hit",
+                driver.execute_script("""
               const b=document.querySelector('.infrastructure-atlas-close');
               const r=b.getBoundingClientRect();
               return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML;
-            """))
+            """),
+            )
             check("baseline-inspector")
             return
         click('.infrastructure-atlas-zoom [aria-label="Zoom in"]')
@@ -107,49 +121,78 @@ def main():
         check("zoom-out")
         before = camera()
         canvas = driver.find_element(By.ID, "infrastructure-atlas-viewport")
-        ActionChains(driver).move_to_element_with_offset(canvas, -550, -100).click_and_hold().move_by_offset(95, 50).release().perform()
+        ActionChains(driver).move_to_element_with_offset(
+            canvas, -550, -100
+        ).click_and_hold().move_by_offset(95, 50).release().perform()
         assert abs(camera()["x"] - before["x"] - 95) < 1
         assert abs(camera()["y"] - before["y"] - 50) < 1
         assert not driver.execute_script("return getSelection().toString()"), "Drag selected text"
         check("drag")
         click('.infrastructure-atlas-zoom [title="Fit inventory"]')
         settle()
-        for node_id in ["pve", "templates", "storage", "networks", "cleanup", "health", "overview", "guests"]:
+        for node_id in [
+            "pve",
+            "templates",
+            "storage",
+            "networks",
+            "cleanup",
+            "health",
+            "overview",
+            "guests",
+        ]:
             click(f'.infrastructure-atlas-nodes [data-node-id="{node_id}"]')
-            wait.until(lambda d: d.find_element(By.ID, "infrastructure-atlas-inspector").is_displayed())
+            wait.until(
+                lambda d: d.find_element(By.ID, "infrastructure-atlas-inspector").is_displayed()
+            )
             check("selected-" + node_id)
             if node_id == "guests":
                 before = camera()
                 box = driver.find_element(By.ID, "infrastructure-atlas-inspector").rect
-                driver.execute_cdp_cmd("Input.dispatchMouseEvent", {
-                    "type": "mouseWheel", "x": box["x"] + box["width"] / 2,
-                    "y": box["y"] + box["height"] / 2, "deltaX": 0, "deltaY": 300,
-                })
+                driver.execute_cdp_cmd(
+                    "Input.dispatchMouseEvent",
+                    {
+                        "type": "mouseWheel",
+                        "x": box["x"] + box["width"] / 2,
+                        "y": box["y"] + box["height"] / 2,
+                        "deltaX": 0,
+                        "deltaY": 300,
+                    },
+                )
                 settle()
                 assert camera() == before, "Inspector scroll zoomed the map"
                 assert driver.execute_script("""
                   const el=document.getElementById('infrastructure-atlas-inspector');
                   return el.scrollHeight<=el.clientHeight || el.scrollTop>0;
                 """), "Inspector cannot scroll"
-                driver.execute_script("document.getElementById('infrastructure-atlas-inspector').scrollTop=0")
+                driver.execute_script(
+                    "document.getElementById('infrastructure-atlas-inspector').scrollTop=0"
+                )
                 if driver.find_elements(By.CSS_SELECTOR, ".infrastructure-atlas-machine"):
                     click(".infrastructure-atlas-machine")
-                    assert driver.find_element(By.CSS_SELECTOR, ".infrastructure-guest-metrics").is_displayed()
+                    assert driver.find_element(
+                        By.CSS_SELECTOR, ".infrastructure-guest-metrics"
+                    ).is_displayed()
                     click('.infrastructure-atlas-close[aria-label="Back to guest fleet"]')
                     settle()
             click('.infrastructure-atlas-close[aria-label="Close details"]')
             settle()
         search = driver.find_element(By.ID, "infrastructure-atlas-search")
         search.send_keys("storage")
-        wait.until(lambda d: 0 < len(d.find_elements(By.CSS_SELECTOR, ".infrastructure-atlas-node")) < 7)
+        wait.until(
+            lambda d: 0 < len(d.find_elements(By.CSS_SELECTOR, ".infrastructure-atlas-node")) < 7
+        )
         check("filtered", fitted=True)
         search.clear()
         search.send_keys("no-such-infrastructure-regression-check")
         wait.until(lambda d: not d.find_elements(By.CSS_SELECTOR, ".infrastructure-atlas-node"))
         assert driver.find_element(By.CSS_SELECTOR, ".infrastructure-atlas-empty").is_displayed()
         search.clear()
-        driver.execute_script("document.getElementById('infrastructure-atlas-search').dispatchEvent(new Event('input'))")
-        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, ".infrastructure-atlas-node")) == 7)
+        driver.execute_script(
+            "document.getElementById('infrastructure-atlas-search').dispatchEvent(new Event('input'))"
+        )
+        wait.until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, ".infrastructure-atlas-node")) == 7
+        )
         for width, height in [(1920, 1080), (1366, 768), (390, 844)]:
             resize(width, height)
             check(f"fit-{width}", fitted=True)

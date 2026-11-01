@@ -31,6 +31,7 @@ Permissions required on the PVE token:
       The wizard surfaces the literal PVE error plus a ``pveum aclmod``
       hint when this is missing.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -97,9 +98,7 @@ def _iface_matches_spec(iface: dict[str, Any], spec: BridgeSpec) -> bool:
         return True
     pve_cidr = str(iface.get("cidr") or "")
     pve_address = str(iface.get("address") or "")
-    return pve_address == expected_gateway or pve_cidr.startswith(
-        f"{expected_gateway}/"
-    )
+    return pve_address == expected_gateway or pve_cidr.startswith(f"{expected_gateway}/")
 
 
 # --- exceptions -----------------------------------------------------------
@@ -224,9 +223,7 @@ def get_active_auth(*, node: str | None = None) -> SdnAuth:
         port = cfg.port
         user = (cfg.user or "").strip()
         token_id = (cfg.token_id or "").strip()
-        token_secret = (
-            cfg.token_secret.get_secret_value() if cfg.token_secret else ""
-        )
+        token_secret = cfg.token_secret.get_secret_value() if cfg.token_secret else ""
         verify_ssl = cfg.verify_ssl
         overlay_node = (cfg.node or "").strip()
 
@@ -237,8 +234,7 @@ def get_active_auth(*, node: str | None = None) -> SdnAuth:
         )
     if not user:
         raise SdnError(
-            "PVE user is not configured. Set PROXMOX_USER in deploy/.env "
-            "or re-enter in the wizard."
+            "PVE user is not configured. Set PROXMOX_USER in deploy/.env or re-enter in the wizard."
         )
     if not token_id or not token_secret:
         raise SdnError(
@@ -278,9 +274,7 @@ async def _request(
     """
     headers = _auth_headers(auth.token_id, auth.token_secret)
     try:
-        async with httpx.AsyncClient(
-            verify=auth.verify_ssl, timeout=timeout_s
-        ) as client:
+        async with httpx.AsyncClient(verify=auth.verify_ssl, timeout=timeout_s) as client:
             r = await client.request(method, url, headers=headers, json=json_body)
     except httpx.HTTPError as exc:
         raise SdnError(f"PVE request failed: {exc}") from exc
@@ -352,9 +346,7 @@ async def _request(
             base_msg = (payload.get("message") or "").strip()
             errs = payload.get("errors")
             if isinstance(errs, dict) and errs:
-                rendered = "; ".join(
-                    f"{k}: {v}" for k, v in errs.items() if v
-                )
+                rendered = "; ".join(f"{k}: {v}" for k, v in errs.items() if v)
                 msg = f"{base_msg} ({rendered})" if base_msg else rendered
             else:
                 msg = base_msg or r.text or f"HTTP {r.status_code}"
@@ -531,9 +523,7 @@ def _prefix_to_netmask(prefix: int) -> str:
         raise ValueError(f"prefix must be 0-32, got {prefix}")
     bits = (1 << 32) - 1
     shifted = (bits << (32 - prefix)) & 0xFFFFFFFF
-    return ".".join(
-        str((shifted >> (8 * i)) & 0xFF) for i in range(3, -1, -1)
-    )
+    return ".".join(str((shifted >> (8 * i)) & 0xFF) for i in range(3, -1, -1))
 
 
 async def create_bridge_direct(auth: SdnAuth, *, spec) -> None:
@@ -601,8 +591,7 @@ async def apply_sdn_plan(
         from app.services.pve_bridges import BridgePlanError
 
         raise BridgePlanError(
-            "refusing to apply: bridge plan has conflicts: "
-            + "; ".join(plan.conflicts)
+            "refusing to apply: bridge plan has conflicts: " + "; ".join(plan.conflicts)
         )
 
     raw: list[dict[str, Any]] = []
@@ -679,9 +668,7 @@ async def apply_sdn_plan(
     )
 
 
-def to_apply_result(
-    plan: BridgePlan, sdn: SdnPlanResult, *, method: str = "sdn"
-) -> ApplyResult:
+def to_apply_result(plan: BridgePlan, sdn: SdnPlanResult, *, method: str = "sdn") -> ApplyResult:
     """Flatten ``SdnPlanResult`` into the public ``ApplyResult`` shape.
 
     The runner consumes ``ApplyResult``; keeping the shape stable means
@@ -691,14 +678,10 @@ def to_apply_result(
     ``"direct"`` (PVE 9 single-node path -- the new default).
     """
     if method == "direct":
-        reload_method = (
-            "direct" if sdn.vnets_created else "direct-noop"
-        )
+        reload_method = "direct" if sdn.vnets_created else "direct-noop"
         config_path = "/nodes/{node}/network"
     else:
-        reload_method = (
-            "sdn" if (sdn.zone_created or sdn.vnets_created) else "sdn-noop"
-        )
+        reload_method = "sdn" if (sdn.zone_created or sdn.vnets_created) else "sdn-noop"
         config_path = f"/sdn/zones/{DEFAULT_ZONE}"
     return ApplyResult(
         added=sdn.vnets_created,
@@ -733,8 +716,7 @@ async def apply_direct_plan(
 
     if plan.conflicts:
         raise BridgePlanError(
-            "refusing to apply: bridge plan has conflicts: "
-            + "; ".join(plan.conflicts)
+            "refusing to apply: bridge plan has conflicts: " + "; ".join(plan.conflicts)
         )
 
     raw: list[dict[str, Any]] = []
@@ -845,9 +827,7 @@ class SdnReadiness:
     required_role: str | None = None
 
 
-async def read_sdn_state(
-    *, auth: SdnAuth, expected_vnets: list[str]
-) -> SdnReadiness:
+async def read_sdn_state(*, auth: SdnAuth, expected_vnets: list[str]) -> SdnReadiness:
     """Probe PVE and report what's there vs what's missing.
 
     Distinguishes 401/403 (permission) from other errors so the wizard

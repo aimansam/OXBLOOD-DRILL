@@ -22,6 +22,7 @@ The visibility filter is implemented in
 list / detail / audit / (future) report endpoints. The matrix
 table is the source of truth for ``README.md §2`` §2.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -98,9 +99,7 @@ async def start_drill(
                 detail="exercise_id must be an int when provided",
             )
         ex = (
-            await session.execute(
-                select(Exercise).where(Exercise.id == exercise_id_raw)
-            )
+            await session.execute(select(Exercise).where(Exercise.id == exercise_id_raw))
         ).scalar_one_or_none()
         if ex is None:
             raise HTTPException(
@@ -126,10 +125,9 @@ async def start_drill(
         # Verify team membership when team is provided.
         if isinstance(team_raw, str):
             from app.db.models import TeamMembership
+
             role = getattr(token, "role", None)
-            role_value = (
-                role.value if hasattr(role, "value") else role
-            )
+            role_value = role.value if hasattr(role, "value") else role
             is_admin_or_lead = role_value in ("admin", "lead")
             if not is_admin_or_lead:
                 # Non-admins must be a member of the exercise.
@@ -137,9 +135,7 @@ async def start_drill(
                     await session.execute(
                         select(TeamMembership.id).where(
                             TeamMembership.exercise_id == exercise_id,
-                            TeamMembership.sub == (
-                                token.sub if token else ""
-                            ),
+                            TeamMembership.sub == (token.sub if token else ""),
                         )
                     )
                 ).first()
@@ -147,8 +143,7 @@ async def start_drill(
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail=(
-                            "you are not a member of this exercise; "
-                            "cannot submit a run for it"
+                            "you are not a member of this exercise; cannot submit a run for it"
                         ),
                     )
             # Validate team name in the exercise (if provided).
@@ -163,9 +158,7 @@ async def start_drill(
             if t is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=(
-                        f"team {team_raw!r} is not part of exercise id={exercise_id}"
-                    ),
+                    detail=(f"team {team_raw!r} is not part of exercise id={exercise_id}"),
                 )
             team = t.name
 
@@ -181,10 +174,9 @@ async def start_drill(
                 detail="template_id must be an int when provided",
             )
         from app.db.models import Template
+
         template_obj = (
-            await session.execute(
-                select(Template).where(Template.id == template_id_raw)
-            )
+            await session.execute(select(Template).where(Template.id == template_id_raw))
         ).scalar_one_or_none()
         if template_obj is None:
             raise HTTPException(
@@ -352,8 +344,7 @@ async def stop_drill(
         "run_id": run.id,
         "status": run.status.value,
         "assets": [
-            {"role": a.role, "status": a.status.value, "pve_vmid": a.pve_vmid}
-            for a in run.assets
+            {"role": a.role, "status": a.status.value, "pve_vmid": a.pve_vmid} for a in run.assets
         ],
     }
 
@@ -402,9 +393,7 @@ async def cancel_drill(
     if token and token.role == Role.RED.value:
         run_row = (
             await session.execute(
-                select(db_models.Run.started_by).where(
-                    db_models.Run.id == run_id
-                )
+                select(db_models.Run.started_by).where(db_models.Run.id == run_id)
             )
         ).scalar_one_or_none()
         if run_row is None:
@@ -420,9 +409,7 @@ async def cancel_drill(
 
     runner = _get_runner()
     try:
-        run = await runner.cancel_run(
-            run_id, reason=reason, actor=actor, session=session
-        )
+        run = await runner.cancel_run(run_id, reason=reason, actor=actor, session=session)
     except RunnerError as exc:
         # Distinguish "not found" from "already terminal" so the UI
         # can react sensibly (re-fetch vs display toast).
@@ -457,8 +444,7 @@ async def cancel_drill(
         "status": run.status.value,
         "reason": run.error,
         "assets": [
-            {"role": a.role, "status": a.status.value, "pve_vmid": a.pve_vmid}
-            for a in run.assets
+            {"role": a.role, "status": a.status.value, "pve_vmid": a.pve_vmid} for a in run.assets
         ],
     }
 
@@ -466,9 +452,17 @@ async def cancel_drill(
 @router.get(
     "",
     summary="List drills (visibility-filtered by token role)",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def list_drills(
     session: AsyncSession = Depends(get_session),
@@ -509,9 +503,17 @@ async def list_drills(
 @router.get(
     "/{run_id}",
     summary="Get one drill by id (with assets, visibility-filtered)",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def get_drill(
     run_id: int,
@@ -603,9 +605,14 @@ async def get_drill(
 @router.post(
     "/{run_id}/assets/{asset_id}/sync-status",
     summary="Sync asset status with actual PVE state",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+            )
+        )
+    ],
 )
 async def sync_asset_status(
     run_id: int,
@@ -671,7 +678,7 @@ async def sync_asset_status(
 
     # Also update pve_ip if discovered
     # NOTE: state is only defined if the try block succeeded (pve_missing=False)
-    if not pve_missing and hasattr(state, 'ip') and state.ip and asset.pve_ip != state.ip:
+    if not pve_missing and hasattr(state, "ip") and state.ip and asset.pve_ip != state.ip:
         asset.pve_ip = state.ip
         await session.flush()
 
@@ -687,6 +694,7 @@ async def sync_asset_status(
 
         # Q26: write audit row.
         from app.db.models import AuditAction
+
         audit = db_models.AuditLog(
             run_id=run_id,
             asset_id=asset.id,
@@ -717,9 +725,14 @@ async def sync_asset_status(
 @router.post(
     "/{run_id}/assets/{asset_id}/delete",
     summary="Delete a VM from PVE and mark the asset as cleaned",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+            )
+        )
+    ],
 )
 async def delete_asset(
     run_id: int,
@@ -834,9 +847,17 @@ async def delete_asset(
 @router.get(
     "/{run_id}/audit",
     summary="Get the audit-log entries for one drill (visibility-filtered)",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def get_drill_audit(
     run_id: int,
@@ -858,9 +879,7 @@ async def get_drill_audit(
     # not yours" without leaking the existence either way.
     row = (
         await session.execute(
-            select(db_models.Run.id, db_models.Run.started_by).where(
-                db_models.Run.id == run_id
-            )
+            select(db_models.Run.id, db_models.Run.started_by).where(db_models.Run.id == run_id)
         )
     ).first()
     if row is None:
@@ -879,12 +898,16 @@ async def get_drill_audit(
         )
 
     rows = (
-        await session.execute(
-            select(db_models.AuditLog)
-            .where(db_models.AuditLog.run_id == run_id)
-            .order_by(db_models.AuditLog.at.asc())
+        (
+            await session.execute(
+                select(db_models.AuditLog)
+                .where(db_models.AuditLog.run_id == run_id)
+                .order_by(db_models.AuditLog.at.asc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return {
         "items": [
             {
@@ -910,9 +933,16 @@ async def get_drill_audit(
 @router.post(
     "/{run_id}/submit-flag",
     summary="Submit a captured flag value for scoring",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def submit_flag(
     run_id: int,
@@ -982,6 +1012,7 @@ async def submit_flag(
     #   * member of the run's exercise (so a red/blue team member
     #     can capture flags against their team's run)
     from app.db.models import TeamMembership
+
     role = token.role if hasattr(token, "role") else None
     role_value = role.value if hasattr(role, "value") else role
     is_admin_or_lead = role_value in ("admin", "lead", "observer")
@@ -993,9 +1024,7 @@ async def submit_flag(
         # here yet — re-query).
         ex_id = (
             await session.execute(
-                select(db_models.Run.exercise_id).where(
-                    db_models.Run.id == run_id
-                )
+                select(db_models.Run.exercise_id).where(db_models.Run.id == run_id)
             )
         ).scalar_one()
         if ex_id is not None:
@@ -1003,9 +1032,7 @@ async def submit_flag(
                 await session.execute(
                     select(TeamMembership.id).where(
                         TeamMembership.exercise_id == ex_id,
-                        TeamMembership.sub == (
-                            token.sub if token else ""
-                        ),
+                        TeamMembership.sub == (token.sub if token else ""),
                     )
                 )
             ).first()
@@ -1049,9 +1076,7 @@ async def submit_flag(
         # proof-of-life and out of scope for F5 scoring.
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"flag {flag_id!r} is self-side; F5 only scores red/blue side flags"
-            ),
+            detail=(f"flag {flag_id!r} is self-side; F5 only scores red/blue side flags"),
         )
 
     elapsed = capture_seconds(started_at)
@@ -1086,6 +1111,7 @@ async def submit_flag(
     # F8: emit flag.captured event.
     from app.db.models import TelemetrySeverity
     from app.services.event_recorder import record_event
+
     await record_event(
         session,
         run_id=run_id,
@@ -1104,6 +1130,7 @@ async def submit_flag(
 
     # Update run-level score (sum of all submissions per team).
     from sqlalchemy import func as sa_func
+
     red_q = await session.execute(
         select(sa_func.coalesce(sa_func.sum(db_models.FlagSubmission.points), 0))
         .where(db_models.FlagSubmission.run_id == run_id)
@@ -1116,9 +1143,7 @@ async def submit_flag(
     )
     red_total = int(red_q.scalar_one() or 0)
     blue_total = int(blue_q.scalar_one() or 0)
-    run_obj = await session.execute(
-        select(db_models.Run).where(db_models.Run.id == run_id)
-    )
+    run_obj = await session.execute(select(db_models.Run).where(db_models.Run.id == run_id))
     run_obj = run_obj.scalar_one()
     run_obj.score_red = red_total
     run_obj.score_blue = blue_total
@@ -1176,9 +1201,7 @@ async def reset_run(
                 ``POST /drills/{id}/save-as-template`` first.
     """
     run = (
-        await session.execute(
-            select(db_models.Run).where(db_models.Run.id == run_id)
-        )
+        await session.execute(select(db_models.Run).where(db_models.Run.id == run_id))
     ).scalar_one_or_none()
     if run is None:
         raise HTTPException(
@@ -1204,23 +1227,19 @@ async def reset_run(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"run id={run_id} has no template; "
-                "use POST /drills/{id}/save-as-template first"
+                f"run id={run_id} has no template; use POST /drills/{{id}}/save-as-template first"
             ),
         )
     # Load the template's snapshot.
     from app.db.models import Template
+
     template = (
-        await session.execute(
-            select(Template).where(Template.id == run.template_id)
-        )
+        await session.execute(select(Template).where(Template.id == run.template_id))
     ).scalar_one_or_none()
     if template is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"run id={run_id} references missing template id={run.template_id}"
-            ),
+            detail=(f"run id={run_id} references missing template id={run.template_id}"),
         )
     # Reset the run's lifecycle so the runner treats it as a
     # fresh start: PENDING + restart started_at.
@@ -1231,10 +1250,10 @@ async def reset_run(
     run.ended_at = None
     # Drop existing assets (cascade deletes their children).
     existing_assets = (
-        await session.execute(
-            select(db_models.Asset).where(db_models.Asset.run_id == run_id)
-        )
-    ).scalars().all()
+        (await session.execute(select(db_models.Asset).where(db_models.Asset.run_id == run_id)))
+        .scalars()
+        .all()
+    )
     for a in existing_assets:
         await session.delete(a)
     # Re-stage assets from snapshot. We pull role / kind /
@@ -1279,9 +1298,7 @@ async def reset_run(
         "status": run.status.value,
         "asset_count": len(new_asset_ids),
         "reset_by": getattr(token, "sub", "unknown"),
-        "snapshot_id": (
-            template.snapshot.get("scenario_id") if snapshot else None
-        ),
+        "snapshot_id": (template.snapshot.get("scenario_id") if snapshot else None),
     }
 
 
@@ -1321,9 +1338,7 @@ async def save_run_as_template(
             detail="name + title must be strings",
         )
     run = (
-        await session.execute(
-            select(db_models.Run).where(db_models.Run.id == run_id)
-        )
+        await session.execute(select(db_models.Run).where(db_models.Run.id == run_id))
     ).scalar_one_or_none()
     if run is None:
         raise HTTPException(
@@ -1334,17 +1349,13 @@ async def save_run_as_template(
     scenario_id = run.scenario_id
     scenario = (
         await session.execute(
-            select(db_models.Scenario).where(
-                db_models.Scenario.id == scenario_id
-            )
+            select(db_models.Scenario).where(db_models.Scenario.id == scenario_id)
         )
     ).scalar_one_or_none()
     if scenario is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                f"run id={run_id} references missing scenario"
-            ),
+            detail=(f"run id={run_id} references missing scenario"),
         )
     snapshot = await _build_template_snapshot_from_live(run, scenario, session)
 
@@ -1382,18 +1393,12 @@ def _serialize_template_full(t: db_models.Template) -> dict:
         "scenario_id": t.scenario_id,
         "snapshot": t.snapshot,
         "created_by": t.created_by,
-        "created_at": (
-            t.created_at.isoformat() if t.created_at else None
-        ),
-        "updated_at": (
-            t.updated_at.isoformat() if t.updated_at else None
-        ),
+        "created_at": (t.created_at.isoformat() if t.created_at else None),
+        "updated_at": (t.updated_at.isoformat() if t.updated_at else None),
     }
 
 
-async def _build_template_snapshot_from_live(
-    run, scenario, session
-) -> dict:
+async def _build_template_snapshot_from_live(run, scenario, session) -> dict:
     """Build a snapshot from a live run (used by save-as-template).
 
     Unlike _build_snapshot (which uses the scenario YAML), this
@@ -1401,11 +1406,10 @@ async def _build_template_snapshot_from_live(
     original scenario still produces a faithful snapshot.
     """
     from app.db.models import Asset as _Asset
+
     assets_rows = (
-        await session.execute(
-            select(_Asset).where(_Asset.run_id == run.id)
-        )
-    ).scalars().all()
+        (await session.execute(select(_Asset).where(_Asset.run_id == run.id))).scalars().all()
+    )
     assets_snapshot = [
         {
             "role": a.role,
@@ -1429,6 +1433,7 @@ async def _build_template_snapshot_from_live(
         "run_status_at_snapshot": run.status.value,
     }
 
+
 @router.post(
     "/{run_id}/extend-timeout",
     summary="Extend the auto-timeout deadline of an active drill (admin/lead/red)",
@@ -1450,9 +1455,7 @@ async def extend_drill_timeout(
 
     # Check existence and authorization
     run = (
-        await session.execute(
-            select(db_models.Run).where(db_models.Run.id == run_id)
-        )
+        await session.execute(select(db_models.Run).where(db_models.Run.id == run_id))
     ).scalar_one_or_none()
     if run is None:
         raise HTTPException(

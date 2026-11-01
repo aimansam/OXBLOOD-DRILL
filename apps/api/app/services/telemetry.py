@@ -24,6 +24,7 @@ Design choices:
     and VM IPs. Same scope as the audit log; the same redaction rules
     apply. Adding redaction is a separate ticket.
 """
+
 from __future__ import annotations
 
 import json
@@ -72,9 +73,7 @@ class SinkResult:
     error: str | None = None
 
 
-async def dispatch(
-    sinks: list[TelemetrySink], event: dict[str, Any]
-) -> list[SinkResult]:
+async def dispatch(sinks: list[TelemetrySink], event: dict[str, Any]) -> list[SinkResult]:
     """Fire each sink in order. Failures on one sink never block another.
 
     The dispatch is sequential (avoids stampeding the warehouse if a
@@ -131,9 +130,7 @@ def build_sinks_from_spec(spec: dict | None) -> list[TelemetrySink]:
                 kind,
             )
         else:
-            logging.getLogger(__name__).warning(
-                "divide.telemetry.unknown_sink type=%r", kind
-            )
+            logging.getLogger(__name__).warning("divide.telemetry.unknown_sink type=%r", kind)
     return sinks
 
 
@@ -144,9 +141,7 @@ def _build_minio_sink(
     try:
         from minio import Minio  # type: ignore[import-not-found]
     except ImportError:
-        logging.getLogger(__name__).info(
-            "divide.telemetry.minio_skip reason=minio_not_installed"
-        )
+        logging.getLogger(__name__).info("divide.telemetry.minio_skip reason=minio_not_installed")
         return None
 
     from app.core.config import settings
@@ -185,9 +180,7 @@ class _MinioTelemetrySink:
         await _put_object_sync(self._client, self._bucket, object_name, body)
 
 
-async def _put_object_sync(
-    client: Any, bucket: str, object_name: str, body: bytes
-) -> None:
+async def _put_object_sync(client: Any, bucket: str, object_name: str, body: bytes) -> None:
     """Offload the sync minio PUT to a worker thread.
 
     Keeps the event loop responsive even if MinIO is on the slow side.

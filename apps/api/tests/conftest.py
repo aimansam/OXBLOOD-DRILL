@@ -1,4 +1,5 @@
 """Pytest fixtures."""
+
 from __future__ import annotations
 
 import os
@@ -96,8 +97,8 @@ def _create_tables():
 
     env = dict(os.environ)
     env["DIVIDE_DB_URL"] = f"sqlite:///{db_path}"
-    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1]) + os.pathsep + env.get(
-        "PYTHONPATH", ""
+    env["PYTHONPATH"] = (
+        str(Path(__file__).resolve().parents[1]) + os.pathsep + env.get("PYTHONPATH", "")
     )
     # Use the alembic binary against the same DB.
     alembic_ini = Path(__file__).resolve().parents[1] / "alembic.ini"

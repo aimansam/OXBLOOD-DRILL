@@ -1,4 +1,5 @@
 """Tests for tools/watch_drill.py — no live calls, uses httpx MockTransport."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -63,9 +64,7 @@ def test_baseline_zero_then_increment_detects_success(monkeypatch):
     _patch_transport(monkeypatch, handlers)
 
     mod = _load_module()
-    monkeypatch.setattr(
-        sys, "argv", ["watch_drill.py", "--timeout", "10", "--poll", "1"]
-    )
+    monkeypatch.setattr(sys, "argv", ["watch_drill.py", "--timeout", "10", "--poll", "1"])
     rc = mod.main()
     assert rc == 0
 
@@ -164,11 +163,7 @@ def test_cancel_after_sends_cancel_request(monkeypatch):
             200,
             json={
                 "status": "success",
-                "data": {
-                    "result": [
-                        {"metric": {"outcome": "cancelled"}, "value": [0, "0.0"]}
-                    ]
-                },
+                "data": {"result": [{"metric": {"outcome": "cancelled"}, "value": [0, "0.0"]}]},
             },
         )
 

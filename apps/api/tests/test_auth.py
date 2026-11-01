@@ -10,6 +10,7 @@ Covers:
   * require_token returns TokenData when valid
   * issue_token CLI outputs a single valid token
 """
+
 from __future__ import annotations
 
 import time
@@ -303,7 +304,11 @@ def test_issue_token_cli_rejects_zero_ttl():
     env = {**__import__("os").environ, "PYTHONPATH": "apps/api"}
     r = subprocess.run(
         [sys.executable, "tools/issue_token.py", "--user", "x", "--ttl", "0"],
-        capture_output=True, text=True, env=env, cwd=".", check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=".",
+        check=False,
     )
     assert r.returncode != 0
     # The CLI surfaces the validation error to stderr (or stdout).
@@ -318,7 +323,11 @@ def test_issue_token_cli_rejects_garbage_ttl():
     env = {**__import__("os").environ, "PYTHONPATH": "apps/api"}
     r = subprocess.run(
         [sys.executable, "tools/issue_token.py", "--user", "x", "--ttl", "bogus"],
-        capture_output=True, text=True, env=env, cwd=".", check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=".",
+        check=False,
     )
     assert r.returncode != 0
 

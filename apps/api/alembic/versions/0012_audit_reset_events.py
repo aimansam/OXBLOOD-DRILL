@@ -21,6 +21,7 @@ Revision ID: 0012_audit_reset_events
 Revises: 0011_pve_config
 Create Date: 2026-08-26
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -40,7 +41,7 @@ def _safe_add_value(enum_value: str) -> None:
     sql = sa.text(f"ALTER TYPE audit_action ADD VALUE '{enum_value}'")
     try:
         try:
-            _is_pg = op.get_bind().dialect.name == 'postgresql'
+            _is_pg = op.get_bind().dialect.name == "postgresql"
         except Exception:
             _is_pg = True
         if _is_pg:

@@ -2,6 +2,7 @@
 
 Provides endpoints for flag submissions, evidence uploads, scoring, leaderboards, and statistics.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -37,6 +38,7 @@ router = APIRouter(prefix="/api/v2", tags=["Submissions & Scoring v2"])
 # Pydantic Models
 # ============================================================================
 
+
 class FlagSubmissionCreate(BaseModel):
     drill_id: int | None = None
     lab_id: int | None = None
@@ -59,6 +61,7 @@ class EvidenceUpload(BaseModel):
 # Helper Functions
 # ============================================================================
 
+
 def submission_to_dict(submission) -> dict:
     """Convert submission to dict."""
     return {
@@ -68,7 +71,9 @@ def submission_to_dict(submission) -> dict:
         "lab_id": submission.lab_id,
         "team_id": submission.team_id,
         "submission_type": submission.submission_type,
-        "status": submission.status.value if hasattr(submission.status, "value") else submission.status,
+        "status": submission.status.value
+        if hasattr(submission.status, "value")
+        else submission.status,
         "submitted_at": submission.submitted_at.isoformat() if submission.submitted_at else None,
         "reviewed_at": submission.reviewed_at.isoformat() if submission.reviewed_at else None,
     }
@@ -115,7 +120,9 @@ def evidence_to_dict(evidence) -> dict:
         "id": evidence.id,
         "submission_id": evidence.submission_id,
         "objective_id": evidence.objective_id,
-        "evidence_type": evidence.evidence_type.value if hasattr(evidence.evidence_type, "value") else evidence.evidence_type,
+        "evidence_type": evidence.evidence_type.value
+        if hasattr(evidence.evidence_type, "value")
+        else evidence.evidence_type,
         "file_path": evidence.file_path,
         "file_size": evidence.file_size,
         "mime_type": evidence.mime_type,
@@ -155,6 +162,7 @@ def score_history_to_dict(sh) -> dict:
 # Submissions Endpoints
 # ============================================================================
 
+
 @router.post("/submissions")
 async def post_submission(
     data: FlagSubmissionCreate,
@@ -172,13 +180,12 @@ async def post_submission(
         # Drill-native identity: user_id=0 means "resolve from token sub".
         # Creates the Drill users row on first submit (sub is the identity).
         from app.db.models import User as _DrillUser
+
         if not user_id:
             sub = token.sub if token else None
             if not sub:
                 raise ValueError("Authentication required (missing X-Divide-Token)")
-            existing = await session.execute(
-                select(_DrillUser).where(_DrillUser.sub == sub)
-            )
+            existing = await session.execute(select(_DrillUser).where(_DrillUser.sub == sub))
             user = existing.scalar_one_or_none()
             if user is None:
                 # password_hash NOT NULL — mark as token-provisioned; this row
@@ -221,8 +228,11 @@ async def post_submission(
             try:
                 if result.get("first_blood"):
                     await record_drill_event(
-                        session, data.drill_id, "first-blood",
-                        "First blood: %s (+%s pts)" % (
+                        session,
+                        data.drill_id,
+                        "first-blood",
+                        "First blood: %s (+%s pts)"
+                        % (
                             (drill_flag.name if drill_flag else "flag"),
                             result.get("points_earned", 0),
                         ),
@@ -230,8 +240,11 @@ async def post_submission(
                     )
                 else:
                     await record_drill_event(
-                        session, data.drill_id, "flag",
-                        "Flag captured: %s (+%s pts)" % (
+                        session,
+                        data.drill_id,
+                        "flag",
+                        "Flag captured: %s (+%s pts)"
+                        % (
                             (drill_flag.name if drill_flag else "flag"),
                             result.get("points_earned", 0),
                         ),
@@ -239,12 +252,15 @@ async def post_submission(
                     )
                 if result.get("objective_completed"):
                     await record_drill_event(
-                        session, data.drill_id, "objective",
-                        "Objective completed: %s" % (
-                            drill_flag.name if drill_flag else "linked objective"
-                        ),
+                        session,
+                        data.drill_id,
+                        "objective",
+                        "Objective completed: %s"
+                        % (drill_flag.name if drill_flag else "linked objective"),
                         detail="Completed automatically from a correct flag capture.",
-                        side=("red" if (drill_flag and drill_flag.name.startswith("red-")) else "blue"),
+                        side=(
+                            "red" if (drill_flag and drill_flag.name.startswith("red-")) else "blue"
+                        ),
                         actor=actor,
                     )
             except ValueError:
@@ -279,15 +295,15 @@ async def get_submission_details(
     submission = await get_submission(session, submission_id)
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
-    
+
     result = submission_to_dict(submission)
-    
+
     # Add flag submission details if applicable
     if submission.submission_type == "flag":
         flag_sub = await get_flag_submission(session, submission_id)
         if flag_sub:
             result["flag_details"] = flag_submission_to_dict(flag_sub)
-    
+
     return result
 
 
@@ -357,12 +373,12 @@ async def get_drill_submissions(
     from sqlalchemy import select
 
     from app.db.models_oxblood import Submission
-    
+
     query = select(Submission).where(Submission.drill_id == drill_id)
     query = query.order_by(Submission.submitted_at.desc()).offset(skip).limit(limit)
     result = await session.execute(query)
     submissions = result.scalars().all()
-    
+
     return {
         "submissions": [submission_to_dict(s) for s in submissions],
         "count": len(submissions),
@@ -372,6 +388,7 @@ async def get_drill_submissions(
 # ============================================================================
 # Scoring Endpoints
 # ============================================================================
+
 
 @router.get("/drills/{drill_id}/scores")
 async def get_drill_scores_endpoint(
@@ -444,6 +461,7 @@ async def get_score_history_endpoint(
 # First Blood Endpoints
 # ============================================================================
 
+
 @router.get("/drills/{drill_id}/first-blood")
 async def get_drill_first_bloods_endpoint(
     drill_id: int,
@@ -473,6 +491,7 @@ async def get_user_first_bloods_endpoint(
 # ============================================================================
 # Statistics Endpoints
 # ============================================================================
+
 
 @router.get("/drills/{drill_id}/stats")
 async def get_drill_stats_endpoint(

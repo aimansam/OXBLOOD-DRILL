@@ -1,4 +1,5 @@
 """Async session factory and FastAPI dependency (Drill DB only)."""
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
@@ -20,9 +21,7 @@ def get_sessionmaker(
     if engine is not None:
         return async_sessionmaker(bind=engine, expire_on_commit=False)
     if _session_maker is None:
-        _session_maker = async_sessionmaker(
-            bind=get_engine(), expire_on_commit=False
-        )
+        _session_maker = async_sessionmaker(bind=get_engine(), expire_on_commit=False)
     return _session_maker
 
 

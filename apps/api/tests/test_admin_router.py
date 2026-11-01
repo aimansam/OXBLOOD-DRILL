@@ -10,6 +10,7 @@ passes the gate. Tests that need to verify the gate itself
 (``test_admin_probe_returns_401_when_no_token``, etc.) intentionally
 *don't* use it.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -76,15 +77,20 @@ def test_probe_endpoint_returns_snapshot(client, admin_headers):
     """GET /api/v1/admin/probe returns the ProbeResponse shape."""
     # Stub probe_pve so we don't need a live PVE.
     from app.services.admin import PveProbeResult
+
     fake_result = PveProbeResult(
-        reachable=True, version="9.1.7 (9)", pve_user="divide@pve@pam",
-        has_drill_privs=True, has_setup_privs=False,
+        reachable=True,
+        version="9.1.7 (9)",
+        pve_user="divide@pve@pam",
+        has_drill_privs=True,
+        has_setup_privs=False,
         drill_privs_present=["VM.Allocate", "VM.Clone", "VM.PowerMgmt"],
         drill_privs_missing=[],
         setup_privs_present=[],
         setup_privs_missing=["Datastore.AllocateSpace", "Datastore.Allocate", "Datastore.Audit"],
         storage=[{"storage": "local", "content": "iso,vztmpl", "avail_bytes": 50 * 1024**3}],
-        nodes=["pve"], error=None,
+        nodes=["pve"],
+        error=None,
     )
     with patch("app.services.admin.probe_pve") as p:
         p.return_value = fake_result
@@ -98,9 +104,12 @@ def test_probe_endpoint_returns_snapshot(client, admin_headers):
 
 
 def test_pve_guest_inventory_requires_admin_and_returns_live_guest_data(client, admin_headers):
-    with patch("app.routers.admin.list_virtual_machines", return_value=[
-        {"vmid": 109, "name": "dc01", "node": "pve", "status": "running"},
-    ]):
+    with patch(
+        "app.routers.admin.list_virtual_machines",
+        return_value=[
+            {"vmid": 109, "name": "dc01", "node": "pve", "status": "running"},
+        ],
+    ):
         response = client.get("/api/v1/admin/pve-guests", headers=admin_headers)
     assert response.status_code == 200
     assert response.json() == {
@@ -126,8 +135,11 @@ async def test_pve_guest_inventory_drill_scope_uses_registered_vms(client, admin
 
     async with get_sessionmaker()() as db:
         scenario = catalog.Scenario(
-            name=f"inventory-{uuid4().hex[:12]}", title="Inventory scope",
-            difficulty="easy", duration_min=30, spec={},
+            name=f"inventory-{uuid4().hex[:12]}",
+            title="Inventory scope",
+            difficulty="easy",
+            duration_min=30,
+            spec={},
         )
         db.add(scenario)
         await db.flush()
@@ -135,17 +147,26 @@ async def test_pve_guest_inventory_drill_scope_uses_registered_vms(client, admin
         old_run = catalog.Run(scenario_id=scenario.id)
         db.add_all([live_run, old_run])
         await db.flush()
-        drill = Drill(title="Current drill", status=DrillStatus.ACTIVE,
-                      environment_config={"provision_run_id": live_run.id})
-        db.add_all([
-            catalog.SnapshotBaseline(
-                scenario_id=scenario.id, scenario_version=1, role="dc01",
-                template="test", pve_vmid=987601, pve_node="pve",
-            ),
-            catalog.Asset(run_id=live_run.id, role="red", template="test", pve_vmid=987602),
-            catalog.Asset(run_id=old_run.id, role="old", template="test", pve_vmid=987603),
-            drill,
-        ])
+        drill = Drill(
+            title="Current drill",
+            status=DrillStatus.ACTIVE,
+            environment_config={"provision_run_id": live_run.id},
+        )
+        db.add_all(
+            [
+                catalog.SnapshotBaseline(
+                    scenario_id=scenario.id,
+                    scenario_version=1,
+                    role="dc01",
+                    template="test",
+                    pve_vmid=987601,
+                    pve_node="pve",
+                ),
+                catalog.Asset(run_id=live_run.id, role="red", template="test", pve_vmid=987602),
+                catalog.Asset(run_id=old_run.id, role="old", template="test", pve_vmid=987603),
+                drill,
+            ]
+        )
         await db.commit()
         scenario_id, live_id, old_id, drill_id = scenario.id, live_run.id, old_run.id, drill.id
 
@@ -166,8 +187,14 @@ async def test_pve_guest_inventory_drill_scope_uses_registered_vms(client, admin
     finally:
         async with get_sessionmaker()() as db:
             await db.execute(delete(Drill).where(Drill.id == drill_id))
-            await db.execute(delete(catalog.SnapshotBaseline).where(catalog.SnapshotBaseline.scenario_id == scenario_id))
-            await db.execute(delete(catalog.Asset).where(catalog.Asset.run_id.in_((live_id, old_id))))
+            await db.execute(
+                delete(catalog.SnapshotBaseline).where(
+                    catalog.SnapshotBaseline.scenario_id == scenario_id
+                )
+            )
+            await db.execute(
+                delete(catalog.Asset).where(catalog.Asset.run_id.in_((live_id, old_id)))
+            )
             await db.execute(delete(catalog.Run).where(catalog.Run.id.in_((live_id, old_id))))
             await db.execute(delete(catalog.Scenario).where(catalog.Scenario.id == scenario_id))
             await db.commit()
@@ -179,9 +206,7 @@ def test_drill_template_status_when_ready(client, admin_headers):
         lt.return_value = [
             {"name": "tpl-debian-cloudinit", "vmid": 9000, "template": 1},
         ]
-        r = client.get(
-            "/api/v1/admin/drill-template-status", headers=admin_headers
-        )
+        r = client.get("/api/v1/admin/drill-template-status", headers=admin_headers)
         assert r.status_code == 200
         body = r.json()
         assert body["ready"] is True
@@ -192,9 +217,7 @@ def test_drill_template_status_when_missing(client, admin_headers):
     """drill-template-status returns ready=False + error when template absent."""
     with patch("app.services.proxmox.list_templates") as lt:
         lt.return_value = [{"name": "some-other-template", "vmid": 8000}]
-        r = client.get(
-            "/api/v1/admin/drill-template-status", headers=admin_headers
-        )
+        r = client.get("/api/v1/admin/drill-template-status", headers=admin_headers)
         body = r.json()
         assert body["ready"] is False
         assert "not found" in body["error"]
@@ -215,17 +238,13 @@ def test_set_template_endpoint(client, admin_headers):
 
 def test_progress_endpoint_returns_404_for_unknown_job(client, monkeypatch, admin_headers):
     monkeypatch.setattr("app.services.cache.get_redis", lambda: _FakeRedis())
-    r = client.get(
-        "/api/v1/admin/progress/upload/nope", headers=admin_headers
-    )
+    r = client.get("/api/v1/admin/progress/upload/nope", headers=admin_headers)
     assert r.status_code == 404
 
 
 def test_progress_endpoint_validates_kind(client, monkeypatch, admin_headers):
     monkeypatch.setattr("app.services.cache.get_redis", lambda: _FakeRedis())
-    r = client.get(
-        "/api/v1/admin/progress/garbage/x", headers=admin_headers
-    )
+    r = client.get("/api/v1/admin/progress/garbage/x", headers=admin_headers)
     assert r.status_code == 400
     assert "kind" in r.json()["detail"].lower()
 
@@ -242,9 +261,7 @@ def test_upload_qcow2_rejects_empty(client, admin_headers):
     assert "empty" in r.json()["detail"]
 
 
-def test_upload_qcow2_streams_real_file(
-    client, tmp_path: Path, monkeypatch
-):
+def test_upload_qcow2_streams_real_file(client, tmp_path: Path, monkeypatch):
     """A small qcow2 file uploads end-to-end against a fake httpx client."""
     from app.core.auth import Role, sign_token
     from app.core.config import get_settings
@@ -330,12 +347,15 @@ def test_admin_probe_returns_403_for_non_admin_token(client):
     assert "'red'" in r.json()["detail"]
 
 
-@pytest.mark.parametrize("path,method", [
-    ("/api/v1/admin/probe", "GET"),
-    ("/api/v1/admin/storage", "GET"),
-    ("/api/v1/admin/drill-template-status", "GET"),
-    ("/api/v1/admin/progress", "GET"),
-])
+@pytest.mark.parametrize(
+    "path,method",
+    [
+        ("/api/v1/admin/probe", "GET"),
+        ("/api/v1/admin/storage", "GET"),
+        ("/api/v1/admin/drill-template-status", "GET"),
+        ("/api/v1/admin/progress", "GET"),
+    ],
+)
 def test_admin_routes_all_return_401_when_no_token(client, path, method):
     """Every /api/v1/admin/* endpoint must be uniformly gated.
 

@@ -14,6 +14,7 @@ Behaviour
 - All methods are async (mirror the real adapter's surface) but do no I/O.
 - Calling destroy_vm on a missing VM is a no-op (idempotent contract).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -68,9 +69,7 @@ class MockProxmoxAdapter(ProxmoxAdapter):
         self._bridges: set[str] = set()
         # Seed templates as VM entries so get_vm_state works on them.
         for name, vmid in self._templates.items():
-            self._vms[vmid] = _Vm(
-                vmid=vmid, node=self._nodes[0], name=name, is_template=True
-            )
+            self._vms[vmid] = _Vm(vmid=vmid, node=self._nodes[0], name=name, is_template=True)
         # Public, read-only call history (assertion target).
         self.cloned: list[CloneSpec] = []
         self.cloned_results: list[ClonedVM] = []
@@ -87,6 +86,7 @@ class MockProxmoxAdapter(ProxmoxAdapter):
         self.bridges_removed: list[str] = []
         self.nic_attached: list[tuple[int, str, int]] = []
         self.nic_attached_trunks: list[tuple[int, str, int, list[int]]] = []
+
     # --- inventory -------------------------------------------------------
 
     async def list_nodes(self) -> list[str]:
@@ -141,17 +141,13 @@ class MockProxmoxAdapter(ProxmoxAdapter):
     async def set_vm_name(self, vmid: int, node: str, name: str) -> None:
         self._require_vm(vmid, node).name = name
 
-    async def ensure_vm_running(
-        self, name: str, node: str, timeout_s: float = 90.0
-    ) -> VmState:
+    async def ensure_vm_running(self, name: str, node: str, timeout_s: float = 90.0) -> VmState:
         del timeout_s
         state = await self.find_vm(name)
         if state is None:
             raise KeyError(f"permanent VM {name!r} not found")
         if state.node != node:
-            raise RuntimeError(
-                f"permanent VM {name!r} is on node {state.node!r}, not {node!r}"
-            )
+            raise RuntimeError(f"permanent VM {name!r} is on node {state.node!r}, not {node!r}")
         if state.status != "running":
             await self.start_vm(state.vmid, state.node)
         return await self.get_vm_state(state.vmid, state.node)
@@ -195,9 +191,7 @@ class MockProxmoxAdapter(ProxmoxAdapter):
         vm = self._require_vm(vmid, node)
         if vm.status != "stopped":
             raise RuntimeError(f"VM {vmid} must be stopped before snapshotting")
-        self._snapshots.setdefault(vmid, {})[name] = (
-            vm.status, vm.ip, list(vm.nics)
-        )
+        self._snapshots.setdefault(vmid, {})[name] = (vm.status, vm.ip, list(vm.nics))
         self.snapshots_created.append((vmid, node, name))
 
     async def restore_vm_snapshot(self, vmid: int, node: str, name: str) -> None:
@@ -230,7 +224,7 @@ class MockProxmoxAdapter(ProxmoxAdapter):
 
     async def create_sdn_vnet(self, bridge: str, zone: str = "divide") -> None:
         """Mock: track SDN VNet creation."""
-        if not hasattr(self, 'sdn_vnets'):
+        if not hasattr(self, "sdn_vnets"):
             self.sdn_vnets = []
         if bridge not in self.sdn_vnets:
             self.sdn_vnets.append(bridge)
@@ -292,9 +286,7 @@ class MockProxmoxAdapter(ProxmoxAdapter):
         elif vmid >= self._next_vmid:
             self._next_vmid = vmid + 1
         self._templates[name] = vmid
-        self._vms[vmid] = _Vm(
-            vmid=vmid, node=node, name=name, is_template=True
-        )
+        self._vms[vmid] = _Vm(vmid=vmid, node=node, name=name, is_template=True)
         return vmid
 
     def _require_vm(self, vmid: int, node: str) -> _Vm:

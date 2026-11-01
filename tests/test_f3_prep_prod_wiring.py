@@ -11,6 +11,7 @@ These tests pin the production-side wiring:
   * tools/issue_token.py docstring references the new flow
   * tools/run_smoke.py (or equivalent) exercises the login path
 """
+
 from __future__ import annotations
 
 import re
@@ -59,9 +60,9 @@ def test_compose_exposes_bootstrap_admin_sub():
 def test_compose_exposes_bootstrap_admin_password():
     src = _read("deploy/docker-compose.yml")
     assert "DIVIDE_BOOTSTRAP_ADMIN_PASSWORD" in src
-    assert re.search(
-        r"DIVIDE_BOOTSTRAP_ADMIN_PASSWORD:\s*\$\{[^}]*:-\}", src
-    ), "DIVIDE_BOOTSTRAP_ADMIN_PASSWORD must have an empty default"
+    assert re.search(r"DIVIDE_BOOTSTRAP_ADMIN_PASSWORD:\s*\$\{[^}]*:-\}", src), (
+        "DIVIDE_BOOTSTRAP_ADMIN_PASSWORD must have an empty default"
+    )
 
 
 def test_compose_exposes_login_token_ttl():
@@ -104,7 +105,7 @@ def test_env_example_points_at_users_md():
     """The .env.example file should reference the operator guide so
     a fresh operator finds the next step after copying the file."""
     src = _read("deploy/.env.example")
-    assert ("README.md" in src or "docs/ADMIN-GUIDE.md" in src), (
+    assert "README.md" in src or "docs/ADMIN-GUIDE.md" in src, (
         "deploy/.env.example must point operators at README.md §8"
     )
 
@@ -128,12 +129,10 @@ def test_login_tool_uses_argon2id_indirectly():
     verification. Look for ``import argon2`` or ``from argon2``."""
     src = _read("tools/login.py")
     assert "import argon2" not in src, (
-        "tools/login.py should NOT import argon2 locally; the API "
-        "owns the argon2id verification"
+        "tools/login.py should NOT import argon2 locally; the API owns the argon2id verification"
     )
     assert "from argon2" not in src, (
-        "tools/login.py should NOT import from argon2; the API "
-        "owns the argon2id verification"
+        "tools/login.py should NOT import from argon2; the API owns the argon2id verification"
     )
 
 
@@ -168,12 +167,6 @@ def test_issue_token_docstring_references_login_flow():
     operators pick the right tool for the right job."""
     src = _read("tools/issue_token.py")
     # Either explicitly mentions login.py or the credential flow.
-    assert (
-        "tools/login.py" in src
-        or "credential" in src.lower()
-        or "password" in src.lower()
-    ), (
-        "tools/issue_token.py docstring should reference the "
-        "credential-login flow (tools/login.py)"
+    assert "tools/login.py" in src or "credential" in src.lower() or "password" in src.lower(), (
+        "tools/issue_token.py docstring should reference the credential-login flow (tools/login.py)"
     )
-

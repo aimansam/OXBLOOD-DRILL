@@ -22,6 +22,7 @@ Revision ID: 0013_exercise_status_enum
 Revises: 0012_audit_reset_events
 Create Date: 2026-08-26
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -53,10 +54,7 @@ def upgrade() -> None:
     ).first()
     if row is None:
         op.execute(
-            sa.text(
-                "CREATE TYPE exercise_status AS ENUM "
-                "('idle', 'live', 'ended', 'archived')"
-            )
+            sa.text("CREATE TYPE exercise_status AS ENUM ('idle', 'live', 'ended', 'archived')")
         )
 
     # Step 2: migrate the column. Three sub-steps because the column
@@ -74,10 +72,7 @@ def upgrade() -> None:
         )
     )
     op.execute(
-        sa.text(
-            "ALTER TABLE exercises "
-            "ALTER COLUMN status SET DEFAULT 'idle'::exercise_status"
-        )
+        sa.text("ALTER TABLE exercises ALTER COLUMN status SET DEFAULT 'idle'::exercise_status")
     )
 
 
@@ -89,15 +84,9 @@ def downgrade() -> None:
         return
     op.execute(sa.text("ALTER TABLE exercises ALTER COLUMN status DROP DEFAULT"))
     op.execute(
-        sa.text(
-            "ALTER TABLE exercises "
-            "ALTER COLUMN status TYPE VARCHAR(16) "
-            "USING status::VARCHAR"
-        )
+        sa.text("ALTER TABLE exercises ALTER COLUMN status TYPE VARCHAR(16) USING status::VARCHAR")
     )
-    op.execute(
-        sa.text("ALTER TABLE exercises ALTER COLUMN status SET DEFAULT 'idle'")
-    )
+    op.execute(sa.text("ALTER TABLE exercises ALTER COLUMN status SET DEFAULT 'idle'"))
     # Drop the enum. Note: this will fail if any other column references
     # the type, but the only consumer is exercises.status, so it's safe.
     op.execute(sa.text("DROP TYPE IF EXISTS exercise_status"))

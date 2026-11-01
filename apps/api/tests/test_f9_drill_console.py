@@ -17,6 +17,7 @@ The seed helpers mirror the pattern in
 ``test_reports.py::_seed_terminal_run`` (Scenario + Run + AuditLog)
 plus a minimal Exercise row for the multi-team case.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -33,6 +34,7 @@ def _now_name(prefix: str) -> str:
 
 def _admin_token(sub: str = "alice") -> str:
     from app.core.auth import Role, sign_token
+
     return sign_token(sub, Role.ADMIN.value, 3600)
 
 

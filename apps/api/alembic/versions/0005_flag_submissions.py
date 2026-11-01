@@ -17,6 +17,7 @@ Revision ID: 0005_flag_submissions
 Revises: 0004_asset_instance
 Create Date: 2026-08-25
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -51,11 +52,11 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
         ),
-        sa.ForeignKeyConstraint(
-            ["run_id"], ["runs.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["run_id"], ["runs.id"], ondelete="CASCADE"),
         sa.UniqueConstraint(
-            "run_id", "flag_id", "team",
+            "run_id",
+            "flag_id",
+            "team",
             name="uq_flag_submissions_run_flag_team",
         ),
     )
@@ -69,15 +70,14 @@ def upgrade() -> None:
         "flag_submissions",
         ["team"],
     )
+
+
 def downgrade() -> None:
     bind = op.get_bind()
     names = sa.inspect(bind).get_table_names()
     if "flag_submissions" not in names:
         return
-    indexes = {
-        idx["name"]
-        for idx in sa.inspect(bind).get_indexes("flag_submissions")
-    }
+    indexes = {idx["name"] for idx in sa.inspect(bind).get_indexes("flag_submissions")}
     if "ix_flag_submissions_team" in indexes:
         op.drop_index("ix_flag_submissions_team", table_name="flag_submissions")
     if "ix_flag_submissions_run_id" in indexes:

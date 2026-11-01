@@ -1,4 +1,5 @@
 """Tests for the Prometheus metrics module and /metrics endpoint."""
+
 from __future__ import annotations
 
 from app.main import app
@@ -98,14 +99,10 @@ def test_metrics_endpoint_returns_200_and_prometheus_body():
 def test_metrics_endpoint_increments_http_counter_on_request():
     client = TestClient(app)
     # Capture counter value before
-    before = _counter_value(
-        HTTP_REQUESTS_TOTAL, method="GET", route="/healthz", status="200"
-    )
+    before = _counter_value(HTTP_REQUESTS_TOTAL, method="GET", route="/healthz", status="200")
     r = client.get("/healthz")
     assert r.status_code == 200
-    after = _counter_value(
-        HTTP_REQUESTS_TOTAL, method="GET", route="/healthz", status="200"
-    )
+    after = _counter_value(HTTP_REQUESTS_TOTAL, method="GET", route="/healthz", status="200")
     assert after - before >= 1
 
 
@@ -114,14 +111,10 @@ def test_metrics_endpoint_does_not_count_itself():
     client = TestClient(app)
     # Even after hitting /metrics, the counter for the /metrics route
     # itself should NOT increment.
-    before = _counter_value(
-        HTTP_REQUESTS_TOTAL, method="GET", route="/metrics", status="200"
-    )
+    before = _counter_value(HTTP_REQUESTS_TOTAL, method="GET", route="/metrics", status="200")
     client.get("/metrics")
     client.get("/metrics")
-    after = _counter_value(
-        HTTP_REQUESTS_TOTAL, method="GET", route="/metrics", status="200"
-    )
+    after = _counter_value(HTTP_REQUESTS_TOTAL, method="GET", route="/metrics", status="200")
     assert after == before
 
 

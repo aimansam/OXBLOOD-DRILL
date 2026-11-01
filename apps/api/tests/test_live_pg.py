@@ -8,6 +8,7 @@ The real value of `live_pg` is in existing tests that *only* make sense
 against real Postgres (e.g. enum case-sensitivity, JSONB operators). New
 ones can be added by tagging them with `@pytest.mark.live_pg`.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -57,9 +58,7 @@ def test_postgres_enum_types_match_model_declarations() -> None:
     import sqlalchemy as sa
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    url = os.environ.get("DIVIDE_TEST_LIVE_PG_URL") or os.environ.get(
-        "DIVIDE_TEST_LIVE_PG"
-    )
+    url = os.environ.get("DIVIDE_TEST_LIVE_PG_URL") or os.environ.get("DIVIDE_TEST_LIVE_PG")
     assert url and url != "1" and url != "true" and url != "yes", (
         "Set DIVIDE_TEST_LIVE_PG_URL (not just DIVIDE_TEST_LIVE_PG=1) "
         "to a full postgresql+asyncpg:// URL."
@@ -99,9 +98,7 @@ def test_live_pg_helper_resolves_truthy_env(monkeypatch):
     import importlib.util
 
     monkeypatch.setenv("DIVIDE_TEST_LIVE_PG", "1")
-    monkeypatch.setenv(
-        "DIVIDE_TEST_LIVE_PG_URL", "postgresql+asyncpg://u:p@h:5432/db"
-    )
+    monkeypatch.setenv("DIVIDE_TEST_LIVE_PG_URL", "postgresql+asyncpg://u:p@h:5432/db")
 
     spec = importlib.util.spec_from_file_location(
         "_divide_conftest",

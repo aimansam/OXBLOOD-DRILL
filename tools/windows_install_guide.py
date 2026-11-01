@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Windows Template Installation Guide and Monitor"""
+
 import os
 import sys
 
-sys.path.insert(0, '/DATA/Storage/docker/divide-cyber-drill/apps/api')
+sys.path.insert(0, "/DATA/Storage/docker/divide-cyber-drill/apps/api")
 
 from app.services.proxmox import _validate_config
 from proxmoxer import ProxmoxAPI
@@ -13,12 +14,12 @@ def get_client():
     host, user, token_name, token_secret = _validate_config()
     return ProxmoxAPI(
         host=host,
-        port=int(os.environ.get('PROXMOX_PORT', '8006')),
+        port=int(os.environ.get("PROXMOX_PORT", "8006")),
         user=user,
         token_name=token_name,
         token_value=token_secret,
-        verify_ssl=os.environ.get('PROXMOX_VERIFY_SSL', 'true').lower() in ('1', 'true', 'yes'),
-        backend='https',
+        verify_ssl=os.environ.get("PROXMOX_VERIFY_SSL", "true").lower() in ("1", "true", "yes"),
+        backend="https",
         timeout=60,
     )
 
@@ -27,39 +28,39 @@ def check_vm_status(client, node, vmid):
     """Check if VM is running or stopped."""
     try:
         status = client.nodes(node).qemu(vmid).status.current.get()
-        return status.get('status', 'unknown')
+        return status.get("status", "unknown")
     except:
-        return 'unknown'
+        return "unknown"
 
 
 def main():
     client = get_client()
-    
-    nodes = [n['node'] for n in client.nodes.get() if n.get('status') == 'online']
+
+    nodes = [n["node"] for n in client.nodes.get() if n.get("status") == "online"]
     if not nodes:
         print("Error: No online PVE nodes found", file=sys.stderr)
         sys.exit(1)
-    
+
     node = nodes[0]
-    
+
     print("=" * 70)
     print("  Windows Template Installation Guide")
     print("=" * 70)
     print()
-    
+
     windows_vms = [
-        {'name': 'tpl-win11-enterprise', 'vmid': 110, 'iso': 'Windows.iso'},
-        {'name': 'tpl-win2022-dc', 'vmid': 111, 'iso': 'SERVER_EVAL_x64FRE_en-us.iso'},
-        {'name': 'tpl-win2022-member', 'vmid': 112, 'iso': 'SERVER_EVAL_x64FRE_en-us.iso'},
+        {"name": "tpl-win11-enterprise", "vmid": 110, "iso": "Windows.iso"},
+        {"name": "tpl-win2022-dc", "vmid": 111, "iso": "SERVER_EVAL_x64FRE_en-us.iso"},
+        {"name": "tpl-win2022-member", "vmid": 112, "iso": "SERVER_EVAL_x64FRE_en-us.iso"},
     ]
-    
+
     print("Windows VMs created and ready for installation:")
     print()
-    
+
     for vm in windows_vms:
-        status = check_vm_status(client, node, vm['vmid'])
+        status = check_vm_status(client, node, vm["vmid"])
         print(f"  {vm['name']} (vmid={vm['vmid']}) - Status: {status}")
-    
+
     print()
     print("=" * 70)
     print("  Installation Instructions (per VM)")
@@ -125,5 +126,5 @@ def main():
     print("=" * 70)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

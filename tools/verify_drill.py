@@ -12,6 +12,7 @@ Usage:
     python tools/verify_drill.py --expect failed
     python tools/verify_drill.py --json                  # CI mode
 """
+
 from __future__ import annotations
 
 import argparse
@@ -109,12 +110,8 @@ def _fetch_metrics(client: httpx.Client) -> dict[tuple[str, frozenset], float]:
     r.raise_for_status()
     out: dict[tuple[str, frozenset], float] = {}
     # Match: name{labels} value  OR  name value
-    labeled_re = re.compile(
-        r"^(divide_[a-zA-Z0-9_]+)\{([^}]*)\}\s+([0-9eE+\-.]+)\s*$"
-    )
-    unlabeled_re = re.compile(
-        r"^(divide_[a-zA-Z0-9_]+)\s+([0-9eE+\-.]+)\s*$"
-    )
+    labeled_re = re.compile(r"^(divide_[a-zA-Z0-9_]+)\{([^}]*)\}\s+([0-9eE+\-.]+)\s*$")
+    unlabeled_re = re.compile(r"^(divide_[a-zA-Z0-9_]+)\s+([0-9eE+\-.]+)\s*$")
     for line in r.text.splitlines():
         if not line.startswith("divide_") or line.startswith("#"):
             continue
@@ -212,7 +209,6 @@ def _sum_metric(
     return total
 
 
-
 # ---------- checks ----------
 
 
@@ -238,10 +234,7 @@ def check_assets_destroyed(assets: list[dict[str, Any]]) -> tuple[bool, str]:
     bad = [a for a in real_assets if a.get("status") not in terminal]
     if bad:
         statuses = ", ".join(f"{a['role']}={a.get('status')}" for a in bad)
-        return False, (
-            f"{len(bad)}/{len(real_assets)} asset(s) not in terminal state: "
-            f"{statuses}"
-        )
+        return False, (f"{len(bad)}/{len(real_assets)} asset(s) not in terminal state: {statuses}")
     return True, (
         f"{len(real_assets)} asset(s) torn down "
         f"(vmids: {', '.join(str(a['pve_vmid']) for a in real_assets)})"
@@ -255,8 +248,7 @@ def check_assets_spawned(assets: list[dict[str, Any]]) -> tuple[bool, str]:
     if not real:
         return False, "no asset has pve_vmid; clone never happened"
     return True, (
-        f"{len(real)} asset(s) spawned "
-        f"(vmids: {', '.join(str(a['pve_vmid']) for a in real)})"
+        f"{len(real)} asset(s) spawned (vmids: {', '.join(str(a['pve_vmid']) for a in real)})"
     )
 
 
@@ -311,8 +303,7 @@ def check_metrics_counter(
     """
     real = {"adapter": "real"}
     # Specific outcome should be > 0.
-    outcome_value = _get_metric(metrics, "divide_runs_total",
-                                outcome=expect, **real)
+    outcome_value = _get_metric(metrics, "divide_runs_total", outcome=expect, **real)
     if outcome_value is None:
         # No samples with this outcome ever — could be a brand-new
         # process or the zero-init pre-fill. Look across all adapters.
@@ -326,24 +317,23 @@ def check_metrics_counter(
         outcome_value = all_outcome
 
     # Failed should be 0 (no regressions).
-    failed_value = _get_metric(metrics, "divide_runs_total",
-                               outcome="failed", **real) or 0.0
+    failed_value = _get_metric(metrics, "divide_runs_total", outcome="failed", **real) or 0.0
     # Active should be 0 (no in-flight).
     active = _get_metric(metrics, "divide_runs_active", **real) or 0.0
 
     if failed_value > 0:
         return False, (
-            f"divide_runs_total{{outcome=\"failed\", adapter=\"real\"}}="
+            f'divide_runs_total{{outcome="failed", adapter="real"}}='
             f"{failed_value} -- {int(failed_value)} drill(s) failed since "
             f"the API started. Investigate the runs table."
         )
     if active > 0:
         return False, (
-            f"divide_runs_active{{adapter=\"real\"}}={active} -- a drill "
+            f'divide_runs_active{{adapter="real"}}={active} -- a drill '
             f"is still in-flight; live_drill should have waited"
         )
     return True, (
-        f"divide_runs_total{{outcome={expect!r}, adapter=\"real\"}}="
+        f'divide_runs_total{{outcome={expect!r}, adapter="real"}}='
         f"{outcome_value}, divide_runs_active=0, failed=0"
     )
 
@@ -359,25 +349,29 @@ def _print_human(
     json_mode: bool = False,
 ) -> None:
     if json_mode:
-        print(json.dumps({
-            "run_id": run_id,
-            "status": run.get("status"),
-            "scenario_id": run.get("scenario_id"),
-            "assets": [
+        print(
+            json.dumps(
                 {
-                    "role": a.get("role"),
-                    "pve_vmid": a.get("pve_vmid"),
-                    "pve_node": a.get("pve_node"),
-                    "pve_ip": a.get("pve_ip"),
-                    "status": a.get("status"),
-                }
-                for a in assets
-            ],
-            "checks": [
-                {"name": name, "ok": ok, "detail": detail}
-                for name, ok, detail in results
-            ],
-        }, indent=2))
+                    "run_id": run_id,
+                    "status": run.get("status"),
+                    "scenario_id": run.get("scenario_id"),
+                    "assets": [
+                        {
+                            "role": a.get("role"),
+                            "pve_vmid": a.get("pve_vmid"),
+                            "pve_node": a.get("pve_node"),
+                            "pve_ip": a.get("pve_ip"),
+                            "status": a.get("status"),
+                        }
+                        for a in assets
+                    ],
+                    "checks": [
+                        {"name": name, "ok": ok, "detail": detail} for name, ok, detail in results
+                    ],
+                },
+                indent=2,
+            )
+        )
         return
 
     print("=" * 70)
@@ -409,21 +403,30 @@ def main() -> int:
         description="Post-drill sanity check (DB + audit + metrics).",
     )
     ap.add_argument("--api-base", default=DEFAULT_API_BASE)
-    ap.add_argument("--run-id", type=int, default=None,
-                    help="Run to verify (default: most recent)")
-    ap.add_argument("--expect", default="succeeded",
-                    choices=["succeeded", "failed", "cancelled", "running"],
-                    help="Expected terminal status (default: succeeded)")
-    ap.add_argument("--destroyed-check", dest="destroyed_check",
-                    action="store_true", default=True,
-                    help="Assert assets are torn down (default True). "
-                         "Skipped if asset detail isn't exposed by the "
-                         "API (current router only lists runs).")
-    ap.add_argument("--no-destroyed-check", dest="destroyed_check",
-                    action="store_false",
-                    help="Skip the teardown check (useful right after "
-                         "live_drill exits -- it leaves assets running so "
-                         "you can inspect)")
+    ap.add_argument("--run-id", type=int, default=None, help="Run to verify (default: most recent)")
+    ap.add_argument(
+        "--expect",
+        default="succeeded",
+        choices=["succeeded", "failed", "cancelled", "running"],
+        help="Expected terminal status (default: succeeded)",
+    )
+    ap.add_argument(
+        "--destroyed-check",
+        dest="destroyed_check",
+        action="store_true",
+        default=True,
+        help="Assert assets are torn down (default True). "
+        "Skipped if asset detail isn't exposed by the "
+        "API (current router only lists runs).",
+    )
+    ap.add_argument(
+        "--no-destroyed-check",
+        dest="destroyed_check",
+        action="store_false",
+        help="Skip the teardown check (useful right after "
+        "live_drill exits -- it leaves assets running so "
+        "you can inspect)",
+    )
     ap.add_argument("--json", action="store_true", help="JSON output for CI")
     args = ap.parse_args()
 
@@ -466,21 +469,25 @@ def main() -> int:
             # Asset detail not exposed by the current API. Warn but don't
             # fail -- the rest of the checks (status, audit, metrics)
             # already prove the drill happened.
-            results.append((
-                "assets torn down",
-                True,
-                "skipped (asset detail not in GET /api/v1/drills response)",
-            ))
+            results.append(
+                (
+                    "assets torn down",
+                    True,
+                    "skipped (asset detail not in GET /api/v1/drills response)",
+                )
+            )
         else:
             ok, detail = check_assets_destroyed(assets)
             results.append(("assets torn down", ok, detail))
     elif args.expect in ("succeeded", "running"):
         if not assets:
-            results.append((
-                "assets spawned",
-                True,
-                "skipped (asset detail not in GET /api/v1/drills response)",
-            ))
+            results.append(
+                (
+                    "assets spawned",
+                    True,
+                    "skipped (asset detail not in GET /api/v1/drills response)",
+                )
+            )
         else:
             ok, detail = check_assets_spawned(assets)
             results.append(("assets spawned", ok, detail))
@@ -495,5 +502,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-

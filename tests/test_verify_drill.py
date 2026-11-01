@@ -5,6 +5,7 @@ hitting the live API. The actual verify run is exercised by hand
 after `make live-drill` against a real PVE -- see
 README.md §3.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -212,7 +213,6 @@ def test_check_metrics_counter_ignores_mock_adapter_for_failure_check():
     assert ok is True
 
 
-
 # ---------- _fetch_metrics: label-preserving parse ----------
 
 
@@ -221,11 +221,11 @@ def test_fetch_metrics_preserves_labels():
     from unittest.mock import MagicMock
 
     sample = (
-        '# HELP divide_runs_total X\n'
+        "# HELP divide_runs_total X\n"
         'divide_runs_total{adapter="real",outcome="succeeded"} 7.0\n'
         'divide_runs_active{adapter="real"} 0.0\n'
         'divide_run_duration_seconds_bucket{le="+Inf"} 12.0\n'
-        'divide_runs_total_unlabeled 5.0\n'
+        "divide_runs_total_unlabeled 5.0\n"
     )
     client = MagicMock()
     client.get.return_value.text = sample
@@ -233,13 +233,10 @@ def test_fetch_metrics_preserves_labels():
     metrics = mod._fetch_metrics(client)
 
     # Labeled samples carry their labels.
-    assert mod._get_metric(metrics, "divide_runs_total",
-                           outcome="succeeded", adapter="real") == 7.0
-    assert mod._get_metric(metrics, "divide_runs_active",
-                           adapter="real") == 0.0
+    assert mod._get_metric(metrics, "divide_runs_total", outcome="succeeded", adapter="real") == 7.0
+    assert mod._get_metric(metrics, "divide_runs_active", adapter="real") == 0.0
     # Histogram bucket le=+Inf preserved.
-    assert mod._get_metric(metrics, "divide_run_duration_seconds_bucket",
-                           le="+Inf") == 12.0
+    assert mod._get_metric(metrics, "divide_run_duration_seconds_bucket", le="+Inf") == 12.0
     # Unlabeled sample has empty label set.
     assert mod._get_metric(metrics, "divide_runs_total_unlabeled") == 5.0
 
@@ -248,11 +245,7 @@ def test_fetch_metrics_skips_unparseable_lines():
     mod = _load_module()
     from unittest.mock import MagicMock
 
-    sample = (
-        'divide_runs_total 1.0\n'
-        'divide_runs_active not_a_number\n'
-        'divide_runs_active 0.0\n'
-    )
+    sample = "divide_runs_total 1.0\ndivide_runs_active not_a_number\ndivide_runs_active 0.0\n"
     client = MagicMock()
     client.get.return_value.text = sample
     client.get.return_value.raise_for_status = lambda: None
@@ -375,8 +368,6 @@ def test_fetch_run_returns_none_when_id_absent():
     client.get.return_value.raise_for_status = lambda: None
 
     assert mod._fetch_run(client, 99) is None
-
-
 
 
 # ---------- orchestration (CI smoke) ----------
@@ -516,13 +507,22 @@ def test_main_returns_zero_for_successful_run(monkeypatch):
     _patch_httpx_for_verify_drill(monkeypatch, mod, handlers)
 
     monkeypatch.setattr(
-        sys, "argv",
-        ["verify_drill.py", "--run-id", "5", "--expect", "succeeded",
-         "--json", "--no-destroyed-check"],
+        sys,
+        "argv",
+        [
+            "verify_drill.py",
+            "--run-id",
+            "5",
+            "--expect",
+            "succeeded",
+            "--json",
+            "--no-destroyed-check",
+        ],
     )
     # Suppress only stdout; let stderr through so we can see the route
     # traces.
     import io
+
     buf_out = io.StringIO()
     monkeypatch.setattr(sys, "stdout", buf_out)
     rc = mod.main()
@@ -590,9 +590,9 @@ def test_main_returns_one_for_failed_run(monkeypatch):
 
     mod = _load_module()
     monkeypatch.setattr(
-        sys, "argv",
-        ["verify_drill.py", "--run-id", "6", "--expect", "succeeded",
-         "--no-destroyed-check"],
+        sys,
+        "argv",
+        ["verify_drill.py", "--run-id", "6", "--expect", "succeeded", "--no-destroyed-check"],
     )
     monkeypatch.setattr(sys, "stdout", io.StringIO())
     monkeypatch.setattr(sys, "stderr", io.StringIO())

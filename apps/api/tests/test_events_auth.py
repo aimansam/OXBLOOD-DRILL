@@ -13,6 +13,7 @@ Covers:
     require_role)
   * Bad query-param token returns 401
 """
+
 from __future__ import annotations
 
 import os
@@ -26,6 +27,7 @@ os.environ.setdefault("DIVIDE_TOKEN_SECRET", "test-secret-do-not-use-in-prod")
 @pytest.fixture
 def admin_token() -> str:
     from app.core.auth import Role, sign_token
+
     return sign_token("admin-test", Role.ADMIN.value, 3600)
 
 
@@ -40,9 +42,7 @@ async def test_current_token_uses_query_param_when_header_missing(
     request = MagicMock()
     request.query_params = {"token": admin_token}
     request.state = MagicMock()
-    result = await current_token(
-        request, x_divide_token=None
-    )
+    result = await current_token(request, x_divide_token=None)
     assert result is not None
     assert result.sub == "admin-test"
 
@@ -56,9 +56,7 @@ async def test_current_token_header_takes_precedence(admin_token: str):
     request = MagicMock()
     request.query_params = {"token": "garbage-from-query"}
     request.state = MagicMock()
-    result = await current_token(
-        request, x_divide_token=admin_token
-    )
+    result = await current_token(request, x_divide_token=admin_token)
     assert result is not None
     assert result.sub == "admin-test"
 
@@ -71,9 +69,7 @@ async def test_current_token_anonymous_when_neither_present():
     request = MagicMock()
     request.query_params = {}
     request.state = MagicMock()
-    result = await current_token(
-        request, x_divide_token=None
-    )
+    result = await current_token(request, x_divide_token=None)
     assert result is None
 
 

@@ -27,6 +27,7 @@ Visibility filter (``can_view_exercise``) lives in
 ``app.services.authorization`` and is shared with the run-level
 RBAC so a member of an exercise can see the runs that affect it.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -52,9 +53,7 @@ router = APIRouter()
 # --- helpers ----------------------------------------------------------
 
 
-async def _load_exercise_or_404(
-    session: AsyncSession, exercise_id: int
-) -> Exercise:
+async def _load_exercise_or_404(session: AsyncSession, exercise_id: int) -> Exercise:
     ex = (
         await session.execute(
             select(Exercise)
@@ -149,10 +148,9 @@ async def create_exercise(
     # F6: validate the scenario exists. If it doesn't, 404, not
     # a 409 from the FK error. Operators get a clearer message.
     from app.db.models import Scenario
+
     scen = (
-        await session.execute(
-            select(Scenario).where(Scenario.id == scenario_id)
-        )
+        await session.execute(select(Scenario).where(Scenario.id == scenario_id))
     ).scalar_one_or_none()
     if scen is None:
         raise HTTPException(
@@ -164,9 +162,7 @@ async def create_exercise(
     ends_at = None
     if starts_at_raw:
         try:
-            starts_at = datetime.fromisoformat(
-                starts_at_raw.replace("Z", "+00:00")
-            )
+            starts_at = datetime.fromisoformat(starts_at_raw.replace("Z", "+00:00"))
         except Exception:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -174,9 +170,7 @@ async def create_exercise(
             )
     if ends_at_raw:
         try:
-            ends_at = datetime.fromisoformat(
-                ends_at_raw.replace("Z", "+00:00")
-            )
+            ends_at = datetime.fromisoformat(ends_at_raw.replace("Z", "+00:00"))
         except Exception:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -224,20 +218,25 @@ async def create_exercise(
     await session.commit()
     # Don't refresh(ex) -- it invalidates the selectinload. Pull
     # teams with a separate query while the session is still active.
-    teams_q = await session.execute(
-        select(Team).where(Team.exercise_id == ex.id)
-    )
+    teams_q = await session.execute(select(Team).where(Team.exercise_id == ex.id))
     created_teams = list(teams_q.scalars().all())
     return _serialize_exercise(ex, created_teams)
-
 
 
 @router.get(
     "",
     summary="List exercises",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def list_exercises(
     session: AsyncSession = Depends(get_session),
@@ -251,23 +250,25 @@ async def list_exercises(
     role = getattr(token, "role", None)
     if role in (Role.ADMIN, Role.LEAD, Role.OBSERVER):
         rows = (
-            await session.execute(
-                select(Exercise).order_by(Exercise.id.desc())
-            )
-        ).scalars().all()
+            (await session.execute(select(Exercise).order_by(Exercise.id.desc()))).scalars().all()
+        )
     else:
         sub = getattr(token, "sub", None)
         rows = (
-            await session.execute(
-                select(Exercise)
-                .join(
-                    TeamMembership,
-                    TeamMembership.exercise_id == Exercise.id,
+            (
+                await session.execute(
+                    select(Exercise)
+                    .join(
+                        TeamMembership,
+                        TeamMembership.exercise_id == Exercise.id,
+                    )
+                    .where(TeamMembership.sub == sub)
+                    .order_by(Exercise.id.desc())
                 )
-                .where(TeamMembership.sub == sub)
-                .order_by(Exercise.id.desc())
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     # Bulk-fetch teams for every exercise in one query so we
     # don't N+1 the serialiser.
@@ -275,10 +276,10 @@ async def list_exercises(
     if rows:
         ex_ids = [r.id for r in rows]
         teams = (
-            await session.execute(
-                select(Team).where(Team.exercise_id.in_(ex_ids))
-            )
-        ).scalars().all()
+            (await session.execute(select(Team).where(Team.exercise_id.in_(ex_ids))))
+            .scalars()
+            .all()
+        )
         teams_by_ex: dict[int, list] = {}
         for t in teams:
             teams_by_ex.setdefault(t.exercise_id, []).append(t)
@@ -313,19 +314,11 @@ def _serialize_exercise(
         "title": ex.title,
         "scenario_id": ex.scenario_id,
         "status": ex.status.value if hasattr(ex.status, "value") else ex.status,
-        "starts_at": (
-            ex.starts_at.isoformat() if ex.starts_at else None
-        ),
-        "ends_at": (
-            ex.ends_at.isoformat() if ex.ends_at else None
-        ),
+        "starts_at": (ex.starts_at.isoformat() if ex.starts_at else None),
+        "ends_at": (ex.ends_at.isoformat() if ex.ends_at else None),
         "created_by": ex.created_by,
-        "created_at": (
-            ex.created_at.isoformat() if ex.created_at else None
-        ),
-        "updated_at": (
-            ex.updated_at.isoformat() if ex.updated_at else None
-        ),
+        "created_at": (ex.created_at.isoformat() if ex.created_at else None),
+        "updated_at": (ex.updated_at.isoformat() if ex.updated_at else None),
         "teams": [
             {
                 "id": t.id,
@@ -342,9 +335,17 @@ def _serialize_exercise(
 @router.get(
     "/{exercise_id}",
     summary="Get one exercise",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def get_exercise(
     exercise_id: int,
@@ -365,10 +366,7 @@ async def get_exercise(
         if member is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "you do not have access to this exercise "
-                    "(not a team member)"
-                ),
+                detail=("you do not have access to this exercise (not a team member)"),
             )
 
     ex = await _load_exercise_or_404(session, exercise_id)
@@ -484,9 +482,14 @@ async def add_team(
 @router.post(
     "/{exercise_id}/members",
     summary="Add a member to a team in this exercise",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+            )
+        )
+    ],
 )
 async def add_member(
     exercise_id: int,
@@ -510,11 +513,7 @@ async def add_member(
         )
     # Validate team is in this exercise.
     team = (
-        await session.execute(
-            select(Team).where(
-                Team.id == team_id, Team.exercise_id == ex.id
-            )
-        )
+        await session.execute(select(Team).where(Team.id == team_id, Team.exercise_id == ex.id))
     ).scalar_one_or_none()
     if team is None:
         raise HTTPException(
@@ -557,9 +556,17 @@ async def add_member(
 @router.get(
     "/{exercise_id}/leaderboard",
     summary="Get ranked team scores for the exercise",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def get_leaderboard(
     exercise_id: int,
@@ -587,20 +594,21 @@ async def get_leaderboard(
         if member is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "you do not have access to this leaderboard "
-                    "(not a team member)"
-                ),
+                detail=("you do not have access to this leaderboard (not a team member)"),
             )
 
     ex = await _load_exercise_or_404(session, exercise_id)
     teams = (
-        await session.execute(
-            select(Team)
-            .where(Team.exercise_id == ex.id)
-            .order_by(Team.score.desc(), Team.id.asc())
+        (
+            await session.execute(
+                select(Team)
+                .where(Team.exercise_id == ex.id)
+                .order_by(Team.score.desc(), Team.id.asc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return {
         "exercise_id": ex.id,
         "exercise_name": ex.name,

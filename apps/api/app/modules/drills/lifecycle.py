@@ -1,4 +1,5 @@
 """Pure drill lifecycle helpers shared by the API and orchestration code."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -87,7 +88,9 @@ def drill_to_dict(drill: Any) -> dict[str, Any]:
         "scenario_id": drill.scenario_id,
         "drill_type": drill.drill_type,
         "status": drill.status.value if hasattr(drill.status, "value") else drill.status,
-        "scheduled_start_at": drill.scheduled_start_at.isoformat() if drill.scheduled_start_at else None,
+        "scheduled_start_at": drill.scheduled_start_at.isoformat()
+        if drill.scheduled_start_at
+        else None,
         "scheduled_end_at": drill.scheduled_end_at.isoformat() if drill.scheduled_end_at else None,
         "actual_start_at": drill.actual_start_at.isoformat() if drill.actual_start_at else None,
         "actual_end_at": drill.actual_end_at.isoformat() if drill.actual_end_at else None,

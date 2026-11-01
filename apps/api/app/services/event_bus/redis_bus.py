@@ -39,6 +39,7 @@ the Redis pub/sub async client into per-subscriber
 client directly; subscribers register a callback that gets
 invoked from the bridge thread.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -278,9 +279,7 @@ class RedisEventBus:
             self._bridge_started.set()
             while not self._bridge_stop.is_set():
                 # poll=True keeps the loop responsive to stop.
-                message = await pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=0.5
-                )
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5)
                 if message is None:
                     continue
                 if message.get("type") != "message":

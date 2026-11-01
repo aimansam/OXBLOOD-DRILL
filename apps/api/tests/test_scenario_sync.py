@@ -4,6 +4,7 @@ We do NOT need a real DB here: SQLite-in-memory is enough to exercise
 the upsert/archive logic. The JSON Schema is shared with the live app,
 so we test against the actual ``schemas/scenario.schema.json``.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,6 +27,7 @@ def engine():
     eng = create_async_engine("sqlite+aiosqlite:///:memory:")
     yield eng
     import asyncio
+
     asyncio.run(eng.dispose())
 
 
@@ -130,9 +132,7 @@ async def test_sync_creates_new_scenario(tmp_path: Path, session: AsyncSession) 
     assert report.created[0].name == "demo"
     assert report.created[0].scenario_id is not None
 
-    row = (
-        await session.execute(select(models.Scenario))
-    ).scalar_one()
+    row = (await session.execute(select(models.Scenario))).scalar_one()
     assert row.name == "demo"
     assert row.archived_at is None
     assert row.spec["apiVersion"] == "divide/v1"
@@ -224,9 +224,7 @@ async def test_sync_archives_missing_yaml(tmp_path: Path, session: AsyncSession)
 
 
 @pytest.mark.asyncio
-async def test_sync_archive_missing_disabled(
-    tmp_path: Path, session: AsyncSession
-) -> None:
+async def test_sync_archive_missing_disabled(tmp_path: Path, session: AsyncSession) -> None:
     """With archive_missing=False, the row stays even when YAML is gone."""
     _write(tmp_path, "demo.scenario.yaml", _valid_scenario("demo"))
     await sync_files(session, [tmp_path])

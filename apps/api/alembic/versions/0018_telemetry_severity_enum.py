@@ -33,6 +33,7 @@ Revision ID: 0018_telemetry_severity_enum
 Revises: 0017_audit_run_reset
 Create Date: 2026-08-29
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -83,12 +84,7 @@ def upgrade() -> None:
     # that Postgres refuses to auto-cast to the new enum type.
     # Drop it before the ALTER; the model-level default on
     # Python side still emits ``info`` for new rows.
-    op.execute(
-        sa.text(
-            "ALTER TABLE telemetry_events "
-            "ALTER COLUMN severity DROP DEFAULT"
-        )
-    )
+    op.execute(sa.text("ALTER TABLE telemetry_events ALTER COLUMN severity DROP DEFAULT"))
     # ALTER COLUMN ... TYPE telemetry_severity USING severity::telemetry_severity
     # is safe because every existing value in the column matches
     # one of the four enum members (the column was varchar with a
@@ -118,10 +114,5 @@ def downgrade() -> None:
             "USING severity::varchar"
         )
     )
-    op.execute(
-        sa.text(
-            "ALTER TABLE telemetry_events "
-            "ALTER COLUMN severity SET DEFAULT 'info'"
-        )
-    )
+    op.execute(sa.text("ALTER TABLE telemetry_events ALTER COLUMN severity SET DEFAULT 'info'"))
     op.execute(sa.text("DROP TYPE IF EXISTS telemetry_severity"))

@@ -10,6 +10,7 @@ tests pin that the scenario file:
   * declares at least 3 networks so the topology diagram has
     something to lay out
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,9 +18,7 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parent.parent
-SCENARIO_PATH = (
-    REPO / "examples" / "scenarios" / "red-vs-blue-baseline.scenario.yaml"
-)
+SCENARIO_PATH = REPO / "examples" / "scenarios" / "red-vs-blue-baseline.scenario.yaml"
 
 
 def _load() -> dict:
@@ -31,8 +30,7 @@ def _load() -> dict:
 
 def test_demo_scenario_file_exists():
     assert SCENARIO_PATH.is_file(), (
-        f"Demo scenario missing: {SCENARIO_PATH}. Run git status "
-        "to confirm it was committed."
+        f"Demo scenario missing: {SCENARIO_PATH}. Run git status to confirm it was committed."
     )
 
 
@@ -72,9 +70,7 @@ def test_demo_scenario_validates_against_schema():
         env={**env, **os.environ},
         cwd=str(REPO),
     )
-    assert r.returncode == 0, (
-        f"schema validation failed:\n{r.stdout}\n{r.stderr}"
-    )
+    assert r.returncode == 0, f"schema validation failed:\n{r.stdout}\n{r.stderr}"
 
 
 # ---------- Topology shape ----------------------------------------------
@@ -85,8 +81,7 @@ def test_demo_scenario_has_at_least_four_assets():
     data = _load()
     assets = data["spec"]["assets"]
     assert len(assets) >= 4, (
-        f"Demo scenario needs >= 4 assets to fill the topology "
-        f"graph; got {len(assets)}"
+        f"Demo scenario needs >= 4 assets to fill the topology graph; got {len(assets)}"
     )
 
 
@@ -98,15 +93,11 @@ def test_demo_scenario_covers_all_three_zones():
     assert any("red" in r or "attacker" in r for r in roles), (
         f"Demo scenario must include a red-zone asset; got {roles}"
     )
+    assert any("router" in r or "firewall" in r or "gw" in r for r in roles), (
+        f"Demo scenario must include a router asset; got {roles}"
+    )
     assert any(
-        "router" in r or "firewall" in r or "gw" in r for r in roles
-    ), f"Demo scenario must include a router asset; got {roles}"
-    assert any(
-        "victim" in r
-        or "blue" in r
-        or "defender" in r
-        or "log" in r
-        or "server" in r
+        "victim" in r or "blue" in r or "defender" in r or "log" in r or "server" in r
         for r in roles
     ), f"Demo scenario must include a blue-zone asset; got {roles}"
 
@@ -117,8 +108,7 @@ def test_demo_scenario_has_three_networks():
     data = _load()
     networks = data["spec"].get("networks", [])
     assert len(networks) >= 3, (
-        f"Demo scenario must declare >= 3 networks (one per zone); "
-        f"got {len(networks)}"
+        f"Demo scenario must declare >= 3 networks (one per zone); got {len(networks)}"
     )
 
 
@@ -128,9 +118,7 @@ def test_demo_scenario_telemetry_includes_minio():
     data = _load()
     sinks = data["spec"].get("telemetry", {}).get("sinks", [])
     types = [s.get("type") for s in sinks]
-    assert "minio" in types, (
-        f"Demo scenario telemetry must include a minio sink; got {types}"
-    )
+    assert "minio" in types, f"Demo scenario telemetry must include a minio sink; got {types}"
 
 
 def test_demo_scenario_objectives_have_red_and_blue():
@@ -196,9 +184,7 @@ def test_demo_scenario_classifies_correctly_into_topology_zones():
     blue = zones.count("blue")
     assert red >= 1, f"Demo scenario needs >= 1 red asset; zones={zones}"
     assert router >= 1, f"Demo scenario needs >= 1 router asset; zones={zones}"
-    assert blue >= 2, (
-        f"Demo scenario needs >= 2 blue assets; zones={zones}"
-    )
+    assert blue >= 2, f"Demo scenario needs >= 2 blue assets; zones={zones}"
 
 
 # The keyword lists below are a hand-maintained copy of the
@@ -224,4 +210,3 @@ EXPECTED_BLUE_KEYWORDS = {
 # Return string literal; not a substring keyword but the test
 # pins every quoted string the classifier uses.
 EXPECTED_OTHER_KEYWORDS = {"unassigned"}
-

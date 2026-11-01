@@ -2,6 +2,7 @@
 
 Provides endpoints for drill management, lifecycle, participants, teams, and announcements.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -177,13 +178,13 @@ async def _participant_can_access(
     if role not in {"red", "blue"}:
         return False
     roster = (
-        await db.execute(select(DrillParticipant).where(DrillParticipant.drill_id == drill_id))
-    ).scalars().all()
+        (await db.execute(select(DrillParticipant).where(DrillParticipant.drill_id == drill_id)))
+        .scalars()
+        .all()
+    )
     if not roster:
         return False
-    user = (
-        await db.execute(select(User).where(User.sub == token.sub))
-    ).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.sub == token.sub))).scalar_one_or_none()
     if user is None:
         return False
     participant = next((item for item in roster if item.user_id == user.id), None)
@@ -199,9 +200,7 @@ async def _participant_is_enrolled(
     """Return whether a player account is enrolled in this drill."""
     if token is None or str(token.role or "").lower() not in {"red", "blue"}:
         return False
-    user = (
-        await db.execute(select(User).where(User.sub == token.sub))
-    ).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.sub == token.sub))).scalar_one_or_none()
     if user is None:
         return False
     participant = (
@@ -275,17 +274,15 @@ async def _set_drill_provision_status(
     sm = get_sessionmaker()
     async with sm() as db:
         drill = (
-            await db.execute(
-                select(Drill).where(Drill.id == drill_id).with_for_update()
-            )
+            await db.execute(select(Drill).where(Drill.id == drill_id).with_for_update())
         ).scalar_one_or_none()
         if not drill:
             return
         env = dict(drill.environment_config or {})
-        terminal_or_cleaning = (
-            drill.status in {DrillStatus.COMPLETED, DrillStatus.CANCELLED}
-            or env.get("cleanup_status") in {"stopping", "stopped"}
-        )
+        terminal_or_cleaning = drill.status in {
+            DrillStatus.COMPLETED,
+            DrillStatus.CANCELLED,
+        } or env.get("cleanup_status") in {"stopping", "stopped"}
         changed = False
         if provision_run_id is not None and env.get("provision_run_id") != provision_run_id:
             env["provision_run_id"] = provision_run_id
@@ -379,7 +376,11 @@ async def _provision_drill_background(
                         await probe.execute(
                             select(catalog_models.Run)
                             .where(catalog_models.Run.scenario_id == scenario_id)
-                            .where(catalog_models.Run.status.in_([RunStatus.PENDING, RunStatus.RUNNING]))
+                            .where(
+                                catalog_models.Run.status.in_(
+                                    [RunStatus.PENDING, RunStatus.RUNNING]
+                                )
+                            )
                             .order_by(catalog_models.Run.id.desc())
                             .limit(1)
                         )
@@ -394,15 +395,20 @@ async def _provision_drill_background(
         if result.status == RunStatus.CANCELLED:
             await _set_drill_provision_status(drill_id, "cancelled", provision_run_id=result.run_id)
         else:
-            await _set_drill_provision_status(drill_id, "validating", provision_run_id=result.run_id)
+            await _set_drill_provision_status(
+                drill_id, "validating", provision_run_id=result.run_id
+            )
             async with sm() as db:
                 drill = await get_drill(db, drill_id)
                 if drill is not None:
                     health = await _range_health(db, drill)
                     prepared = _provision_checks_ready(health)
                     await _set_drill_provision_status(
-                        drill_id, "started" if prepared else "validation_failed",
-                        error=None if prepared else "Range validation failed. Review readiness checks before starting.",
+                        drill_id,
+                        "started" if prepared else "validation_failed",
+                        error=None
+                        if prepared
+                        else "Range validation failed. Review readiness checks before starting.",
                     )
     except (RunnerError, SdnPermissionError, ProxmoxAPIError, ValueError) as exc:
         await _set_drill_provision_status(
@@ -478,9 +484,7 @@ async def _stop_drill_provision_run(db: AsyncSession, drill) -> str | None:
             )
         ).scalar_one_or_none()
         recorded_run = await db.get(catalog_models.Run, run_id) if run_id else None
-        if newest_run is not None and (
-            recorded_run is None or newest_run.id > recorded_run.id
-        ):
+        if newest_run is not None and (recorded_run is None or newest_run.id > recorded_run.id):
             run_id = newest_run.id
             env = dict(drill.environment_config or {})
             env["provision_run_id"] = run_id
@@ -519,12 +523,16 @@ async def _stop_drill_provision_run(db: AsyncSession, drill) -> str | None:
         return "failed"
 
     orphaned_assets = (
-        await db.execute(
-            select(catalog_models.Asset)
-            .where(catalog_models.Asset.run_id == run_id)
-            .where(catalog_models.Asset.status == AssetStatus.ORPHANED)
+        (
+            await db.execute(
+                select(catalog_models.Asset)
+                .where(catalog_models.Asset.run_id == run_id)
+                .where(catalog_models.Asset.status == AssetStatus.ORPHANED)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if orphaned_assets:
         details = "; ".join(
             f"{asset.role} VM {asset.pve_vmid}: {asset.error or 'destroy failed'}"
@@ -588,6 +596,7 @@ async def _stop_drill_provision_run(db: AsyncSession, drill) -> str | None:
 # ============================================================================
 # Pydantic Models
 # ============================================================================
+
 
 class DrillCreate(BaseModel):
     title: str
@@ -670,14 +679,8 @@ async def _refresh_drill_provision_state(db: AsyncSession, drill) -> dict:
         )
         since = datetime.fromisoformat(preparation_at) if preparation_at else drill.actual_start_at
         if since is not None:
-            run_query = run_query.where(
-                catalog_models.Run.started_at >= since
-            )
-        active_run = (
-            await db.execute(
-                run_query
-            )
-        ).scalar_one_or_none()
+            run_query = run_query.where(catalog_models.Run.started_at >= since)
+        active_run = (await db.execute(run_query)).scalar_one_or_none()
         if active_run is not None:
             run_id = active_run.id
             env["provision_run_id"] = run_id
@@ -706,12 +709,16 @@ async def _refresh_drill_provision_state(db: AsyncSession, drill) -> dict:
         changed = True
 
     assets = (
-        await db.execute(
-            select(catalog_models.Asset)
-            .where(catalog_models.Asset.run_id == run_id)
-            .order_by(catalog_models.Asset.role, catalog_models.Asset.id)
+        (
+            await db.execute(
+                select(catalog_models.Asset)
+                .where(catalog_models.Asset.run_id == run_id)
+                .order_by(catalog_models.Asset.role, catalog_models.Asset.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     adapter = _get_runner()._adapter  # noqa: SLF001
     errors: list[dict] = []
@@ -731,9 +738,7 @@ async def _refresh_drill_provision_state(db: AsyncSession, drill) -> dict:
                 asset.pve_node = discovered.node
                 asset.pve_ip = discovered.ip or asset.pve_ip
                 asset.status = (
-                    AssetStatus.RUNNING
-                    if discovered.status == "running"
-                    else AssetStatus.BOOTING
+                    AssetStatus.RUNNING if discovered.status == "running" else AssetStatus.BOOTING
                 )
                 changed = True
         status_value = asset.status.value if hasattr(asset.status, "value") else str(asset.status)
@@ -763,7 +768,9 @@ async def _refresh_drill_provision_state(db: AsyncSession, drill) -> dict:
             {
                 "id": asset.id,
                 "role": asset.role,
-                "status": asset.status.value if hasattr(asset.status, "value") else str(asset.status),
+                "status": asset.status.value
+                if hasattr(asset.status, "value")
+                else str(asset.status),
                 "pve_vmid": asset.pve_vmid,
                 "pve_node": asset.pve_node,
                 "ip": asset.pve_ip,
@@ -838,11 +845,7 @@ async def _http_status_ok(
             asyncio.open_connection(host, port),
             timeout=timeout_s,
         )
-        req = (
-            f"GET {path or '/'} HTTP/1.1\r\n"
-            f"Host: {host}\r\n"
-            "Connection: close\r\n\r\n"
-        )
+        req = f"GET {path or '/'} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"
         writer.write(req.encode("ascii", errors="ignore"))
         await asyncio.wait_for(writer.drain(), timeout=timeout_s)
         line = await asyncio.wait_for(reader.readline(), timeout=timeout_s)
@@ -900,31 +903,32 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
     assets = []
     if run_id is not None:
         assets = (
-            await db.execute(
-                select(catalog_models.Asset)
-                .where(catalog_models.Asset.run_id == run_id)
-                .order_by(catalog_models.Asset.role, catalog_models.Asset.id)
+            (
+                await db.execute(
+                    select(catalog_models.Asset)
+                    .where(catalog_models.Asset.run_id == run_id)
+                    .order_by(catalog_models.Asset.role, catalog_models.Asset.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assets_by_base: dict[str, list] = {}
     for asset in assets:
         assets_by_base.setdefault(_role_base(asset.role), []).append(asset)
 
     flags_expected = len(scenario_spec.get("flags") or [])
     flags_loaded = (
-        await db.execute(
-            select(DrillFlag).where(DrillFlag.drill_id == drill.id)
-        )
-    ).scalars().all()
+        (await db.execute(select(DrillFlag).where(DrillFlag.drill_id == drill.id))).scalars().all()
+    )
     objectives_expected = sum(
-        len((scenario_spec.get("objectives") or {}).get(side) or [])
-        for side in ("red", "blue")
+        len((scenario_spec.get("objectives") or {}).get(side) or []) for side in ("red", "blue")
     )
     objectives_loaded = (
-        await db.execute(
-            select(DrillObjective).where(DrillObjective.drill_id == drill.id)
-        )
-    ).scalars().all()
+        (await db.execute(select(DrillObjective).where(DrillObjective.drill_id == drill.id)))
+        .scalars()
+        .all()
+    )
 
     declared = (scenario_spec.get("validation") or {}).get("probes") or []
     if not declared:
@@ -966,15 +970,20 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
         if kind == "role_running":
             matches = assets_by_base.get(role, [])
             running = [
-                asset for asset in matches
-                if (asset.status.value if hasattr(asset.status, "value") else str(asset.status)) == "running"
+                asset
+                for asset in matches
+                if (asset.status.value if hasattr(asset.status, "value") else str(asset.status))
+                == "running"
             ]
             if matches and len(running) == len(matches):
                 state = "ready"
                 detail = f"{_human_role(role)} is running."
             elif matches and any(asset.error for asset in matches):
                 state = "needs_attention"
-                detail = next((asset.error for asset in matches if asset.error), "This machine needs an operator check.")
+                detail = next(
+                    (asset.error for asset in matches if asset.error),
+                    "This machine needs an operator check.",
+                )
             elif not matches and run_id is not None:
                 state = "needs_attention"
                 detail = f"{_human_role(role)} was not created for this run."
@@ -1069,7 +1078,8 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
             "state": state,
             "detail": detail,
             "side": side,
-            "required": bool(probe.get("required", True)) and kind not in {"telemetry_declared", "artifacts_declared"},
+            "required": bool(probe.get("required", True))
+            and kind not in {"telemetry_declared", "artifacts_declared"},
         }
 
     visible_probes = [
@@ -1080,51 +1090,79 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
     ]
     checks = list(await asyncio.gather(*(check_probe(probe) for probe in visible_probes)))
     provision = str((drill.environment_config or {}).get("provision_status") or "")
-    checks.insert(0, {
-        "id": "guest-setup", "label": "Guest setup completed", "side": "shared", "required": True,
-        "state": "ready" if provision in {"validating", "validation_failed", "started"} else "needs_attention" if provision == "failed" else "starting",
-        "detail": "Guest configuration must finish before the exercise can start.",
-    })
+    checks.insert(
+        0,
+        {
+            "id": "guest-setup",
+            "label": "Guest setup completed",
+            "side": "shared",
+            "required": True,
+            "state": "ready"
+            if provision in {"validating", "validation_failed", "started"}
+            else "needs_attention"
+            if provision == "failed"
+            else "starting",
+            "detail": "Guest configuration must finish before the exercise can start.",
+        },
+    )
     expected_assets = sum(int(asset.get("count") or 1) for asset in scenario_spec.get("assets", []))
-    healthy_assets = [asset for asset in assets if asset.status == AssetStatus.RUNNING and not asset.error]
-    checks.insert(1, {
-        "id": "range-machines", "label": "All range machines are running", "side": "shared", "required": True,
-        "state": "ready" if expected_assets > 0 and len(healthy_assets) == expected_assets and len(assets) == expected_assets else "needs_attention",
-        "detail": f"{len(healthy_assets)}/{expected_assets} machines running without provisioning errors.",
-    })
+    healthy_assets = [
+        asset for asset in assets if asset.status == AssetStatus.RUNNING and not asset.error
+    ]
+    checks.insert(
+        1,
+        {
+            "id": "range-machines",
+            "label": "All range machines are running",
+            "side": "shared",
+            "required": True,
+            "state": "ready"
+            if expected_assets > 0
+            and len(healthy_assets) == expected_assets
+            and len(assets) == expected_assets
+            else "needs_attention",
+            "detail": f"{len(healthy_assets)}/{expected_assets} machines running without provisioning errors.",
+        },
+    )
     required_sides = [
-        side for side in ("red", "blue")
-        if (scenario_spec.get("objectives") or {}).get(side)
+        side for side in ("red", "blue") if (scenario_spec.get("objectives") or {}).get(side)
     ]
     if required_sides:
         roster = (
-            await db.execute(
-                select(DrillParticipant).where(
-                    DrillParticipant.drill_id == drill.id,
-                    DrillParticipant.status.notin_(["removed", "left"]),
+            (
+                await db.execute(
+                    select(DrillParticipant).where(
+                        DrillParticipant.drill_id == drill.id,
+                        DrillParticipant.status.notin_(["removed", "left"]),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assigned = {str(item.role or "").lower() for item in roster}
         missing_sides = [side for side in required_sides if side not in assigned]
-        checks.insert(2, {
-            "id": "mission-roster",
-            "label": "Required teams are enrolled",
-            "side": "shared",
-            "required": True,
-            "state": "ready" if not missing_sides else "needs_attention",
-            "detail": (
-                "Red and Blue teams are enrolled."
-                if not missing_sides
-                else "Enroll at least one " + " and ".join(side.title() for side in missing_sides) + " participant."
-            ),
-        })
+        checks.insert(
+            2,
+            {
+                "id": "mission-roster",
+                "label": "Required teams are enrolled",
+                "side": "shared",
+                "required": True,
+                "state": "ready" if not missing_sides else "needs_attention",
+                "detail": (
+                    "Red and Blue teams are enrolled."
+                    if not missing_sides
+                    else "Enroll at least one "
+                    + " and ".join(side.title() for side in missing_sides)
+                    + " participant."
+                ),
+            },
+        )
     required = [check for check in checks if check["required"]]
     ready_count = sum(1 for check in checks if check["state"] == "ready")
     issue_count = sum(1 for check in checks if check["state"] == "needs_attention")
-    blocking_issue_count = sum(
-        1 for check in required if check["state"] == "needs_attention"
-    )
+    blocking_issue_count = sum(1 for check in required if check["state"] == "needs_attention")
     starting_count = sum(1 for check in checks if check["state"] == "starting")
     if required and all(check["state"] == "ready" for check in required):
         mood = "ready"
@@ -1160,6 +1198,7 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
 # Drill CRUD
 # ============================================================================
 
+
 @router.get("")
 async def get_drills(
     status: DrillStatus | None = Query(None),
@@ -1175,26 +1214,29 @@ async def get_drills(
             await _stop_drill_provision_run(db, drill)
     drills = await list_drills(db, status=status, skip=skip, limit=limit)
     if token and str(token.role or "").lower() in {"red", "blue"}:
-        user = (
-            await db.execute(select(User).where(User.sub == token.sub))
-        ).scalar_one_or_none()
+        user = (await db.execute(select(User).where(User.sub == token.sub))).scalar_one_or_none()
         if user is None:
             drills = []
         else:
             enrolled = (
-                await db.execute(
-                    select(DrillParticipant.drill_id).where(
-                        DrillParticipant.user_id == user.id,
-                        DrillParticipant.status.notin_(["removed", "left"]),
+                (
+                    await db.execute(
+                        select(DrillParticipant.drill_id).where(
+                            DrillParticipant.user_id == user.id,
+                            DrillParticipant.status.notin_(["removed", "left"]),
+                        )
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             enrolled_ids = {int(drill_id) for drill_id in enrolled}
             drills = [
                 drill
                 for drill in drills
                 if drill.id in enrolled_ids
-                and drill.status in {
+                and drill.status
+                in {
                     DrillStatus.SCHEDULED,
                     DrillStatus.ACTIVE,
                     DrillStatus.PAUSED,
@@ -1220,9 +1262,7 @@ async def post_drill(
 ):
     """Create a scheduled drill for Admin-managed scheduling workflows."""
     try:
-        actor = (
-            await db.execute(select(User).where(User.sub == token.sub))
-        ).scalar_one_or_none()
+        actor = (await db.execute(select(User).where(User.sub == token.sub))).scalar_one_or_none()
         drill = await create_drill(
             db,
             **data.model_dump(),
@@ -1244,6 +1284,7 @@ async def remove_announcement(
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
     from app.services.drill_service import delete_announcement as svc_delete_announcement
+
     deleted = await svc_delete_announcement(db, announcement_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Announcement not found")
@@ -1356,9 +1397,7 @@ async def get_drill_access(
         }
 
     run = (
-        await db.execute(
-            select(catalog_models.Run).where(catalog_models.Run.id == run_id)
-        )
+        await db.execute(select(catalog_models.Run).where(catalog_models.Run.id == run_id))
     ).scalar_one_or_none()
     if run is None:
         return {
@@ -1389,12 +1428,16 @@ async def get_drill_access(
     }
 
     assets = (
-        await db.execute(
-            select(catalog_models.Asset)
-            .where(catalog_models.Asset.run_id == run_id)
-            .order_by(catalog_models.Asset.role, catalog_models.Asset.id)
+        (
+            await db.execute(
+                select(catalog_models.Asset)
+                .where(catalog_models.Asset.run_id == run_id)
+                .order_by(catalog_models.Asset.role, catalog_models.Asset.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     rows = []
     for asset in assets:
@@ -1424,9 +1467,13 @@ async def get_drill_access(
                 "ip": asset.pve_ip,
                 "error": asset.error,
                 "seeded": env.get("provision_status") == "started",
-                "seed_status": "Seeded" if env.get("provision_status") == "started" else "Pending seed",
+                "seed_status": "Seeded"
+                if env.get("provision_status") == "started"
+                else "Pending seed",
                 "credentials": credentials if _can_view_credentials(side, token) else None,
-                "console_available": bool(asset.pve_vmid and asset.pve_node and status_value == "running"),
+                "console_available": bool(
+                    asset.pve_vmid and asset.pve_node and status_value == "running"
+                ),
                 "console_message": (
                     "Open the assigned workstation console."
                     if status_value == "running"
@@ -1476,21 +1523,16 @@ async def get_drill_threat_map(
     if scenario:
         role = str(token.role or "").lower() if token else ""
         if role in {"red", "blue"}:
-            visible_roles = {
-                str(asset.get("role") or "") for asset in assets
-            }
+            visible_roles = {str(asset.get("role") or "") for asset in assets}
             scenario_assets = [
-                asset
-                for asset in scenario_assets
-                if str(asset.get("role") or "") in visible_roles
+                asset for asset in scenario_assets if str(asset.get("role") or "") in visible_roles
             ]
             visible_networks = {
-                str(network)
-                for asset in assets
-                for network in (asset.get("networks") or [])
+                str(network) for asset in assets for network in (asset.get("networks") or [])
             }
             networks = [
-                network for network in networks
+                network
+                for network in networks
                 if str(network.get("name") or "") in visible_networks
             ]
         scenario_assets = [
@@ -1566,10 +1608,16 @@ async def create_drill_console(
     if not await _participant_can_access(db, drill_id, token, side):
         raise HTTPException(status_code=403, detail="You are not assigned to this drill")
     drill_status = drill.status.value if hasattr(drill.status, "value") else str(drill.status)
-    operator_preparing = token.role in {Role.ADMIN, Role.LEAD} and drill_status == "scheduled" and (
-        drill.environment_config or {}).get("provision_status") in {"starting", "waiting", "validating", "validation_failed", "started"}
+    operator_preparing = (
+        token.role in {Role.ADMIN, Role.LEAD}
+        and drill_status == "scheduled"
+        and (drill.environment_config or {}).get("provision_status")
+        in {"starting", "waiting", "validating", "validation_failed", "started"}
+    )
     if operator_preparing:
-        await assert_environment_owner(db, drill=drill, owner_sub=token.sub, is_admin=token.role == Role.ADMIN)
+        await assert_environment_owner(
+            db, drill=drill, owner_sub=token.sub, is_admin=token.role == Role.ADMIN
+        )
     if drill_status not in {"active", "paused"} and not operator_preparing:
         raise HTTPException(status_code=409, detail="Console access is closed for this drill")
     status_value = asset.status.value if hasattr(asset.status, "value") else str(asset.status)
@@ -1650,6 +1698,7 @@ async def delete_drill(
 # Drill Lifecycle
 # ============================================================================
 
+
 @router.post("/{drill_id}/prepare")
 async def prepare_drill_endpoint(
     drill_id: int,
@@ -1664,13 +1713,28 @@ async def prepare_drill_endpoint(
             raise HTTPException(status_code=404, detail="Drill not found")
         scenario_id = drill.scenario_id
         env = dict(drill.environment_config or {})
-        await assert_environment_owner(db, drill=drill, owner_sub=token.sub, is_admin=token.role == Role.ADMIN)
+        await assert_environment_owner(
+            db, drill=drill, owner_sub=token.sub, is_admin=token.role == Role.ADMIN
+        )
         if scenario_id is None:
             raise HTTPException(status_code=409, detail="This drill has no scenario to prepare.")
-        if drill.status == DrillStatus.SCHEDULED and env.get("provision_status") in {"starting", "waiting", "validating", "validation_failed", "started"}:
-            return {"message": "Range already prepared or preparing", "status": drill.status.value,
-                    "provision_status": env["provision_status"], "provision_run_id": env.get("provision_run_id")}
-        if drill.status in {DrillStatus.ACTIVE, DrillStatus.SCHEDULED} and env.get("provision_status") == "failed":
+        if drill.status == DrillStatus.SCHEDULED and env.get("provision_status") in {
+            "starting",
+            "waiting",
+            "validating",
+            "validation_failed",
+            "started",
+        }:
+            return {
+                "message": "Range already prepared or preparing",
+                "status": drill.status.value,
+                "provision_status": env["provision_status"],
+                "provision_run_id": env.get("provision_run_id"),
+            }
+        if (
+            drill.status in {DrillStatus.ACTIVE, DrillStatus.SCHEDULED}
+            and env.get("provision_status") == "failed"
+        ):
             provision_status = str(env.get("provision_status") or "")
             if provision_status == "failed":
                 if _drill_needs_provision_cleanup(drill):
@@ -1691,11 +1755,20 @@ async def prepare_drill_endpoint(
                     drill_id=drill.id,
                     commit=False,
                 )
-                drill = (await db.execute(select(Drill).where(Drill.id == drill_id)
-                         .with_for_update().execution_options(populate_existing=True))).scalar_one()
+                drill = (
+                    await db.execute(
+                        select(Drill)
+                        .where(Drill.id == drill_id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                ).scalar_one()
                 env = dict(drill.environment_config or {})
                 if env.get("provision_status") != "failed":
-                    raise HTTPException(status_code=409, detail="Preparation state changed. Refresh before retrying.")
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Preparation state changed. Refresh before retrying.",
+                    )
                 env["provision_status"] = "starting"
                 env.pop("provision_error", None)
                 env.pop("cleanup_status", None)
@@ -1731,11 +1804,25 @@ async def prepare_drill_endpoint(
             drill_id=drill.id,
             commit=False,
         )
-        drill = (await db.execute(select(Drill).where(Drill.id == drill_id)
-                 .with_for_update().execution_options(populate_existing=True))).scalar_one()
+        drill = (
+            await db.execute(
+                select(Drill)
+                .where(Drill.id == drill_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one()
         env = dict(drill.environment_config or {})
-        if drill.status != DrillStatus.SCHEDULED or env.get("provision_status") in {"starting", "waiting", "validating", "validation_failed", "started"}:
-            raise HTTPException(status_code=409, detail="Preparation state changed. Refresh before retrying.")
+        if drill.status != DrillStatus.SCHEDULED or env.get("provision_status") in {
+            "starting",
+            "waiting",
+            "validating",
+            "validation_failed",
+            "started",
+        }:
+            raise HTTPException(
+                status_code=409, detail="Preparation state changed. Refresh before retrying."
+            )
         env["provision_status"] = "starting"
         env.pop("provision_error", None)
         env["preparation_started_at"] = datetime.now(UTC).isoformat()
@@ -1747,12 +1834,8 @@ async def prepare_drill_endpoint(
         return {
             "message": "Range preparation started; exercise timer has not started",
             "status": drill.status.value,
-            "provision_run_id": (
-                drill.environment_config or {}
-            ).get("provision_run_id"),
-            "provision_status": (
-                drill.environment_config or {}
-            ).get("provision_status"),
+            "provision_run_id": (drill.environment_config or {}).get("provision_run_id"),
+            "provision_status": (drill.environment_config or {}).get("provision_status"),
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -1782,28 +1865,56 @@ async def start_drill_endpoint(
     drill = await get_drill(db, drill_id)
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
-    await assert_environment_owner(db, drill=drill, owner_sub=token.sub, is_admin=token.role == Role.ADMIN)
+    await assert_environment_owner(
+        db, drill=drill, owner_sub=token.sub, is_admin=token.role == Role.ADMIN
+    )
     if drill.status != DrillStatus.SCHEDULED:
         raise HTTPException(status_code=409, detail="Only a scheduled, prepared drill can start.")
     if drill.scenario_id is not None:
-        if (drill.environment_config or {}).get("provision_status") not in {"started", "validation_failed"}:
-            raise HTTPException(status_code=409, detail="Prepare the range and finish validation before starting the exercise.")
+        if (drill.environment_config or {}).get("provision_status") not in {
+            "started",
+            "validation_failed",
+        }:
+            raise HTTPException(
+                status_code=409,
+                detail="Prepare the range and finish validation before starting the exercise.",
+            )
         snapshot = await _refresh_drill_provision_state(db, drill)
         health = await _range_health(db, drill)
         if snapshot.get("errors") or health["mood"] != "ready":
-            raise HTTPException(status_code=409, detail={
-                "code": "range_not_ready", "message": "Range checks failed. Resolve readiness issues before starting.",
-                "checks": health["checks"], "errors": snapshot.get("errors", []),
-            })
-    await acquire_environment_lock(db, owner_sub=token.sub, owner_role=token.role, drill_id=drill_id, commit=False)
-    drill = (await db.execute(select(Drill).where(Drill.id == drill_id).with_for_update()
-                             .execution_options(populate_existing=True))).scalar_one()
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "range_not_ready",
+                    "message": "Range checks failed. Resolve readiness issues before starting.",
+                    "checks": health["checks"],
+                    "errors": snapshot.get("errors", []),
+                },
+            )
+    await acquire_environment_lock(
+        db, owner_sub=token.sub, owner_role=token.role, drill_id=drill_id, commit=False
+    )
+    drill = (
+        await db.execute(
+            select(Drill)
+            .where(Drill.id == drill_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one()
     if drill.status != DrillStatus.SCHEDULED:
-        raise HTTPException(status_code=409, detail="The drill state changed. Refresh before starting.")
+        raise HTTPException(
+            status_code=409, detail="The drill state changed. Refresh before starting."
+        )
     env = dict(drill.environment_config or {})
     if drill.scenario_id is not None:
-        if env.get("provision_status") not in {"started", "validation_failed"} or env.get("cleanup_status"):
-            raise HTTPException(status_code=409, detail="The range changed during validation. Refresh before starting.")
+        if env.get("provision_status") not in {"started", "validation_failed"} or env.get(
+            "cleanup_status"
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="The range changed during validation. Refresh before starting.",
+            )
         env["provision_status"] = "started"
         env["readiness_checked_at"] = health["checked_at"]
         env.pop("provision_error", None)
@@ -1812,8 +1923,12 @@ async def start_drill_endpoint(
     drill.environment_config = env
     drill = await start_drill(db, drill_id)
     await set_environment_lock_status(db, drill_id=drill_id, status="active")
-    return {"message": "Exercise started", "status": drill.status.value,
-            "provision_status": env.get("provision_status"), "provision_run_id": env.get("provision_run_id")}
+    return {
+        "message": "Exercise started",
+        "status": drill.status.value,
+        "provision_status": env.get("provision_status"),
+        "provision_run_id": env.get("provision_run_id"),
+    }
 
 
 @router.get("/scenario-preflight/{scenario_id}")
@@ -1834,8 +1949,12 @@ async def scenario_preflight(
         checks = await adapter.preflight(scenario.spec.get("spec") or scenario.spec, node)
     except (ProxmoxAPIError, RunnerError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return {"ready": bool(checks) and all(check["ready"] for check in checks), "node": node,
-            "checks": checks, "checked_at": datetime.now(UTC).isoformat()}
+    return {
+        "ready": bool(checks) and all(check["ready"] for check in checks),
+        "node": node,
+        "checks": checks,
+        "checked_at": datetime.now(UTC).isoformat(),
+    }
 
 
 @router.post("/start-from-scenario")
@@ -1864,18 +1983,14 @@ async def start_from_scenario(
     )
     created = None
     try:
-        actor = (
-            await db.execute(select(User).where(User.sub == token.sub))
-        ).scalar_one_or_none()
+        actor = (await db.execute(select(User).where(User.sub == token.sub))).scalar_one_or_none()
         created = await create_drill(
             db,
             title=scenario.title,
             description=f"Operator run of {scenario.title}",
             scenario_id=scenario.id,
             drill_type="individual",
-            duration_limit_minutes=(
-                data.duration_limit_minutes or scenario.duration_min
-            ),
+            duration_limit_minutes=(data.duration_limit_minutes or scenario.duration_min),
             max_participants=data.max_participants or 10,
             created_by=actor.id if actor else None,
         )
@@ -1989,7 +2104,9 @@ async def stop_drill_endpoint(
         if current.status == DrillStatus.SCHEDULED:
             current.status = DrillStatus.CANCELLED
             current.actual_end_at = datetime.now(UTC)
-            db.add(DrillEvent(drill_id=drill_id, kind="lifecycle", title="Range preparation cancelled"))
+            db.add(
+                DrillEvent(drill_id=drill_id, kind="lifecycle", title="Range preparation cancelled")
+            )
             await db.commit()
             await db.refresh(current)
             drill = current
@@ -2010,6 +2127,7 @@ async def stop_drill_endpoint(
 # ============================================================================
 # Participants
 # ============================================================================
+
 
 @router.get("/{drill_id}/participants")
 async def get_participants(
@@ -2060,17 +2178,25 @@ async def get_roster_candidates(
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
     enrolled_ids = (
-        await db.execute(
-            select(DrillParticipant.user_id).where(DrillParticipant.drill_id == drill_id)
+        (
+            await db.execute(
+                select(DrillParticipant.user_id).where(DrillParticipant.drill_id == drill_id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     users = (
-        await db.execute(
-            select(User)
-            .where(User.role.in_([Role.RED.value, Role.BLUE.value]), User.disabled.is_(False))
-            .order_by(User.role, User.sub)
+        (
+            await db.execute(
+                select(User)
+                .where(User.role.in_([Role.RED.value, Role.BLUE.value]), User.disabled.is_(False))
+                .order_by(User.role, User.sub)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     enrolled = {int(user_id) for user_id in enrolled_ids}
     return {
         "drill_id": drill.id,
@@ -2113,9 +2239,7 @@ async def post_participant(
             detail=f"Account {user.sub!r} has role {user.role!r}; enroll it on the matching side.",
         )
     try:
-        participant = await add_participant(
-            db, drill_id, data.user_id, data.team_id, side
-        )
+        participant = await add_participant(db, drill_id, data.user_id, data.team_id, side)
         db.add(
             DrillEvent(
                 drill_id=drill_id,
@@ -2174,6 +2298,7 @@ async def delete_participant(
 # Announcements
 # ============================================================================
 
+
 @router.get("/{drill_id}/announcements")
 async def get_announcements(
     drill_id: int,
@@ -2221,6 +2346,7 @@ async def post_announcement(
 # ============================================================================
 # Objectives
 # ============================================================================
+
 
 @router.get("/{drill_id}/objectives")
 async def get_objectives(
@@ -2271,6 +2397,7 @@ async def post_objective(
 # Flags (Drill-native; values never returned by list)
 # ============================================================================
 
+
 class FlagCreate(BaseModel):
     value: str
     name: str = "flag"
@@ -2316,8 +2443,14 @@ async def post_flag(
         raise HTTPException(status_code=404, detail="Drill not found")
     try:
         flag = await create_drill_flag(
-            db, drill_id, data.value, data.name, data.points,
-            data.objective_id, data.decay_window_seconds, data.sort_order,
+            db,
+            drill_id,
+            data.value,
+            data.name,
+            data.points,
+            data.objective_id,
+            data.decay_window_seconds,
+            data.sort_order,
         )
         return {"message": "Flag created", "flag_id": flag.id}
     except ValueError as e:
@@ -2344,6 +2477,7 @@ async def remove_flag(
 # Scenarios
 # ============================================================================
 
+
 @router.get("/{drill_id}/scenarios")
 async def get_scenarios(
     drill_id: int,
@@ -2358,12 +2492,16 @@ async def get_scenarios(
     catalog_by_id = {}
     if scenario_ids:
         catalog_rows = (
-            await db.execute(
-                select(catalog_models.Scenario).where(
-                    catalog_models.Scenario.id.in_(scenario_ids)
+            (
+                await db.execute(
+                    select(catalog_models.Scenario).where(
+                        catalog_models.Scenario.id.in_(scenario_ids)
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         catalog_by_id = {row.id: row for row in catalog_rows}
     return {
         "scenarios": [
@@ -2371,8 +2509,12 @@ async def get_scenarios(
                 "id": s.id,
                 "lab_id": s.lab_id,
                 "scenario_id": s.scenario_id,
-                "name": catalog_by_id[s.scenario_id].name if s.scenario_id in catalog_by_id else None,
-                "title": catalog_by_id[s.scenario_id].title if s.scenario_id in catalog_by_id else None,
+                "name": catalog_by_id[s.scenario_id].name
+                if s.scenario_id in catalog_by_id
+                else None,
+                "title": catalog_by_id[s.scenario_id].title
+                if s.scenario_id in catalog_by_id
+                else None,
                 "scenario_config": s.scenario_config,
                 "is_active": s.is_active,
                 "created_at": s.created_at.isoformat() if s.created_at else None,
@@ -2393,7 +2535,9 @@ async def post_scenario(
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
     try:
-        scenario = await link_scenario(db, drill_id, data.lab_id, data.scenario_id, data.scenario_config)
+        scenario = await link_scenario(
+            db, drill_id, data.lab_id, data.scenario_id, data.scenario_config
+        )
         return {
             "message": "Scenario linked",
             "link_id": scenario.id,
@@ -2407,6 +2551,7 @@ async def post_scenario(
 # ============================================================================
 # Objective status (exercise flow: pending/in-progress/completed)
 # ============================================================================
+
 
 class ObjectiveStatusUpdate(BaseModel):
     status: str
@@ -2427,12 +2572,18 @@ async def patch_objective_status(
         objective = await set_objective_status(db, drill_id, objective_id, data.status)
         try:
             await record_drill_event(
-                db, drill_id, "objective",
+                db,
+                drill_id,
+                "objective",
                 "Objective %s: %s" % (objective.status, objective.title),
             )
         except ValueError:
             pass
-        return {"message": "Objective updated", "objective_id": objective.id, "status": objective.status}
+        return {
+            "message": "Objective updated",
+            "objective_id": objective.id,
+            "status": objective.status,
+        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -2440,6 +2591,7 @@ async def patch_objective_status(
 # ============================================================================
 # Exercise timeline (unified per-drill event feed)
 # ============================================================================
+
 
 class TimelineNote(BaseModel):
     title: str
@@ -2491,7 +2643,12 @@ async def post_timeline_note(
         raise HTTPException(status_code=404, detail="Drill not found")
     try:
         event = await record_drill_event(
-            db, drill_id, "note", data.title, data.detail, data.side,
+            db,
+            drill_id,
+            "note",
+            data.title,
+            data.detail,
+            data.side,
         )
         return {"message": "Note recorded", "event_id": event.id}
     except ValueError as e:
@@ -2519,7 +2676,9 @@ async def post_milestone(
     if drill.actual_start_at:
         elapsed_seconds = max(
             0,
-            int((datetime.now(drill.actual_start_at.tzinfo) - drill.actual_start_at).total_seconds()),
+            int(
+                (datetime.now(drill.actual_start_at.tzinfo) - drill.actual_start_at).total_seconds()
+            ),
         )
     score_result = {"points_awarded": 0, "already_recorded": False}
     if elapsed_seconds is not None and token and token.sub:
@@ -2529,7 +2688,11 @@ async def post_milestone(
         user = user_result.scalar_one_or_none()
         if user:
             score_result = await record_milestone_score(
-                db, user.id, drill_id, milestone, elapsed_seconds,
+                db,
+                user.id,
+                drill_id,
+                milestone,
+                elapsed_seconds,
             )
     try:
         event = await record_drill_event(

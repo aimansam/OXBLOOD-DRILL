@@ -1,4 +1,5 @@
 """The maintained catalog cannot reintroduce the retired SIEM dependency."""
+
 import json
 from pathlib import Path
 
@@ -16,7 +17,9 @@ def test_catalog_has_no_wazuh_sink_or_objective():
 
 
 def test_schema_rejects_retired_sink():
-    scenario = yaml.safe_load((ROOT / "examples/scenarios/enterprise-file-breach.scenario.yaml").read_text())
+    scenario = yaml.safe_load(
+        (ROOT / "examples/scenarios/enterprise-file-breach.scenario.yaml").read_text()
+    )
     schema = json.loads((ROOT / "schemas/scenario.schema.json").read_text())
     validator = Draft202012Validator(schema)
     assert not list(validator.iter_errors(scenario))

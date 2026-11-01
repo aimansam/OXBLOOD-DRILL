@@ -20,6 +20,7 @@ placeholders) is preserved, which is what matters for cardinality.
 Skips recording for the /metrics endpoint itself (otherwise scrapes
 inflate the counter).
 """
+
 from __future__ import annotations
 
 import time
@@ -66,11 +67,7 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         method = request.method
         status = str(response.status_code)
 
-        HTTP_REQUESTS_TOTAL.labels(
-            method=method, route=route_template, status=status
-        ).inc()
-        HTTP_REQUEST_LATENCY_SECONDS.labels(
-            method=method, route=route_template
-        ).observe(elapsed)
+        HTTP_REQUESTS_TOTAL.labels(method=method, route=route_template, status=status).inc()
+        HTTP_REQUEST_LATENCY_SECONDS.labels(method=method, route=route_template).observe(elapsed)
 
         return response

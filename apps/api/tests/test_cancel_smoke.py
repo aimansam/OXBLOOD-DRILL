@@ -19,6 +19,7 @@ What this covers (all against MockProxmoxAdapter -- zero PVE needed):
 
   4. Cancel a run that doesn't exist returns 404.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -162,12 +163,16 @@ async def test_live_cancel_marks_run_cancelled_with_reason(session: AsyncSession
     assert cancelled.ended_at is not None
 
     audit_rows = (
-        await session.execute(
-            select(models.AuditLog)
-            .where(models.AuditLog.run_id == run_id)
-            .where(models.AuditLog.action == AuditAction.RUN_CANCELLED)
+        (
+            await session.execute(
+                select(models.AuditLog)
+                .where(models.AuditLog.run_id == run_id)
+                .where(models.AuditLog.action == AuditAction.RUN_CANCELLED)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(audit_rows) == 1, f"expected 1 RUN_CANCELLED audit row, got {len(audit_rows)}"
     assert audit_rows[0].details.get("reason") == "operator-pressed-cancel"
 
@@ -193,8 +198,7 @@ async def test_live_cancel_does_not_tick_already_terminal_counter(
 
     after = CANCEL_REQUESTS_TOTAL.labels(result="already_terminal")._value.get()
     assert after == before, (
-        f"already_terminal counter must not tick on a happy-path cancel: "
-        f"{before} -> {after}"
+        f"already_terminal counter must not tick on a happy-path cancel: {before} -> {after}"
     )
 
 
@@ -238,9 +242,7 @@ def test_watch_drill_cancel_after_path_triggers_cancel_endpoint(monkeypatch) -> 
     def prom_query(_: httpx.Request) -> httpx.Response:
         # Always report zero counters so the watcher doesn't try to
         # exit on Prometheus alone; force it to use api-poll fallback.
-        return httpx.Response(
-            200, json={"status": "success", "data": {"result": []}}
-        )
+        return httpx.Response(200, json={"status": "success", "data": {"result": []}})
 
     handlers = {
         "http://localhost:8000/api/v1/drills/99/cancel": cancel,
@@ -280,10 +282,14 @@ def test_watch_drill_cancel_after_path_triggers_cancel_endpoint(monkeypatch) -> 
         "argv",
         [
             "watch_drill.py",
-            "--cancel-after", "0",
-            "--outcome", "cancelled",
-            "--timeout", "10",
-            "--poll", "0.05",
+            "--cancel-after",
+            "0",
+            "--outcome",
+            "cancelled",
+            "--timeout",
+            "10",
+            "--poll",
+            "0.05",
             "--api-poll",
         ],
     )
@@ -326,9 +332,7 @@ def test_watch_drill_cancel_sends_divide_token_header(monkeypatch) -> None:
         )
 
     def prom_query(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, json={"status": "success", "data": {"result": []}}
-        )
+        return httpx.Response(200, json={"status": "success", "data": {"result": []}})
 
     handlers = {
         "http://localhost:8000/api/v1/drills/99/cancel": cancel,
@@ -365,19 +369,23 @@ def test_watch_drill_cancel_sends_divide_token_header(monkeypatch) -> None:
         "argv",
         [
             "watch_drill.py",
-            "--cancel-after", "0",
-            "--outcome", "cancelled",
-            "--timeout", "5",
-            "--poll", "0.05",
+            "--cancel-after",
+            "0",
+            "--outcome",
+            "cancelled",
+            "--timeout",
+            "5",
+            "--poll",
+            "0.05",
             "--api-poll",
-            "--token", "fake-jwt-for-test",
+            "--token",
+            "fake-jwt-for-test",
         ],
     )
     rc = mod.main()
     assert rc == 0
     assert captured.get("auth_header") == "fake-jwt-for-test", (
-        f"watch_drill did not forward the token; got "
-        f"{captured.get('auth_header')!r}"
+        f"watch_drill did not forward the token; got {captured.get('auth_header')!r}"
     )
 
 
@@ -402,9 +410,7 @@ def test_watch_drill_warns_when_cancel_after_without_token(monkeypatch, capsys) 
         )
 
     def prom_query(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, json={"status": "success", "data": {"result": []}}
-        )
+        return httpx.Response(200, json={"status": "success", "data": {"result": []}})
 
     handlers = {
         "http://localhost:8000/api/v1/drills/99/cancel": cancel,
@@ -444,10 +450,14 @@ def test_watch_drill_warns_when_cancel_after_without_token(monkeypatch, capsys) 
         "argv",
         [
             "watch_drill.py",
-            "--cancel-after", "0",
-            "--outcome", "cancelled",
-            "--timeout", "5",
-            "--poll", "0.05",
+            "--cancel-after",
+            "0",
+            "--outcome",
+            "cancelled",
+            "--timeout",
+            "5",
+            "--poll",
+            "0.05",
             "--api-poll",
         ],
     )
@@ -490,9 +500,7 @@ async def test_cancel_already_succeeded_run_raises_409(session: AsyncSession) ->
         session=session,
     )
     run = (
-        await session.execute(
-            select(models.Run).where(models.Run.scenario_id == sc.id)
-        )
+        await session.execute(select(models.Run).where(models.Run.scenario_id == sc.id))
     ).scalar_one()
     assert run.status == RunStatus.SUCCEEDED
 

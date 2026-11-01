@@ -20,6 +20,7 @@ not just the first. The summary at the end tells you what to fix.
     python tools/preflight.py --scenario phish-to-ransom
     python tools/preflight.py --template tpl-ubuntu-2204
 """
+
 from __future__ import annotations
 
 import argparse
@@ -98,7 +99,7 @@ def check_api_health(client, report):
         report.add(
             "/healthz responds 200",
             True,
-            f"env={body.get('env','?')}, version={body.get('version','?')}",
+            f"env={body.get('env', '?')}, version={body.get('version', '?')}",
         )
     except Exception as exc:
         report.add(
@@ -167,7 +168,7 @@ def check_pve_nodes(client, report):
             report.add(
                 "PVE nodes reachable",
                 True,
-                f"{len(nodes)} node(s): {', '.join(n.get('node','?') for n in nodes)}",
+                f"{len(nodes)} node(s): {', '.join(n.get('node', '?') for n in nodes)}",
             )
     except Exception as exc:
         report.add(
@@ -231,9 +232,7 @@ def check_template_exists(client, name, report):
 DRILL_PRIVS = frozenset({"VM.Allocate", "VM.Clone", "VM.PowerMgmt"})
 
 
-def check_acl_for_writes(
-    client, report, user: str = "divide@pve@pam"
-) -> None:
+def check_acl_for_writes(client, report, user: str = "divide@pve@pam") -> None:
     """Confirm the current token has drill-write privileges on /v2/vm (or /).
 
     Implementation note: the previous version of this check called
@@ -292,9 +291,7 @@ def check_acl_for_writes(
             matched_privs[path] = have
     # Success if at least one of the candidate paths covers every required
     # priv (i.e. drill can run on this token).
-    all_covered = any(
-        set(privs) >= DRILL_PRIVS for privs in matched_privs.values()
-    )
+    all_covered = any(set(privs) >= DRILL_PRIVS for privs in matched_privs.values())
 
     if all_covered:
         # Pick the most informative path to show -- prefer / (propagated)
@@ -305,8 +302,7 @@ def check_acl_for_writes(
         report.add(
             f"ACL grants PVEVMAdmin on /v2/vm to {user}",
             True,
-            f"path={best_path} privs={','.join(sorted(DRILL_PRIVS))} "
-            f"(via /access/permissions)",
+            f"path={best_path} privs={','.join(sorted(DRILL_PRIVS))} (via /access/permissions)",
         )
         return
 
@@ -323,10 +319,7 @@ def check_acl_for_writes(
             "(adds VM.Allocate + VM.Clone + VM.PowerMgmt across the cluster)."
         )
     else:
-        partial = ", ".join(
-            f"{p}: {','.join(prs)}"
-            for p, prs in sorted(matched_privs.items())
-        )
+        partial = ", ".join(f"{p}: {','.join(prs)}" for p, prs in sorted(matched_privs.items()))
         missing = sorted(DRILL_PRIVS - set().union(*matched_privs.values()))
         summary = (
             f"partial coverage for {user}: {partial}; missing {missing}. "
@@ -334,8 +327,7 @@ def check_acl_for_writes(
             f"may grant one or two but not all."
         )
         fix = (
-            "On PVE host: pveum acl modify divide@pve@pam "
-            "--role PVEVMAdmin --path / --propagate=1"
+            "On PVE host: pveum acl modify divide@pve@pam --role PVEVMAdmin --path / --propagate=1"
         )
 
     report.add(
@@ -477,7 +469,7 @@ def check_grafana_dashboard(report, uid="divide-drill-platform"):
                 report.add(
                     f"Grafana dashboard {uid!r} loaded",
                     True,
-                    f"title={dash.get('title','?')!r}, panels={panels}",
+                    f"title={dash.get('title', '?')!r}, panels={panels}",
                 )
             elif r.status_code == 404:
                 report.add(

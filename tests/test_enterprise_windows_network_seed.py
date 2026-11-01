@@ -12,17 +12,25 @@ def test_dc01_waits_for_an_ipv4_interface_before_configuring_static_ip() -> None
     data = yaml.safe_load(SCENARIO.read_text(encoding="utf-8"))
     dc01 = next(asset for asset in data["spec"]["assets"] if asset["role"] == "dc01")
     phase = next(
-        phase
-        for phase in dc01["windows_setup"]["phases"]
-        if phase["name"] == "configure-dc01"
+        phase for phase in dc01["windows_setup"]["phases"] if phase["name"] == "configure-dc01"
     )
     commands = phase["commands"]
-    device_scan = next(i for i, command in enumerate(commands) if "pnputil.exe /scan-devices" in command)
+    device_scan = next(
+        i for i, command in enumerate(commands) if "pnputil.exe /scan-devices" in command
+    )
     adapter_enable = next(i for i, command in enumerate(commands) if "Enable-NetAdapter" in command)
     nic_wait = next(i for i, command in enumerate(commands) if "for ($attempt" in command)
-    nic_guard = next(i for i, command in enumerate(commands) if "No usable IPv4 interface" in command)
-    index_assignment = next(i for i, command in enumerate(commands) if "$ifIndex = [int]$nicAddress.InterfaceIndex" in command)
-    ip_config = next(i for i, command in enumerate(commands) if "$current = Get-NetIPAddress" in command)
+    nic_guard = next(
+        i for i, command in enumerate(commands) if "No usable IPv4 interface" in command
+    )
+    index_assignment = next(
+        i
+        for i, command in enumerate(commands)
+        if "$ifIndex = [int]$nicAddress.InterfaceIndex" in command
+    )
+    ip_config = next(
+        i for i, command in enumerate(commands) if "$current = Get-NetIPAddress" in command
+    )
 
     assert device_scan < adapter_enable < nic_wait < nic_guard < index_assignment < ip_config
     assert "$nicAddress = $null" in commands

@@ -10,6 +10,7 @@ Revision ID: 0016_asset_cleaned_at
 Revises: 0015_audit_asset_cleaned
 Create Date: 2026-08-28
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

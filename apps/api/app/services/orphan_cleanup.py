@@ -37,6 +37,7 @@ Audit:
   * Failed assets get ``asset.error`` updated with the new error
     text (overwriting the previous); they stay ``ORPHANED``.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -160,8 +161,10 @@ async def list_orphans(
     now = datetime.now(UTC)
     grace_cutoff = now.timestamp() - grace_minutes * 60
     baseline_vmids = await _snapshot_baseline_vmids(session)
-    stmt = select(Asset, Run).join(Run, Asset.run_id == Run.id).where(
-        Asset.status == AssetStatus.ORPHANED
+    stmt = (
+        select(Asset, Run)
+        .join(Run, Asset.run_id == Run.id)
+        .where(Asset.status == AssetStatus.ORPHANED)
     )
     if asset_ids is not None:
         ids = list(asset_ids)
@@ -176,11 +179,7 @@ async def list_orphans(
         stamp = asset.updated_at or asset.created_at
         if stamp is not None and stamp.tzinfo is None:
             stamp = stamp.replace(tzinfo=UTC)
-        age = (
-            int(now.timestamp() - stamp.timestamp())
-            if stamp is not None
-            else 0
-        )
+        age = int(now.timestamp() - stamp.timestamp()) if stamp is not None else 0
         if run.status in (RunStatus.RUNNING, RunStatus.PENDING):
             continue
         if asset.pve_vmid is None:
@@ -299,11 +298,7 @@ async def list_pve_unused_vms(
             continue
         name = vm["name"]
         parsed_run_id, parsed_role = _parse_divide_vm_name(name)
-        asset_run = (
-            by_vmid_run.get((vmid, parsed_run_id))
-            if parsed_run_id is not None
-            else None
-        )
+        asset_run = by_vmid_run.get((vmid, parsed_run_id)) if parsed_run_id is not None else None
         if asset_run is None and len(by_vmid.get(vmid, [])) == 1:
             asset_run = by_vmid[vmid][0]
         if asset_run is None:
@@ -380,9 +375,7 @@ async def cleanup_orphans(
     if not candidates:
         return CleanupResult(scanned=0, destroyed=0, failed=[], skipped_running=[])
     cand_ids = [c.asset_id for c in candidates]
-    rows = (
-        await session.execute(select(Asset).where(Asset.id.in_(cand_ids)))
-    ).scalars().all()
+    rows = (await session.execute(select(Asset).where(Asset.id.in_(cand_ids)))).scalars().all()
 
     for asset in rows:
         if asset.pve_vmid is None or not asset.pve_node:
@@ -473,10 +466,7 @@ async def cleanup_pve_unused_vms(
     if not target_list:
         return CleanupResult(scanned=0, destroyed=0, failed=[], skipped_running=[])
 
-    allowed = {
-        (c.vmid, c.node): c
-        for c in await list_pve_unused_vms(session, grace_minutes=0)
-    }
+    allowed = {(c.vmid, c.node): c for c in await list_pve_unused_vms(session, grace_minutes=0)}
     now = datetime.now(UTC)
 
     for target in target_list:

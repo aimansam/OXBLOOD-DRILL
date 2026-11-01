@@ -28,7 +28,7 @@ divide-7-drillvm (vmid=112) -- status: stopped, NEVER DELETED
 run.status = RunStatus.SUCCEEDED
 ...
 for br in bridges_created:
-    await self._adapter.remove_bridge(br)   # tear down bridges
+    await self._adapter.remove_bridge(br)  # tear down bridges
     # NO vm.stop_vm() / vm.destroy_vm() for the assets !!!
 ```
 
@@ -53,7 +53,8 @@ $ curl -X DELETE /pve/api2/json/nodes/pve/qemu/112?purge=1&skiplock=1 \
 
 ```python
 self._get_client().nodes(node).qemu(vmid).delete(
-    purge=1, skiplock=1    # ← PVE 9 reserves skiplock for root@pam
+    purge=1,
+    skiplock=1,  # ← PVE 9 reserves skiplock for root@pam
 )
 ```
 

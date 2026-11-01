@@ -15,6 +15,7 @@ Labels are kept low-cardinality on purpose:
 We deliberately do NOT label by scenario_id, run_id, or VMID — those
 have unbounded cardinality and would blow out Prometheus.
 """
+
 from __future__ import annotations
 
 from prometheus_client import (

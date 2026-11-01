@@ -6,6 +6,7 @@ inspects the resulting schema, then runs `downgrade base`. Catches:
 - Schema drift between models and migration
 - Downgrade irreversibility
 """
+
 from __future__ import annotations
 
 import os
@@ -38,7 +39,10 @@ def test_alembic_upgrade_creates_all_tables(tmp_path) -> None:
     env["DIVIDE_DB_URL"] = f"sqlite:///{db_path}"
     r = subprocess.run(
         [sys.executable, "-m", "alembic", "--config", str(ALEMBIC_INI), "upgrade", "head"],
-        capture_output=True, text=True, env=env, cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=ROOT,
     )
     assert r.returncode == 0, f"upgrade failed:\n{r.stderr}\n{r.stdout}"
 
@@ -62,11 +66,18 @@ def test_alembic_current_reports_head(tmp_path) -> None:
     env["DIVIDE_DB_URL"] = f"sqlite:///{db_path}"
     subprocess.run(
         [sys.executable, "-m", "alembic", "--config", str(ALEMBIC_INI), "upgrade", "head"],
-        capture_output=True, text=True, env=env, cwd=ROOT, check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=ROOT,
+        check=True,
     )
     r = subprocess.run(
         [sys.executable, "-m", "alembic", "--config", str(ALEMBIC_INI), "current"],
-        capture_output=True, text=True, env=env, cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=ROOT,
     )
     assert r.returncode == 0
     assert "(head)" in r.stdout
@@ -78,11 +89,18 @@ def test_alembic_downgrade_removes_all_tables(tmp_path) -> None:
     env["DIVIDE_DB_URL"] = f"sqlite:///{db_path}"
     subprocess.run(
         [sys.executable, "-m", "alembic", "--config", str(ALEMBIC_INI), "upgrade", "head"],
-        capture_output=True, text=True, env=env, cwd=ROOT, check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=ROOT,
+        check=True,
     )
     r = subprocess.run(
         [sys.executable, "-m", "alembic", "--config", str(ALEMBIC_INI), "downgrade", "base"],
-        capture_output=True, text=True, env=env, cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=ROOT,
     )
     assert r.returncode == 0, f"downgrade failed:\n{r.stderr}"
 
@@ -107,13 +125,19 @@ def test_alembic_round_trip(tmp_path) -> None:
     for cmd in (["upgrade", "head"], ["downgrade", "base"], ["upgrade", "head"]):
         r = subprocess.run(
             [sys.executable, "-m", "alembic", "--config", str(ALEMBIC_INI), *cmd],
-            capture_output=True, text=True, env=env, cwd=ROOT,
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=ROOT,
         )
         assert r.returncode == 0, f"{cmd} failed:\n{r.stderr}"
     # Confirm we're at head and the tables are all present.
     cur = subprocess.run(
         [sys.executable, "-m", "alembic", "--config", str(ALEMBIC_INI), "current"],
-        capture_output=True, text=True, env=env, cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=ROOT,
     )
     assert "(head)" in cur.stdout
 
@@ -124,7 +148,11 @@ def test_alembic_indexes_present(tmp_path) -> None:
     env["DIVIDE_DB_URL"] = f"sqlite:///{db_path}"
     subprocess.run(
         [sys.executable, "-m", "alembic", "--config", str(ALEMBIC_INI), "upgrade", "head"],
-        capture_output=True, text=True, env=env, cwd=ROOT, check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=ROOT,
+        check=True,
     )
     con = sqlite3.connect(str(db_path))
     try:

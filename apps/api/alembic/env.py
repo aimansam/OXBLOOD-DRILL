@@ -3,6 +3,7 @@
 Loads DB URL from the live Settings (so production migrations respect
 DIVIDE_DB_URL), and uses our SQLAlchemy metadata as the autogenerate target.
 """
+
 from __future__ import annotations
 
 from logging.config import fileConfig
@@ -26,7 +27,9 @@ if sync_url.drivername in {"postgresql", "postgresql+asyncpg"}:
     sync_url = sync_url.set(drivername="postgresql+psycopg2")
 elif sync_url.drivername == "sqlite+aiosqlite":
     sync_url = sync_url.set(drivername="sqlite")
-config.set_main_option("sqlalchemy.url", sync_url.render_as_string(hide_password=False).replace("%", "%%"))
+config.set_main_option(
+    "sqlalchemy.url", sync_url.render_as_string(hide_password=False).replace("%", "%%")
+)
 
 target_metadata = Base.metadata
 

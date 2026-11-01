@@ -18,6 +18,7 @@ Why wrap both behind one function?
     do their own insert + publish.
   * Telemetry policy (best-effort vs. strict) lives in one place.
 """
+
 from __future__ import annotations
 
 import logging
@@ -93,9 +94,7 @@ async def record_event(
         # expected (e.g. the run was deleted mid-drill, asset_id
         # refers to a non-existent row). Swallow + log so the
         # drill doesn't get blocked by a stale telemetry row.
-        logger.warning(
-            "F8 event_bus.record_event: db integrity error: %s", exc
-        )
+        logger.warning("F8 event_bus.record_event: db integrity error: %s", exc)
         return None
     except ProgrammingError as exc:
         # Q24-B3: type-cast / schema-drift errors are NOT
@@ -125,7 +124,5 @@ async def record_event(
     try:
         bus.publish(serialized)
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "F8 event_bus.record_event: bus.publish failed: %s", exc
-        )
+        logger.warning("F8 event_bus.record_event: bus.publish failed: %s", exc)
     return event

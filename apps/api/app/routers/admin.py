@@ -24,6 +24,7 @@ during step 1, and forwards it on every ``fetch()`` call (see
 ``README.md §8``). The user-facing portals (``/``)
 do not hit any ``/admin/*`` endpoint.
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -198,9 +199,7 @@ async def capture_snapshot_baselines(
     }
 
 
-UPLOAD_TMP_DIR = Path(
-    os.environ.get("DIVIDE_UPLOAD_TMP_DIR", "/tmp/divide-uploads")
-)
+UPLOAD_TMP_DIR = Path(os.environ.get("DIVIDE_UPLOAD_TMP_DIR", "/tmp/divide-uploads"))
 
 
 @router.post(
@@ -261,7 +260,9 @@ async def upload_qcow2(
     "/create-template",
     summary="Create a PVE template VM from an uploaded qcow2",
 )
-async def create_template(body: CreateTemplateRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
+async def create_template(
+    body: CreateTemplateRequest, background_tasks: BackgroundTasks
+) -> dict[str, Any]:
     """Kick off template creation. Returns immediately with a job_id.
 
     The actual creation runs in a background task (the import step alone
@@ -375,7 +376,9 @@ async def pve_guest_inventory(
     except ProxmoxNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ProxmoxAPIError as exc:
-        raise HTTPException(status_code=502, detail=f"Proxmox inventory unavailable: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail=f"Proxmox inventory unavailable: {exc}"
+        ) from exc
     if not drill_only:
         return {"items": items, "total": len(items)}
 
@@ -698,8 +701,10 @@ async def get_pve_sdn_status(
                 expected_gateway = ""
             pve_cidr = str(iface.get("cidr") or "")
             pve_address = str(iface.get("address") or "")
-            if not expected_gateway or pve_address == expected_gateway or pve_cidr.startswith(
-                f"{expected_gateway}/"
+            if (
+                not expected_gateway
+                or pve_address == expected_gateway
+                or pve_cidr.startswith(f"{expected_gateway}/")
             ):
                 present_set.add(bridge.name)
         return {
@@ -795,8 +800,7 @@ async def post_pve_setup_bridges(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "bridge plan has conflicts; resolve before applying: "
-                + "; ".join(plan.conflicts)
+                "bridge plan has conflicts; resolve before applying: " + "; ".join(plan.conflicts)
             ),
         )
     if not plan.bridges:
@@ -895,6 +899,8 @@ async def post_pve_setup_bridges(
             f"{sdn.propagation_wait_s:.1f}s"
         ),
     )
+
+
 # ---------------------------------------------------------------------------
 # PVE runtime config (day-1 web setup; precedes Step0 in the wizard)
 # ---------------------------------------------------------------------------
@@ -927,10 +933,16 @@ class PveConfigPayload(BaseModel):
     host: str = Field(..., min_length=1, max_length=255, description="e.g. https://192.168.0.10")
     port: int = Field(default=8006, ge=1, le=65535)
     user: str = Field(..., min_length=1, max_length=255, description="e.g. divide@pve@pam")
-    token_id: str = Field(..., min_length=1, max_length=255, description="e.g. divide@pve@pam!drill-token")
+    token_id: str = Field(
+        ..., min_length=1, max_length=255, description="e.g. divide@pve@pam!drill-token"
+    )
     token_secret: str = Field(..., min_length=1, max_length=255)
-    verify_ssl: bool = Field(default=False, description="False for self-signed certs (default for home/lab PVE)")
-    node: str | None = Field(default=None, max_length=64, description="Optional node name; auto-detected when omitted")
+    verify_ssl: bool = Field(
+        default=False, description="False for self-signed certs (default for home/lab PVE)"
+    )
+    node: str | None = Field(
+        default=None, max_length=64, description="Optional node name; auto-detected when omitted"
+    )
     clone_storage: str = Field(default="", max_length=64)
     seed_snippet_storage: str = Field(default="", max_length=64)
 
@@ -942,7 +954,8 @@ def _storage_check(
 ) -> dict[str, Any]:
     match = next(
         (
-            item for item in storages
+            item
+            for item in storages
             if str(item.get("storage") or item.get("name") or "") == storage_name
         ),
         None,
@@ -1038,9 +1051,7 @@ async def post_pve_config(
     from app.services.proxmox import set_db_overlay
 
     clone_storage = (
-        (body.clone_storage or "").strip()
-        or _settings.proxmox.clone_storage
-        or "local-lvm"
+        (body.clone_storage or "").strip() or _settings.proxmox.clone_storage or "local-lvm"
     )
     seed_snippet_storage = (
         (body.seed_snippet_storage or "").strip()
@@ -1078,9 +1089,7 @@ async def post_pve_config(
     try:
         storage_checks = {
             "clone_storage": _storage_check(storages, clone_storage, "images"),
-            "seed_snippet_storage": _storage_check(
-                storages, seed_snippet_storage, "snippets"
-            ),
+            "seed_snippet_storage": _storage_check(storages, seed_snippet_storage, "snippets"),
         }
     except HTTPException:
         set_db_overlay(None)
@@ -1142,8 +1151,7 @@ async def delete_pve_config(
     return {
         "deleted": deleted,
         "message": (
-            "DB row deleted; API now resolves PVE creds from "
-            "PROXMOX_* env vars."
+            "DB row deleted; API now resolves PVE creds from PROXMOX_* env vars."
             if deleted
             else "No DB row to delete; API is already on env-var fallback."
         ),
@@ -1161,7 +1169,6 @@ async def delete_pve_config(
 # Both honour the same skip rules (grace period, live runs, missing
 # VMID). The runner gives us the same adapter that started the drill,
 # so credentials + node config match.
-
 
 
 class OrphanCandidate(BaseModel):
@@ -1237,11 +1244,11 @@ async def list_orphan_assets(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"asset_ids must be comma-separated ints: {exc}",
             ) from exc
-    candidates = await orphan_svc.list_orphans(
-        db, grace_minutes=grace_minutes, asset_ids=ids
-    )
-    pve_candidates = [] if ids is not None else await orphan_svc.list_pve_unused_vms(
-        db, grace_minutes=grace_minutes
+    candidates = await orphan_svc.list_orphans(db, grace_minutes=grace_minutes, asset_ids=ids)
+    pve_candidates = (
+        []
+        if ids is not None
+        else await orphan_svc.list_pve_unused_vms(db, grace_minutes=grace_minutes)
     )
     return OrphanListResponse(
         items=[
@@ -1258,7 +1265,8 @@ async def list_orphan_assets(
                 age_seconds=c.age_seconds,
             )
             for c in candidates
-        ] + [
+        ]
+        + [
             OrphanCandidate(
                 source="pve_unused",
                 asset_id=c.asset_id or 0,

@@ -18,6 +18,7 @@ This suite covers the F3 changes end-to-end:
   * The runner validates network names declared by assets exist in
     spec.networks[] (typo safety)
 """
+
 from __future__ import annotations
 
 import pytest
@@ -105,9 +106,7 @@ async def test_one_bridge_per_network_declaration(session: AsyncSession) -> None
     assert len(adapter.bridges_created) == 2
     bridges = sorted(b.bridge for b in adapter.bridges_created)
     # Sequential allocation: vmbr100, vmbr101.
-    assert bridges == ["vmbr100", "vmbr101"], (
-        f"expected vmbr100+vmbr101; got {bridges}"
-    )
+    assert bridges == ["vmbr100", "vmbr101"], f"expected vmbr100+vmbr101; got {bridges}"
 
 
 @pytest.mark.asyncio
@@ -139,9 +138,7 @@ async def test_no_networks_creates_no_bridges(session: AsyncSession) -> None:
     assert adapter.bridges_created == [], (
         f"legacy scenarios must not create bridges; got {adapter.bridges_created}"
     )
-    assert adapter.nic_attached == [], (
-        f"legacy scenarios have no NICs; got {adapter.nic_attached}"
-    )
+    assert adapter.nic_attached == [], f"legacy scenarios have no NICs; got {adapter.nic_attached}"
 
 
 @pytest.mark.asyncio
@@ -153,6 +150,7 @@ async def test_runner_uses_bridge_plan_not_sdn_inventory(
     The runner used to count SDN VNets in the ``divide`` zone here, which
     made Start Drill fail when Setup had prepared direct node bridges.
     """
+
     class NoSdnInventoryAdapter(MockProxmoxAdapter):
         async def get_sdn_bridges(self, zone: str = "divide") -> list[str]:
             raise AssertionError("runner must not query SDN inventory")
@@ -184,9 +182,7 @@ async def test_runner_uses_bridge_plan_not_sdn_inventory(
     assert len(adapter.nic_attached) == 2
     started_vmid, nics_at_start = adapter.started_with_nics[0]
     assert nics_at_start == [
-        (nic_id, bridge)
-        for vmid, bridge, nic_id in adapter.nic_attached
-        if vmid == started_vmid
+        (nic_id, bridge) for vmid, bridge, nic_id in adapter.nic_attached if vmid == started_vmid
     ]
 
 
@@ -486,16 +482,11 @@ async def test_red_vs_blue_baseline_yaml_topology_runs(
 
     # Seed templates that the scenario references.
     adapter = MockProxmoxAdapter()
-    for tpl in {
-        spec["spec"]["assets"][i]["template"]
-        for i in range(len(spec["spec"]["assets"]))
-    }:
+    for tpl in {spec["spec"]["assets"][i]["template"] for i in range(len(spec["spec"]["assets"]))}:
         adapter.seed_template(tpl)
 
     runner = Runner(adapter=adapter)
-    result = await runner.start_run(
-        RunRequest(scenario_id=1), session=session
-    )
+    result = await runner.start_run(RunRequest(scenario_id=1), session=session)
 
     assert result.status.value == "running"
 
@@ -507,8 +498,7 @@ async def test_red_vs_blue_baseline_yaml_topology_runs(
     # the same scenario's role breakdown in detail; here we only
     # check the topology (1 router with 2 NICs).
     assert len(adapter.cloned) == 6, (
-        f"expected 6 clones; got {len(adapter.cloned)}: "
-        f"{[c.name for c in adapter.cloned]}"
+        f"expected 6 clones; got {len(adapter.cloned)}: {[c.name for c in adapter.cloned]}"
     )
 
     by_role: dict[str, int] = {}
@@ -518,10 +508,7 @@ async def test_red_vs_blue_baseline_yaml_topology_runs(
         by_role[parts[2]] = by_role.get(parts[2], 0) + 1
     assert by_role.get("redattacker") == 1
     assert by_role.get("routerfw") == 1
-    assert (
-        by_role.get("victimworkstation1") == 1
-        and by_role.get("victimworkstation2") == 1
-    )
+    assert by_role.get("victimworkstation1") == 1 and by_role.get("victimworkstation2") == 1
     assert by_role.get("fileserver") == 1
     assert by_role.get("logaggregator") == 1
 
@@ -536,17 +523,14 @@ async def test_red_vs_blue_baseline_yaml_topology_runs(
         counts[vmid] = counts.get(vmid, 0) + 1
     two_nic_vmids = [vmid for vmid, n in counts.items() if n == 2]
     assert len(two_nic_vmids) == 1, (
-        f"expected exactly one VM with 2 NICs (the router); "
-        f"counts={counts}"
+        f"expected exactly one VM with 2 NICs (the router); counts={counts}"
     )
     router_vmid = two_nic_vmids[0]
 
     # The router's two NICs are vmbr100 (red_vlan) + vmbr102
     # (blue_vlan). vmbr101 is ``dmz`` in this scenario and no
     # asset attaches to it.
-    router_nics = sorted(
-        br for vmid, br, _ in adapter.nic_attached if vmid == router_vmid
-    )
+    router_nics = sorted(br for vmid, br, _ in adapter.nic_attached if vmid == router_vmid)
     assert router_nics == ["vmbr100", "vmbr102"], (
         f"router should attach to red+blue; got {router_nics}"
     )
@@ -579,17 +563,19 @@ async def test_count_one_does_not_suffix_role(session: AsyncSession) -> None:
         _scenario(
             name="count-one",
             networks_spec=[],
-            assets_spec=[{"role": "attacker", "kind": "vm",
-                          "template": "tpl-x", "networks": []}],
+            assets_spec=[{"role": "attacker", "kind": "vm", "template": "tpl-x", "networks": []}],
         )
     )
     await session.commit()
 
     await runner.start_run(RunRequest(scenario_id=1), session=session)
 
-    roles = sorted(a.role for a in (await session.execute(
-        __import__("sqlalchemy").select(models.Asset)
-    )).scalars().all())
+    roles = sorted(
+        a.role
+        for a in (await session.execute(__import__("sqlalchemy").select(models.Asset)))
+        .scalars()
+        .all()
+    )
     assert roles == ["attacker"]
 
 
@@ -618,12 +604,13 @@ async def test_count_two_spawns_two_clones_with_suffix(session: AsyncSession) ->
 
     await runner.start_run(RunRequest(scenario_id=1), session=session)
 
-    assert len(adapter.cloned) == 2, (
-        f"count=2 must spawn 2 clones; got {len(adapter.cloned)}"
+    assert len(adapter.cloned) == 2, f"count=2 must spawn 2 clones; got {len(adapter.cloned)}"
+    roles = sorted(
+        a.role
+        for a in (await session.execute(__import__("sqlalchemy").select(models.Asset)))
+        .scalars()
+        .all()
     )
-    roles = sorted(a.role for a in (await session.execute(
-        __import__("sqlalchemy").select(models.Asset)
-    )).scalars().all())
     assert roles == ["victim_workstation_1", "victim_workstation_2"], (
         f"expected suffix _N; got {roles}"
     )
@@ -692,6 +679,7 @@ async def test_red_vs_blue_baseline_with_count_gives_six_clones(
 
     from app.services.scenario_sync import _find_schema
     from jsonschema import Draft202012Validator
+
     Draft202012Validator(json.loads(_find_schema().read_text())).validate(spec)
 
     await session.merge(
@@ -708,15 +696,11 @@ async def test_red_vs_blue_baseline_with_count_gives_six_clones(
     await session.commit()
 
     adapter = MockProxmoxAdapter()
-    for tpl in {
-        a["template"] for a in spec["spec"]["assets"]
-    }:
+    for tpl in {a["template"] for a in spec["spec"]["assets"]}:
         adapter.seed_template(tpl)
 
     runner = Runner(adapter=adapter)
-    result = await runner.start_run(
-        RunRequest(scenario_id=1), session=session
-    )
+    result = await runner.start_run(RunRequest(scenario_id=1), session=session)
 
     assert result.status.value == "running"
     # The scenario declares 5 assets with counts
@@ -759,13 +743,10 @@ def test_alembic_0004_drops_unique_constraint():
     from pathlib import Path
 
     src = (
-        Path(__file__).resolve().parents[1]
-        / "alembic"
-        / "versions"
-        / "0004_asset_instance.py"
+        Path(__file__).resolve().parents[1] / "alembic" / "versions" / "0004_asset_instance.py"
     ).read_text()
 
-    assert "down_revision = \"0003_users\""
+    assert 'down_revision = "0003_users"'
     assert "drop_constraint" in src
     assert "uq_assets_run_role" in src
 

@@ -11,6 +11,7 @@ Design notes
 - Raw guest logs remain on guests and the log aggregator; this database
   records control-plane events and normalized telemetry, not a log index.
 """
+
 from __future__ import annotations
 
 import enum
@@ -84,8 +85,8 @@ class AuditAction(str, enum.Enum):
     RUN_FAILED = "run.failed"
     RUN_CANCELLED = "run.cancelled"
     RUN_STOPPED = "run.stopped"  # Q17: operator-initiated stop (admin/lead
-        # POST /drills/{id}/stop). Distinct from RUN_CANCELLED
-        # which is trainee-initiated (POST /drills/{id}/cancel).
+    # POST /drills/{id}/stop). Distinct from RUN_CANCELLED
+    # which is trainee-initiated (POST /drills/{id}/cancel).
     RUN_TIMEOUT = "run.timeout"  # auto-cancelled by the watchdog (L2 2.8)
     # Q23-B3: operator-initiated reset of a terminal run back to
     # its template snapshot. Distinct from RUN_STOPPED (which
@@ -146,16 +147,12 @@ class Scenario(Base, TimestampMixin):
     duration_min: Mapped[int] = mapped_column(Integer, nullable=False)
     tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     spec: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    authors: Mapped[list[dict[str, Any]]] = mapped_column(
-        JSON, nullable=False, default=list
-    )
+    authors: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
     source_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     # Soft-delete flag: set when the YAML backing this row is removed from
     # disk. Historical Runs still reference this row via FK, so we never
     # hard-delete a scenario. Set to NULL to re-activate.
-    archived_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     runs: Mapped[list[Run]] = relationship(back_populates="scenario")
 
@@ -201,9 +198,7 @@ class Run(Base, TimestampMixin):
     # F6: nullable for backward compat. Defaults to "red" so
     # legacy single-team runs continue to attribute flag
     # submissions to the red team.
-    team: Mapped[str | None] = mapped_column(
-        String(16), nullable=True, default="red"
-    )
+    team: Mapped[str | None] = mapped_column(String(16), nullable=True, default="red")
     status: Mapped[RunStatus] = mapped_column(
         Enum(
             RunStatus,
@@ -213,12 +208,8 @@ class Run(Base, TimestampMixin):
         nullable=False,
         default=RunStatus.PENDING,
     )
-    started_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    ended_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     started_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Resolved at run creation so watchdog recovery keeps the drill's own
     # duration after an API restart.
@@ -228,12 +219,8 @@ class Run(Base, TimestampMixin):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     scenario: Mapped[Scenario] = relationship(back_populates="runs")
-    exercise: Mapped[Exercise | None] = relationship(
-        back_populates="runs"
-    )
-    assets: Mapped[list[Asset]] = relationship(
-        back_populates="run", cascade="all, delete-orphan"
-    )
+    exercise: Mapped[Exercise | None] = relationship(back_populates="runs")
+    assets: Mapped[list[Asset]] = relationship(back_populates="run", cascade="all, delete-orphan")
     flag_submissions: Mapped[list[FlagSubmission]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
@@ -272,9 +259,7 @@ class Asset(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    run_id: Mapped[int] = mapped_column(
-        ForeignKey("runs.id", ondelete="CASCADE"), nullable=False
-    )
+    run_id: Mapped[int] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), nullable=False)
     role: Mapped[str] = mapped_column(String(64), nullable=False)
     kind: Mapped[str] = mapped_column(String(16), nullable=False, default="vm")
     template: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -297,9 +282,7 @@ class Asset(Base, TimestampMixin):
     # (not hard-deleted) so the run's history stays intact;
     # audit_log.asset_id has ON DELETE SET NULL anyway, but we'd
     # rather preserve the link.
-    cleaned_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    cleaned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     run: Mapped[Run] = relationship(back_populates="assets")
 
@@ -392,15 +375,14 @@ class FlagSubmission(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    run_id: Mapped[int] = mapped_column(
-        ForeignKey("runs.id", ondelete="CASCADE"), nullable=False
-    )
+    run_id: Mapped[int] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), nullable=False)
     flag_id: Mapped[str] = mapped_column(String(64), nullable=False)
     team: Mapped[str] = mapped_column(String(16), nullable=False)
     submitted_by: Mapped[str] = mapped_column(String(64), nullable=False)
     # Captured-at is the moment the server validated the flag.
     captured_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(UTC),
     )
     # Frozen so re-grading a scoring rule later doesn't rewrite
@@ -470,9 +452,7 @@ class User(Base, TimestampMixin):
     # canonical list lives on :class:`app.core.auth.Role` and is
     # enforced at write time by :func:`app.services.users.create_user`.
     role: Mapped[str] = mapped_column(String(32), nullable=False)
-    last_login_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Admin kill switch. ``disabled=True`` users get 401 on
     # ``POST /auth/login``; their existing tokens still verify
     # until ``exp`` (consistent with the rest of the auth model —
@@ -484,9 +464,7 @@ class User(Base, TimestampMixin):
     # Stable across logins; used as seed to derive the peer keypair
     # deterministically from DIVIDE_WG_PEER_SECRET. NULL until the
     # user fetches their config for the first time.
-    wg_peer_id: Mapped[str | None] = mapped_column(
-        String(36), nullable=True, unique=True
-    )
+    wg_peer_id: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True)
     # F-reset-ux: one-time password-reset token. NULL when no reset
     # is in flight. Random per reset, single-use (cleared on a
     # successful ``POST /auth/reset-password``). Stored verbatim —
@@ -497,9 +475,7 @@ class User(Base, TimestampMixin):
     # the URL. If the reset link leaks the only mitigation is
     # expiry (24h by default) and the reset endpoint's
     # single-use semantics.
-    reset_token: Mapped[str | None] = mapped_column(
-        String(64), nullable=True
-    )
+    reset_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # When ``reset_token`` stops being valid. Stamped at issuance
     # time; consulted on every ``POST /auth/reset-password`` call.
     # NULL when no token is pending (the column pair is read
@@ -535,7 +511,7 @@ class AuditLog(Base):
             name="audit_action",
             values_callable=lambda e: [v.value for v in e],
         ),
-        nullable=False
+        nullable=False,
     )
     actor: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Optional polymorphic links. Both nullable; the combination lets us
@@ -661,18 +637,12 @@ class Exercise(Base, TimestampMixin):
     # Optional wall-clock bounds. The scheduler flips status
     # IDLE -> LIVE at starts_at and LIVE -> ENDED at ends_at
     # (F3-prep-style background asyncio task).
-    starts_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    ends_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[str] = mapped_column(String(64), nullable=False)
 
     scenario: Mapped[Scenario] = relationship()
-    runs: Mapped[list[Run]] = relationship(
-        back_populates="exercise", cascade="all, delete-orphan"
-    )
+    runs: Mapped[list[Run]] = relationship(back_populates="exercise", cascade="all, delete-orphan")
     teams: Mapped[list[Team]] = relationship(
         back_populates="exercise",
         cascade="all, delete-orphan",
@@ -758,7 +728,8 @@ class TeamMembership(Base, TimestampMixin):
     __table_args__ = (
         Index(
             "uq_team_membership_user_exercise",
-            "sub", "exercise_id",
+            "sub",
+            "exercise_id",
             unique=True,
         ),
         Index("ix_team_membership_team_id", "team_id"),
@@ -769,9 +740,7 @@ class TeamMembership(Base, TimestampMixin):
     exercise_id: Mapped[int] = mapped_column(
         ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False
     )
-    team_id: Mapped[int] = mapped_column(
-        ForeignKey("teams.id", ondelete="CASCADE"), nullable=False
-    )
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
     role: Mapped[TeamRole] = mapped_column(
         Enum(
             TeamRole,
@@ -841,9 +810,7 @@ class Template(Base, TimestampMixin):
         ForeignKey("scenarios.id", ondelete="RESTRICT"),
         nullable=False,
     )
-    snapshot: Mapped[dict[str, Any]] = mapped_column(
-        JSON, nullable=False
-    )
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     created_by: Mapped[str] = mapped_column(String(64), nullable=False)
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -922,9 +889,7 @@ class TelemetryEvent(Base, TimestampMixin):
     # DB); ``ts`` is when the event happened at the source.
     # Backfilled in Python from ``time.time()`` if the source
     # doesn't supply it.
-    ts: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     source: Mapped[str] = mapped_column(String(64), nullable=False)
     kind: Mapped[str] = mapped_column(String(64), nullable=False)
     severity: Mapped[TelemetrySeverity] = mapped_column(
@@ -938,9 +903,7 @@ class TelemetryEvent(Base, TimestampMixin):
     )
     # Free-form payload (event-specific data). JSONB on Postgres,
     # TEXT on sqlite.
-    payload: Mapped[dict[str, Any]] = mapped_column(
-        JSON, nullable=False, default=dict
-    )
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 
     def __repr__(self) -> str:  # pragma: no cover
         return (
@@ -977,9 +940,7 @@ class PveConfig(Base, TimestampMixin):
     # Hard-coded singleton PK. See :func:`app.services.pve_config.upsert_config`.
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     host: Mapped[str] = mapped_column(String(255), nullable=False)
-    port: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default=text("8006")
-    )
+    port: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("8006"))
     user: Mapped[str] = mapped_column(String(255), nullable=False)
     # Format "user@realm!tokenname" -- the same shape proxmoxer wants,
     # and what ``PROXMOX_TOKEN_ID`` takes. Splitting the realm off
@@ -993,9 +954,7 @@ class PveConfig(Base, TimestampMixin):
     token_secret: Mapped[str] = mapped_column(String(255), nullable=False)
     # Default False: most PVE installs use a self-signed cert; the
     # wizard form pre-checks this for the operator.
-    verify_ssl: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("false")
-    )
+    verify_ssl: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     # Default node for proxmoxer queries when none specified. Nullable
     # means "let proxmoxer pick" -- one less thing for the operator
     # to fill in the wizard form.
@@ -1026,8 +985,6 @@ class PveConfig(Base, TimestampMixin):
             "node": self.node,
             "clone_storage": self.clone_storage,
             "seed_snippet_storage": self.seed_snippet_storage,
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
             "updated_by": self.updated_by,
         }

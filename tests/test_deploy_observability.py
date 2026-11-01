@@ -8,6 +8,7 @@ deployment environment is host-specific). Instead we validate that:
   * Grafana provisioning files parse
   * docker-compose.yml references all the expected service names
 """
+
 from __future__ import annotations
 
 import json

@@ -32,6 +32,7 @@ quota, no per-route overrides. If we later need those, replace this
 module; the router integration is the single call site (``start_drill``
 in ``routers/drills.py``).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -141,9 +142,7 @@ async def check_drill_start_limit(sub: str) -> None:
         pipe.expire(key, cfg.window_seconds)
         count, _ = await pipe.execute()
     except Exception as exc:  # noqa: BLE001 — fail-open is intentional
-        if os.environ.get("DIVIDE_RATE_LIMIT_FAIL_CLOSED", "").lower() in (
-            "1", "true", "yes"
-        ):
+        if os.environ.get("DIVIDE_RATE_LIMIT_FAIL_CLOSED", "").lower() in ("1", "true", "yes"):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"rate limiter unavailable: {exc}",

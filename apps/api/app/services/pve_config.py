@@ -18,6 +18,7 @@ The store is intentionally minimal: one upsert, one read, one delete.
 We don't need pagination, soft-delete, or history because this is
 operator-only configuration, not a record-of-truth.
 """
+
 from __future__ import annotations
 
 from typing import Any

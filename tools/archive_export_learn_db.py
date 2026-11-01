@@ -19,6 +19,7 @@ copied. drills.lab_id keeps its integer value as a read-only reference.
 Idempotent: re-running upserts by primary key (Postgres ON CONFLICT
 DO NOTHING). Verify row counts match before pointing Learn at the new DB.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -97,7 +98,7 @@ async def main() -> int:
 
             counts: dict[str, int] = {}
             for t in LEARN_TABLES:
-                r = await sconn.execute(text(f'SELECT COUNT(*) FROM \"{t}\"'))
+                r = await sconn.execute(text(f'SELECT COUNT(*) FROM "{t}"'))
                 counts[t] = r.scalar() or 0
             print("source counts:")
             for t, c in counts.items():
@@ -106,12 +107,12 @@ async def main() -> int:
                 return 0
             for t in LEARN_TABLES:
                 # Chunked copy via server-side read + executemany insert.
-                res = await sconn.execute(text(f'SELECT * FROM \"{t}\"'))
+                res = await sconn.execute(text(f'SELECT * FROM "{t}"'))
                 rows = res.mappings().all()
                 if not rows:
                     continue
                 cols = list(rows[0].keys())
-                collist = ", ".join(f'\"{c}\"' for c in cols)
+                collist = ", ".join(f'"{c}"' for c in cols)
                 placeholders = ", ".join(f":{c}" for c in cols)
                 # ON CONFLICT DO NOTHING needs a PK; fall back to plain insert
                 # if the table lacks one (none of the Learn tables do).
@@ -120,7 +121,7 @@ async def main() -> int:
                     chunk = [dict(r) for r in rows[i : i + 500]]
                     await dconn.execute(
                         text(
-                            f'INSERT INTO \"{t}\" ({collist}) VALUES ({placeholders}) '
+                            f'INSERT INTO "{t}" ({collist}) VALUES ({placeholders}) '
                             f"ON CONFLICT DO NOTHING"
                         ),
                         chunk,

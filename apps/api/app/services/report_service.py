@@ -3,6 +3,7 @@
 Handles report CRUD, findings management, evidence tracking, report grading,
 and benchmark calculation.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -24,6 +25,7 @@ from app.db.models_oxblood import (
 # ============================================================================
 # Report CRUD
 # ============================================================================
+
 
 async def list_reports(
     db: AsyncSession,
@@ -48,9 +50,7 @@ async def list_reports(
 
 async def get_report(db: AsyncSession, report_id: int) -> Report | None:
     """Get a report by ID."""
-    result = await db.execute(
-        select(Report).where(Report.id == report_id)
-    )
+    result = await db.execute(select(Report).where(Report.id == report_id))
     return result.scalar_one_or_none()
 
 
@@ -82,11 +82,7 @@ async def create_report(
     return report
 
 
-async def update_report(
-    db: AsyncSession,
-    report_id: int,
-    **kwargs
-) -> Report | None:
+async def update_report(db: AsyncSession, report_id: int, **kwargs) -> Report | None:
     """Update a report."""
     report = await get_report(db, report_id)
     if not report:
@@ -141,6 +137,7 @@ async def grade_report(
 # Report Findings
 # ============================================================================
 
+
 async def list_findings(db: AsyncSession, report_id: int) -> list[ReportFinding]:
     """List all findings for a report."""
     result = await db.execute(
@@ -185,15 +182,9 @@ async def create_finding(
     return finding
 
 
-async def update_finding(
-    db: AsyncSession,
-    finding_id: int,
-    **kwargs
-) -> ReportFinding | None:
+async def update_finding(db: AsyncSession, finding_id: int, **kwargs) -> ReportFinding | None:
     """Update a finding."""
-    result = await db.execute(
-        select(ReportFinding).where(ReportFinding.id == finding_id)
-    )
+    result = await db.execute(select(ReportFinding).where(ReportFinding.id == finding_id))
     finding = result.scalar_one_or_none()
     if not finding:
         return None
@@ -207,9 +198,7 @@ async def update_finding(
 
 async def delete_finding(db: AsyncSession, finding_id: int) -> bool:
     """Delete a finding."""
-    result = await db.execute(
-        select(ReportFinding).where(ReportFinding.id == finding_id)
-    )
+    result = await db.execute(select(ReportFinding).where(ReportFinding.id == finding_id))
     finding = result.scalar_one_or_none()
     if not finding:
         return False
@@ -222,11 +211,10 @@ async def delete_finding(db: AsyncSession, finding_id: int) -> bool:
 # Evidence Management
 # ============================================================================
 
+
 async def list_finding_evidence(db: AsyncSession, finding_id: int) -> list[Evidence]:
     """List all evidence for a finding."""
-    result = await db.execute(
-        select(Evidence).where(Evidence.finding_id == finding_id)
-    )
+    result = await db.execute(select(Evidence).where(Evidence.finding_id == finding_id))
     return result.scalars().all()
 
 
@@ -256,9 +244,7 @@ async def add_evidence(
 
 async def delete_evidence(db: AsyncSession, evidence_id: int) -> bool:
     """Delete evidence."""
-    result = await db.execute(
-        select(Evidence).where(Evidence.id == evidence_id)
-    )
+    result = await db.execute(select(Evidence).where(Evidence.id == evidence_id))
     evidence = result.scalar_one_or_none()
     if not evidence:
         return False
@@ -271,11 +257,10 @@ async def delete_evidence(db: AsyncSession, evidence_id: int) -> bool:
 # Benchmarks
 # ============================================================================
 
+
 async def get_user_benchmark(db: AsyncSession, user_id: int) -> Benchmark | None:
     """Get current benchmark for a user."""
-    result = await db.execute(
-        select(Benchmark).where(Benchmark.user_id == user_id)
-    )
+    result = await db.execute(select(Benchmark).where(Benchmark.user_id == user_id))
     return result.scalar_one_or_none()
 
 
@@ -285,7 +270,7 @@ async def calculate_and_update_benchmark(
 ) -> Benchmark:
     """Calculate and update user's benchmark based on their performance."""
     from app.db.models_oxblood import Score
-    
+
     # Get user's scores
     score_result = await db.execute(
         select(
@@ -296,22 +281,22 @@ async def calculate_and_update_benchmark(
         ).where(Score.user_id == user_id)
     )
     score_row = score_result.one()
-    
+
     total_points = float(score_row.total_points or 0)
     total_flags = int(score_row.total_flags or 0)
     avg_time = float(score_row.avg_time or 0)
     drills_completed = int(score_row.drills_completed or 0)
-    
+
     # Calculate category scores (simplified - in production, this would be more sophisticated)
     # For now, use total_points as a base and distribute across categories
     base_score = min(100, total_points / 10)  # Normalize to 0-100
-    
+
     # Get or create benchmark
     benchmark = await get_user_benchmark(db, user_id)
     if not benchmark:
         benchmark = Benchmark(user_id=user_id)
         db.add(benchmark)
-    
+
     # Update scores
     benchmark.overall_score = base_score
     benchmark.offensive_score = base_score * 0.9  # Offensive slightly lower
@@ -327,9 +312,9 @@ async def calculate_and_update_benchmark(
     benchmark.total_flags_captured = total_flags
     benchmark.average_completion_time_seconds = int(avg_time) if avg_time > 0 else None
     benchmark.last_calculated_at = datetime.now(UTC)
-    
+
     await db.flush()
-    
+
     # Record in history
     history = BenchmarkHistory(
         user_id=user_id,
@@ -345,7 +330,7 @@ async def calculate_and_update_benchmark(
         reporting_score=benchmark.reporting_score,
     )
     db.add(history)
-    
+
     await db.commit()
     await db.refresh(benchmark)
     return benchmark
@@ -372,8 +357,6 @@ async def get_global_benchmarks(
 ) -> list[Benchmark]:
     """Get global benchmarks ranked by overall score."""
     result = await db.execute(
-        select(Benchmark)
-        .order_by(Benchmark.overall_score.desc())
-        .limit(limit)
+        select(Benchmark).order_by(Benchmark.overall_score.desc()).limit(limit)
     )
     return result.scalars().all()

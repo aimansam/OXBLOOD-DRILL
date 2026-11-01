@@ -11,6 +11,7 @@ Revision ID: 0008_telemetry_events
 Revises: 0007_templates
 Create Date: 2026-08-25
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -45,27 +46,17 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
         ),
-        sa.ForeignKeyConstraint(
-            ["run_id"], ["runs.id"], ondelete="SET NULL"
-        ),
-        sa.ForeignKeyConstraint(
-            ["asset_id"], ["assets.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["run_id"], ["runs.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["asset_id"], ["assets.id"], ondelete="SET NULL"),
     )
     op.create_index(
         "ix_telemetry_run_id_ts",
         "telemetry_events",
         ["run_id", "ts"],
     )
-    op.create_index(
-        "ix_telemetry_kind", "telemetry_events", ["kind"]
-    )
-    op.create_index(
-        "ix_telemetry_severity", "telemetry_events", ["severity"]
-    )
-    op.create_index(
-        "ix_telemetry_source", "telemetry_events", ["source"]
-    )
+    op.create_index("ix_telemetry_kind", "telemetry_events", ["kind"])
+    op.create_index("ix_telemetry_severity", "telemetry_events", ["severity"])
+    op.create_index("ix_telemetry_source", "telemetry_events", ["source"])
 
 
 def downgrade() -> None:

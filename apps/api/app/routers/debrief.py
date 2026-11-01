@@ -21,6 +21,7 @@ see ``app.routers.reports``. Status codes:
   * 404 -- run id does not exist.
   * 409 -- run is still in a non-terminal state.
 """
+
 from __future__ import annotations
 
 import io
@@ -43,13 +44,22 @@ router = APIRouter()
 
 # --- public endpoint -----------------------------------------------------
 
+
 @router.get(
     "/{run_id}/debrief.md",
     summary="Get a markdown debrief for a finished drill (F11).",
     response_class=PlainTextResponse,
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def get_debrief(
     run_id: int,
@@ -86,9 +96,8 @@ async def get_debrief(
 
 # --- helpers -------------------------------------------------------------
 
-async def _load_run_or_404(
-    session: AsyncSession, run_id: int
-) -> db_models.Run:
+
+async def _load_run_or_404(session: AsyncSession, run_id: int) -> db_models.Run:
     stmt = select(db_models.Run).where(db_models.Run.id == run_id)
     run = (await session.execute(stmt)).scalar_one_or_none()
     if run is None:
@@ -99,9 +108,7 @@ async def _load_run_or_404(
     return run
 
 
-async def _render_debrief(
-    session: AsyncSession, run: db_models.Run
-) -> str:
+async def _render_debrief(session: AsyncSession, run: db_models.Run) -> str:
     """Assemble the full markdown document.
 
     Pulls the scenario, asset, flag_submission, and telemetry_event
@@ -124,9 +131,7 @@ async def _render_debrief(
     return buf.getvalue()
 
 
-async def _load_scenario(
-    session: AsyncSession, scenario_id: int
-) -> db_models.Scenario | None:
+async def _load_scenario(session: AsyncSession, scenario_id: int) -> db_models.Scenario | None:
     return (
         await session.execute(
             select(db_models.Scenario).where(db_models.Scenario.id == scenario_id)
@@ -134,21 +139,15 @@ async def _load_scenario(
     ).scalar_one_or_none()
 
 
-async def _load_assets(
-    session: AsyncSession, run_id: int
-) -> list[db_models.Asset]:
+async def _load_assets(session: AsyncSession, run_id: int) -> list[db_models.Asset]:
     return list(
         (
-            await session.execute(
-                select(db_models.Asset).where(db_models.Asset.run_id == run_id)
-            )
+            await session.execute(select(db_models.Asset).where(db_models.Asset.run_id == run_id))
         ).scalars()
     )
 
 
-async def _load_submissions(
-    session: AsyncSession, run_id: int
-) -> list[db_models.FlagSubmission]:
+async def _load_submissions(session: AsyncSession, run_id: int) -> list[db_models.FlagSubmission]:
     return list(
         (
             await session.execute(
@@ -160,9 +159,7 @@ async def _load_submissions(
     )
 
 
-async def _load_telemetry(
-    session: AsyncSession, run_id: int
-) -> list[db_models.TelemetryEvent]:
+async def _load_telemetry(session: AsyncSession, run_id: int) -> list[db_models.TelemetryEvent]:
     return list(
         (
             await session.execute(
@@ -175,6 +172,7 @@ async def _load_telemetry(
 
 
 # --- markdown rendering --------------------------------------------------
+
 
 def _fmt_dt(dt: datetime | None) -> str:
     if dt is None:
@@ -233,11 +231,7 @@ def _render_scores(
     buf.write("## Per-team score\n\n")
     score_red = run.score_red if run.score_red is not None else 0
     score_blue = run.score_blue if run.score_blue is not None else 0
-    winner = (
-        "red" if score_red > score_blue
-        else "blue" if score_blue > score_red
-        else "tied"
-    )
+    winner = "red" if score_red > score_blue else "blue" if score_blue > score_red else "tied"
 
     counts: dict[str, int] = defaultdict(int)
     points: dict[str, int] = defaultdict(int)
@@ -247,12 +241,8 @@ def _render_scores(
 
     buf.write("| Team | Captures | Points (raw) | Score (decay-adjusted) |\n")
     buf.write("|------|----------|--------------|------------------------|\n")
-    buf.write(
-        f"| red  | {counts.get('red', 0)} | {points.get('red', 0)} | {score_red} |\n"
-    )
-    buf.write(
-        f"| blue | {counts.get('blue', 0)} | {points.get('blue', 0)} | {score_blue} |\n"
-    )
+    buf.write(f"| red  | {counts.get('red', 0)} | {points.get('red', 0)} | {score_red} |\n")
+    buf.write(f"| blue | {counts.get('blue', 0)} | {points.get('blue', 0)} | {score_blue} |\n")
     buf.write("\n")
     if winner == "tied":
         buf.write("**Result:** tied.\n\n")
@@ -295,8 +285,7 @@ def _render_pivot_timeline(
     for e in events:
         detail = _event_detail(e)
         buf.write(
-            f"| {_fmt_dt(e.ts)} | `{e.kind}` | {e.severity.value} | "
-            f"{e.source} | {detail} |\n"
+            f"| {_fmt_dt(e.ts)} | `{e.kind}` | {e.severity.value} | {e.source} | {detail} |\n"
         )
     buf.write("\n")
 
@@ -316,8 +305,7 @@ def _render_detection_timeline(
     for e in events:
         detail = _event_detail(e)
         buf.write(
-            f"| {_fmt_dt(e.ts)} | `{e.kind}` | {e.severity.value} | "
-            f"{e.source} | {detail} |\n"
+            f"| {_fmt_dt(e.ts)} | `{e.kind}` | {e.severity.value} | {e.source} | {detail} |\n"
         )
     buf.write("\n")
 
@@ -368,9 +356,7 @@ def _event_detail(e: db_models.TelemetryEvent) -> str:
     return ", ".join(bits)
 
 
-def _render_assets(
-    buf: io.StringIO, assets: list[db_models.Asset]
-) -> None:
+def _render_assets(buf: io.StringIO, assets: list[db_models.Asset]) -> None:
     buf.write("## Asset table\n\n")
     if not assets:
         buf.write("_No assets._\n\n")

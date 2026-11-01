@@ -17,53 +17,53 @@ from flask import Flask, Response, abort, request, send_from_directory
 app = Flask(__name__)
 
 # Configuration
-APP_DIR = os.path.join(os.path.dirname(__file__), 'app')
-API_BACKEND = os.environ.get('API_BACKEND', 'http://api:8000')
+APP_DIR = os.path.join(os.path.dirname(__file__), "app")
+API_BACKEND = os.environ.get("API_BACKEND", "http://api:8000")
 
 # Timeout for API proxy requests (in seconds)
 PROXY_TIMEOUT = 30
 
 
-@app.route('/')
+@app.route("/")
 def landing():
     """Serve the landing page."""
-    return send_from_directory(APP_DIR, 'landing.html')
+    return send_from_directory(APP_DIR, "landing.html")
 
 
-@app.route('/login')
+@app.route("/login")
 def login():
     """Serve the login page."""
-    return send_from_directory(APP_DIR, 'login.html')
+    return send_from_directory(APP_DIR, "login.html")
 
 
-@app.route('/join')
+@app.route("/join")
 def join():
     """Invite-only participant registration page."""
-    response = send_from_directory(APP_DIR, 'join.html')
-    response.headers['Cache-Control'] = 'no-store'
-    response.headers['Referrer-Policy'] = 'no-referrer'
+    response = send_from_directory(APP_DIR, "join.html")
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
     return response
 
 
-@app.route('/drill/')
+@app.route("/drill/")
 def drill_index():
     """Serve the drill platform index."""
-    return send_from_directory(APP_DIR, 'index.html')
+    return send_from_directory(APP_DIR, "index.html")
 
 
-@app.route('/drill/three/')
+@app.route("/drill/three/")
 def three_map_index():
     """Serve the isolated React/Three live-range client."""
-    return send_from_directory(os.path.join(APP_DIR, 'three'), 'index.html')
+    return send_from_directory(os.path.join(APP_DIR, "three"), "index.html")
 
 
 def _is_asset_path(path):
     """True for file-like URLs that must 404 (not SPA-fallback to HTML)."""
-    name = path.rsplit('/', 1)[-1]
-    return '.' in name or path.startswith('assets/')
+    name = path.rsplit("/", 1)[-1]
+    return "." in name or path.startswith("assets/")
 
 
-@app.route('/drill/<path:path>')
+@app.route("/drill/<path:path>")
 def drill_platform(path):
     """Serve drill platform files."""
     full = os.path.join(APP_DIR, path)
@@ -71,27 +71,27 @@ def drill_platform(path):
         return send_from_directory(APP_DIR, path)
     if _is_asset_path(path):
         abort(404)
-    return send_from_directory(APP_DIR, 'index.html')
+    return send_from_directory(APP_DIR, "index.html")
 
 
-@app.route('/api/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
+@app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
 def proxy_api(path):
     """
     Proxy /api/* requests to the FastAPI backend.
-    
+
     This forwards the request to the API backend and returns the response.
     All headers, query parameters, and request body are preserved.
     """
     # Health probes are mounted at the API root; all application routes live
     # under /api and retain the normal prefix when proxied.
-    backend_path = path if path in {'healthz', 'readyz'} else f'api/{path}'
+    backend_path = path if path in {"healthz", "readyz"} else f"api/{path}"
     backend_url = f"{API_BACKEND}/{backend_path}"
-    
+
     # Forward the request
     try:
         # Get the request data
-        headers = {key: value for key, value in request.headers if key.lower() != 'host'}
-        
+        headers = {key: value for key, value in request.headers if key.lower() != "host"}
+
         # Make the request to the backend
         resp = requests.request(
             method=request.method,
@@ -101,32 +101,35 @@ def proxy_api(path):
             cookies=request.cookies,
             params=request.args,
             allow_redirects=False,
-            timeout=PROXY_TIMEOUT
+            timeout=PROXY_TIMEOUT,
         )
-        
+
         # Build the response
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        response_headers = [(name, value) for name, value in resp.raw.headers.items()
-                           if name.lower() not in excluded_headers]
-        
+        excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection"]
+        response_headers = [
+            (name, value)
+            for name, value in resp.raw.headers.items()
+            if name.lower() not in excluded_headers
+        ]
+
         response = Response(resp.content, resp.status_code, response_headers)
         return response
-        
+
     except requests.exceptions.Timeout:
-        return Response('{"error": "API request timeout"}', 504, mimetype='application/json')
+        return Response('{"error": "API request timeout"}', 504, mimetype="application/json")
     except requests.exceptions.ConnectionError:
-        return Response('{"error": "API backend unavailable"}', 503, mimetype='application/json')
+        return Response('{"error": "API backend unavailable"}', 503, mimetype="application/json")
     except Exception as e:
-        return Response(f'{{"error": "Proxy error: {str(e)}"}}', 500, mimetype='application/json')
+        return Response(f'{{"error": "Proxy error: {str(e)}"}}', 500, mimetype="application/json")
 
 
-@app.route('/healthz')
+@app.route("/healthz")
 def health():
     """Health check endpoint."""
-    return {'status': 'ok', 'service': 'portal'}
+    return {"status": "ok", "service": "portal"}
 
 
-@app.route('/<path:path>')
+@app.route("/<path:path>")
 def static_files(path):
     """Serve static files from the app directory."""
     full = os.path.join(APP_DIR, path)
@@ -136,9 +139,9 @@ def static_files(path):
     if _is_asset_path(path):
         abort(404)
     # Extensionless routes fall back to the landing page (SPA routing).
-    return send_from_directory(APP_DIR, 'landing.html')
+    return send_from_directory(APP_DIR, "landing.html")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Development mode
-    app.run(host='0.0.0.0', port=80, debug=True)
+    app.run(host="0.0.0.0", port=80, debug=True)

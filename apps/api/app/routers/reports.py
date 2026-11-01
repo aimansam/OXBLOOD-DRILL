@@ -29,6 +29,7 @@ Status codes:
   * 404 — run id does not exist.
   * 409 — run is still in a non-terminal state.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -126,9 +127,17 @@ def _metrics_summary(scenario_id: int | None, adapter: str) -> dict:
 @router.get(
     "/{run_id}/report",
     summary="After-action JSON report for one drill",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def get_drill_report(
     run_id: int,
@@ -137,9 +146,7 @@ async def get_drill_report(
 ) -> dict:
     """Return the post-mortem JSON for one run."""
     run = (
-        await session.execute(
-            select(db_models.Run).where(db_models.Run.id == run_id)
-        )
+        await session.execute(select(db_models.Run).where(db_models.Run.id == run_id))
     ).scalar_one_or_none()
     if run is None:
         raise HTTPException(
@@ -168,9 +175,7 @@ async def get_drill_report(
     # Scenario — minimal projection.
     scenario = (
         await session.execute(
-            select(db_models.Scenario).where(
-                db_models.Scenario.id == run.scenario_id
-            )
+            select(db_models.Scenario).where(db_models.Scenario.id == run.scenario_id)
         )
     ).scalar_one_or_none()
     scenario_dict = None
@@ -186,18 +191,22 @@ async def get_drill_report(
         }
 
     assets = (
-        await session.execute(
-            select(db_models.Asset).where(db_models.Asset.run_id == run_id)
-        )
-    ).scalars().all()
+        (await session.execute(select(db_models.Asset).where(db_models.Asset.run_id == run_id)))
+        .scalars()
+        .all()
+    )
 
     audit = (
-        await session.execute(
-            select(db_models.AuditLog)
-            .where(db_models.AuditLog.run_id == run_id)
-            .order_by(db_models.AuditLog.at.asc())
+        (
+            await session.execute(
+                select(db_models.AuditLog)
+                .where(db_models.AuditLog.run_id == run_id)
+                .order_by(db_models.AuditLog.at.asc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     from app.runners.mock_adapter import MockProxmoxAdapter
     from app.runners.runner import _adapter_label
@@ -209,7 +218,5 @@ async def get_drill_report(
         "scenario": scenario_dict,
         "assets": [_asset_to_dict(a) for a in assets],
         "audit": [_audit_row(r) for r in audit],
-        "metrics_summary": _metrics_summary(
-            scenario_id=run.scenario_id, adapter=adapter_label
-        ),
+        "metrics_summary": _metrics_summary(scenario_id=run.scenario_id, adapter=adapter_label),
     }

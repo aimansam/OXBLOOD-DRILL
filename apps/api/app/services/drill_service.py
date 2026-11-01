@@ -2,6 +2,7 @@
 
 Handles drill CRUD, lifecycle management, participants, teams, and announcements.
 """
+
 from __future__ import annotations
 
 import re
@@ -26,26 +27,35 @@ from app.db.models_oxblood import (
 # Input Sanitization Helper
 # ============================================================================
 
+
 def _sanitize_text(text: str) -> str:
     """Remove potentially dangerous HTML/script tags from text."""
     if not text:
         return text
     # Remove script tags and their content
-    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<script[^>]*>.*?</script>", "", text, flags=re.IGNORECASE | re.DOTALL)
     # Remove event handlers (onclick, onerror, etc.)
-    text = re.sub(r'\s+on\w+\s*=\s*["\'][^"\']*["\']', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\s+on\w+\s*=\s*\S+', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\s+on\w+\s*=\s*["\'][^"\']*["\']', "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s+on\w+\s*=\s*\S+", "", text, flags=re.IGNORECASE)
     # Remove javascript: URLs
-    text = re.sub(r'javascript\s*:', '', text, flags=re.IGNORECASE)
+    text = re.sub(r"javascript\s*:", "", text, flags=re.IGNORECASE)
     # Remove iframe, object, embed tags
-    text = re.sub(r'<(iframe|object|embed|form|input|button)[^>]*>.*?</\1>', '', text, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r'<(iframe|object|embed|form|input|button)[^>]*/?\s*>', '', text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"<(iframe|object|embed|form|input|button)[^>]*>.*?</\1>",
+        "",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    text = re.sub(
+        r"<(iframe|object|embed|form|input|button)[^>]*/?\s*>", "", text, flags=re.IGNORECASE
+    )
     return text.strip()
 
 
 # ============================================================================
 # Drill CRUD
 # ============================================================================
+
 
 async def list_drills(
     db: AsyncSession,
@@ -64,9 +74,7 @@ async def list_drills(
 
 async def get_drill(db: AsyncSession, drill_id: int) -> Drill | None:
     """Get a drill by ID."""
-    result = await db.execute(
-        select(Drill).where(Drill.id == drill_id, Drill.deleted_at.is_(None))
-    )
+    result = await db.execute(select(Drill).where(Drill.id == drill_id, Drill.deleted_at.is_(None)))
     return result.scalar_one_or_none()
 
 
@@ -100,20 +108,18 @@ async def create_drill(
     if scenario_id is not None:
         catalog_row = (
             await db.execute(
-                select(catalog_models.Scenario).where(
-                    catalog_models.Scenario.id == scenario_id
-                )
+                select(catalog_models.Scenario).where(catalog_models.Scenario.id == scenario_id)
             )
         ).scalar_one_or_none()
         if catalog_row is None:
             raise ValueError(f"Scenario id={scenario_id} not found")
         if catalog_row.archived_at is not None:
             raise ValueError(f"Scenario id={scenario_id} is archived")
-    
+
     # Sanitize text fields to prevent XSS
     title = _sanitize_text(title)
     description = _sanitize_text(description) if description else description
-    
+
     drill = Drill(
         title=title,
         description=description,
@@ -187,6 +193,7 @@ async def cancel_drill(db: AsyncSession, drill_id: int) -> Drill | None:
 # ============================================================================
 # Drill Lifecycle
 # ============================================================================
+
 
 async def start_drill(db: AsyncSession, drill_id: int) -> Drill | None:
     """Start a drill."""
@@ -325,6 +332,7 @@ async def timeout_overdue_drills(db: AsyncSession) -> list[Drill]:
 # Participants
 # ============================================================================
 
+
 async def list_drill_participants(db: AsyncSession, drill_id: int) -> list[DrillParticipant]:
     """List all participants in a drill."""
     result = await db.execute(
@@ -347,22 +355,19 @@ async def add_participant(
     if drill is None:
         raise ValueError("Drill not found")
     current_count = await db.scalar(
-        select(func.count(DrillParticipant.id)).where(
-            DrillParticipant.drill_id == drill_id
-        )
+        select(func.count(DrillParticipant.id)).where(DrillParticipant.drill_id == drill_id)
     )
     if int(current_count or 0) >= (drill.max_participants or 10):
         raise ValueError("This drill has reached its 10-participant limit")
     # Check if already a participant
     existing = await db.execute(
         select(DrillParticipant).where(
-            DrillParticipant.drill_id == drill_id,
-            DrillParticipant.user_id == user_id
+            DrillParticipant.drill_id == drill_id, DrillParticipant.user_id == user_id
         )
     )
     if existing.scalar_one_or_none():
         raise ValueError("User is already a participant in this drill")
-    
+
     participant = DrillParticipant(
         drill_id=drill_id,
         user_id=user_id,
@@ -380,8 +385,7 @@ async def remove_participant(db: AsyncSession, drill_id: int, user_id: int) -> b
     """Remove a participant from a drill."""
     result = await db.execute(
         delete(DrillParticipant).where(
-            DrillParticipant.drill_id == drill_id,
-            DrillParticipant.user_id == user_id
+            DrillParticipant.drill_id == drill_id, DrillParticipant.user_id == user_id
         )
     )
     await db.commit()
@@ -395,6 +399,7 @@ async def remove_participant(db: AsyncSession, drill_id: int, user_id: int) -> b
 # ============================================================================
 # Announcements
 # ============================================================================
+
 
 async def list_drill_announcements(db: AsyncSession, drill_id: int) -> list[DrillAnnouncement]:
     """List all announcements for a drill."""
@@ -422,11 +427,11 @@ async def create_announcement(
         raise ValueError("Content cannot be empty")
     if len(title) > 255:
         raise ValueError("Title cannot exceed 255 characters")
-    
+
     # Sanitize to prevent XSS
     title = _sanitize_text(title)
     content = _sanitize_text(content)
-    
+
     announcement = DrillAnnouncement(
         drill_id=drill_id,
         title=title,
@@ -435,11 +440,14 @@ async def create_announcement(
         published_by=published_by,
     )
     db.add(announcement)
-    db.add(DrillEvent(
-        drill_id=drill_id, kind="announcement",
-        title="Announcement: %s" % title[:200],
-        detail=content[:500] if content else None,
-    ))
+    db.add(
+        DrillEvent(
+            drill_id=drill_id,
+            kind="announcement",
+            title="Announcement: %s" % title[:200],
+            detail=content[:500] if content else None,
+        )
+    )
     await db.commit()
     await db.refresh(announcement)
     return announcement
@@ -461,6 +469,7 @@ async def delete_announcement(db: AsyncSession, announcement_id: int) -> bool:
 # ============================================================================
 # Drill Objectives
 # ============================================================================
+
 
 async def list_drill_objectives(db: AsyncSession, drill_id: int) -> list[DrillObjective]:
     """List all objectives for a drill."""
@@ -489,11 +498,11 @@ async def create_drill_objective(
         raise ValueError("Title cannot exceed 255 characters")
     if points < 0:
         raise ValueError("Points cannot be negative")
-    
+
     # Sanitize text fields to prevent XSS
     title = _sanitize_text(title)
     description = _sanitize_text(description) if description else description
-    
+
     objective = DrillObjective(
         drill_id=drill_id,
         title=title,
@@ -511,6 +520,7 @@ async def create_drill_objective(
 # ============================================================================
 # Drill Flags (Drill-native; replaces Learn LabFlag dependency)
 # ============================================================================
+
 
 async def list_drill_flags(db: AsyncSession, drill_id: int) -> list[DrillFlag]:
     """List all flags for a drill."""
@@ -573,14 +583,11 @@ async def seed_drill_from_scenario(
     flags = runtime.get("flags") or []
 
     existing_objectives = (
-        await db.execute(
-            select(DrillObjective).where(DrillObjective.drill_id == drill.id)
-        )
-    ).scalars().all()
-    existing_objective_keys = {
-        ((row.side or "").lower(), row.title)
-        for row in existing_objectives
-    }
+        (await db.execute(select(DrillObjective).where(DrillObjective.drill_id == drill.id)))
+        .scalars()
+        .all()
+    )
+    existing_objective_keys = {((row.side or "").lower(), row.title) for row in existing_objectives}
 
     created_objectives = 0
     objective_sort = len(existing_objectives)
@@ -604,21 +611,16 @@ async def seed_drill_from_scenario(
             existing_objective_keys.add((side, title_text))
 
     existing_flag_names = set(
-        (
-            await db.execute(
-                select(DrillFlag.name).where(DrillFlag.drill_id == drill.id)
-            )
-        ).scalars().all()
+        (await db.execute(select(DrillFlag.name).where(DrillFlag.drill_id == drill.id)))
+        .scalars()
+        .all()
     )
     objective_rows = (
-        await db.execute(
-            select(DrillObjective).where(DrillObjective.drill_id == drill.id)
-        )
-    ).scalars().all()
-    objectives_by_key = {
-        ((row.side or "").lower(), row.title): row.id
-        for row in objective_rows
-    }
+        (await db.execute(select(DrillObjective).where(DrillObjective.drill_id == drill.id)))
+        .scalars()
+        .all()
+    )
+    objectives_by_key = {((row.side or "").lower(), row.title): row.id for row in objective_rows}
     created_flags = 0
     flag_sort = len(existing_flag_names)
     for flag in flags:
@@ -661,9 +663,7 @@ async def seed_drill_from_scenario(
 async def delete_drill_flag(db: AsyncSession, drill_id: int, flag_id: int) -> bool:
     """Delete a Drill flag."""
     result = await db.execute(
-        select(DrillFlag).where(
-            DrillFlag.id == flag_id, DrillFlag.drill_id == drill_id
-        )
+        select(DrillFlag).where(DrillFlag.id == flag_id, DrillFlag.drill_id == drill_id)
     )
     flag = result.scalar_one_or_none()
     if flag is None:
@@ -677,7 +677,10 @@ OBJECTIVE_STATUSES = ("pending", "in-progress", "completed")
 
 
 async def set_objective_status(
-    db: AsyncSession, drill_id: int, objective_id: int, status: str,
+    db: AsyncSession,
+    drill_id: int,
+    objective_id: int,
+    status: str,
 ) -> DrillObjective:
     """Lead marks an objective pending / in-progress / completed."""
     status = (status or "").strip().lower()
@@ -699,13 +702,23 @@ async def set_objective_status(
 
 
 EVENT_KINDS = (
-    "lifecycle", "flag", "first-blood", "announcement", "objective", "note", "milestone",
+    "lifecycle",
+    "flag",
+    "first-blood",
+    "announcement",
+    "objective",
+    "note",
+    "milestone",
 )
 
 
 async def record_drill_event(
-    db: AsyncSession, drill_id: int, kind: str, title: str,
-    detail: str | None = None, side: str | None = None,
+    db: AsyncSession,
+    drill_id: int,
+    kind: str,
+    title: str,
+    detail: str | None = None,
+    side: str | None = None,
     actor: str | None = None,
 ) -> DrillEvent:
     """Append one row to the per-drill exercise timeline."""
@@ -729,7 +742,9 @@ async def record_drill_event(
 
 
 async def list_drill_events(
-    db: AsyncSession, drill_id: int, limit: int = 100,
+    db: AsyncSession,
+    drill_id: int,
+    limit: int = 100,
 ) -> list[DrillEvent]:
     """Chronological exercise timeline for one drill."""
     result = await db.execute(
@@ -744,6 +759,7 @@ async def list_drill_events(
 # ============================================================================
 # Drill Scenarios
 # ============================================================================
+
 
 async def list_drill_scenarios(db: AsyncSession, drill_id: int) -> list[DrillScenario]:
     """List all scenarios linked to a drill."""
@@ -775,9 +791,7 @@ async def link_scenario(
     if scenario_id is not None:
         catalog_row = (
             await db.execute(
-                select(catalog_models.Scenario).where(
-                    catalog_models.Scenario.id == scenario_id
-                )
+                select(catalog_models.Scenario).where(catalog_models.Scenario.id == scenario_id)
             )
         ).scalar_one_or_none()
         if catalog_row is None:

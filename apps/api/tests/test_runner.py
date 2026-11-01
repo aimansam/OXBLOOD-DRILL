@@ -11,6 +11,7 @@ We exercise:
   * Missing template raises and Run is marked FAILED
   * Adapter error after some assets are spawned triggers teardown of those
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -47,21 +48,25 @@ async def test_stop_reapplies_short_name_after_snapshot_rollback(session: AsyncS
     adapter.seed_template("tpl-x", 9000)
     runner = Runner(adapter=adapter)
     result = await runner.start_run(RunRequest(scenario_id=scenario.id), session)
-    asset = (await session.execute(select(models.Asset).where(models.Asset.run_id == result.run_id))).scalar_one()
+    asset = (
+        await session.execute(select(models.Asset).where(models.Asset.run_id == result.run_id))
+    ).scalar_one()
     await adapter.stop_vm(asset.pve_vmid, asset.pve_node)
     await adapter.create_vm_snapshot(asset.pve_vmid, asset.pve_node, "clean-baseline")
     await adapter.start_vm(asset.pve_vmid, asset.pve_node)
-    session.add(models.SnapshotBaseline(
-        scenario_id=scenario.id,
-        scenario_version=1,
-        role="dc01",
-        template="tpl-x",
-        pve_vmid=asset.pve_vmid,
-        pve_node=asset.pve_node,
-        snapshot_name="clean-baseline",
-        status="ready",
-        source_run_id=result.run_id,
-    ))
+    session.add(
+        models.SnapshotBaseline(
+            scenario_id=scenario.id,
+            scenario_version=1,
+            role="dc01",
+            template="tpl-x",
+            pve_vmid=asset.pve_vmid,
+            pve_node=asset.pve_node,
+            snapshot_name="clean-baseline",
+            status="ready",
+            source_run_id=result.run_id,
+        )
+    )
     await session.commit()
 
     await runner.stop_run(result.run_id, session=session)
@@ -78,6 +83,7 @@ def engine():
     eng = create_async_engine("sqlite+aiosqlite:///:memory:")
     yield eng
     import asyncio
+
     asyncio.run(eng.dispose())
 
 
@@ -91,11 +97,7 @@ async def session(engine) -> AsyncSession:
 
 def _scenario_with(name: str, assets_spec: list[dict]) -> models.Scenario:
     network_names = sorted(
-        {
-            network
-            for asset in assets_spec
-            for network in (asset.get("networks") or [])
-        }
+        {network for asset in assets_spec for network in (asset.get("networks") or [])}
     )
     return models.Scenario(
         name=name,
@@ -108,8 +110,7 @@ def _scenario_with(name: str, assets_spec: list[dict]) -> models.Scenario:
             "kind": "Scenario",
             "spec": {
                 "networks": [
-                    {"name": network, "cidr": "10.10.0.0/24"}
-                    for network in network_names
+                    {"name": network, "cidr": "10.10.0.0/24"} for network in network_names
                 ],
                 "assets": assets_spec,
             },
@@ -124,16 +125,19 @@ def _asset(role: str, template: str = "tpl-x") -> dict:
 def test_static_ip_configs_use_declared_host_number() -> None:
     scenario = {"networks": [{"name": "identity", "cidr": "10.30.40.0/24"}]}
 
-    assert _static_ip_configs(
-        {"role": "dc01", "networks": ["identity"]}, scenario
-    ) == {0: "ip=10.30.40.10/24,gw=10.30.40.1"}
-    assert _static_ip_configs(
-        {"role": "blue_workstation", "networks": ["identity"]}, scenario
-    ) == {0: "ip=10.30.40.11/24,gw=10.30.40.1"}
-    assert _static_ip_configs(
-        {"role": "dc01", "template": "tpl-win2022-ad-auto", "networks": ["identity"]},
-        scenario,
-    ) == {}
+    assert _static_ip_configs({"role": "dc01", "networks": ["identity"]}, scenario) == {
+        0: "ip=10.30.40.10/24,gw=10.30.40.1"
+    }
+    assert _static_ip_configs({"role": "blue_workstation", "networks": ["identity"]}, scenario) == {
+        0: "ip=10.30.40.11/24,gw=10.30.40.1"
+    }
+    assert (
+        _static_ip_configs(
+            {"role": "dc01", "template": "tpl-win2022-ad-auto", "networks": ["identity"]},
+            scenario,
+        )
+        == {}
+    )
 
 
 # --- happy path -------------------------------------------------------------
@@ -153,9 +157,7 @@ async def test_start_run_creates_run_and_assets(session: AsyncSession) -> None:
     adapter.seed_template("tpl-x", 9000)
     runner = Runner(adapter=adapter)
 
-    result = await runner.start_run(
-        RunRequest(scenario_id=s.id, started_by="alice"), session
-    )
+    result = await runner.start_run(RunRequest(scenario_id=s.id, started_by="alice"), session)
     # Run stays in RUNNING state until watchdog timeout or manual stop
     assert result.status == RunStatus.RUNNING
 
@@ -216,10 +218,10 @@ async def test_start_run_honors_drill_cleanup_request(session: AsyncSession) -> 
     assert result.status == RunStatus.CANCELLED
     run = (await session.execute(select(models.Run))).scalar_one()
     assets = (
-        await session.execute(
-            select(models.Asset).where(models.Asset.run_id == run.id)
-        )
-    ).scalars().all()
+        (await session.execute(select(models.Asset).where(models.Asset.run_id == run.id)))
+        .scalars()
+        .all()
+    )
     assert run.ended_at is not None
     assert all(asset.status == AssetStatus.STOPPED for asset in assets)
     assert all(asset.cleaned_at is not None for asset in assets if asset.pve_vmid)
@@ -236,9 +238,7 @@ async def test_start_run_records_audit_log(session: AsyncSession) -> None:
     adapter.seed_template("tpl-x", 9000)
     runner = Runner(adapter=adapter)
 
-    await runner.start_run(
-        RunRequest(scenario_id=s.id, started_by="alice"), session
-    )
+    await runner.start_run(RunRequest(scenario_id=s.id, started_by="alice"), session)
 
     logs = (await session.execute(select(models.AuditLog))).scalars().all()
     actions = [log.action for log in logs]
@@ -264,26 +264,26 @@ async def test_start_run_asset_spawned_audit_records_actor(session: AsyncSession
     adapter.seed_template("tpl-x", 9000)
     runner = Runner(adapter=adapter)
 
-    result = await runner.start_run(
-        RunRequest(scenario_id=s.id, started_by="alice"), session
-    )
+    result = await runner.start_run(RunRequest(scenario_id=s.id, started_by="alice"), session)
     # Run stays in RUNNING state until watchdog timeout or manual stop
     assert result.status == RunStatus.RUNNING
 
     spawn_audits = (
-        await session.execute(
-            select(models.AuditLog).where(
-                models.AuditLog.run_id == result.run_id,
-                models.AuditLog.action == AuditAction.ASSET_SPAWNED,
+        (
+            await session.execute(
+                select(models.AuditLog).where(
+                    models.AuditLog.run_id == result.run_id,
+                    models.AuditLog.action == AuditAction.ASSET_SPAWNED,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     # Two assets -> two spawn events; both must be attributed.
     assert len(spawn_audits) == 2
     for entry in spawn_audits:
-        assert entry.actor == "alice", (
-            f"ASSET_SPAWNED audit row missing actor: {entry.actor!r}"
-        )
+        assert entry.actor == "alice", f"ASSET_SPAWNED audit row missing actor: {entry.actor!r}"
         assert entry.asset_id is not None
         assert entry.run_id == result.run_id
 
@@ -368,16 +368,23 @@ async def test_stop_run_is_idempotent(session: AsyncSession) -> None:
 
 
 @pytest.mark.asyncio
-async def test_v2_preparation_never_recovers_a_legacy_watchdog(session: AsyncSession, monkeypatch) -> None:
+async def test_v2_preparation_never_recovers_a_legacy_watchdog(
+    session: AsyncSession, monkeypatch
+) -> None:
     from datetime import datetime, timedelta
 
     from app.core.config import settings
+
     monkeypatch.setattr(settings, "drill_timeout_enabled", True)
     scenario = _scenario_with("prepared-timer", [_asset("desktop")])
     session.add(scenario)
     await session.flush()
-    run = models.Run(scenario_id=scenario.id, status=RunStatus.RUNNING, timeout_min=-1,
-                     started_at=datetime.now(UTC) - timedelta(hours=3))
+    run = models.Run(
+        scenario_id=scenario.id,
+        status=RunStatus.RUNNING,
+        timeout_min=-1,
+        started_at=datetime.now(UTC) - timedelta(hours=3),
+    )
     session.add(run)
     await session.commit()
     assert Runner.get_timeout_sec(run.id, run.started_at, timeout_min=-1) is None
@@ -483,8 +490,7 @@ async def test_start_run_clone_failure_continues_audit(session: AsyncSession) ->
         await runner.start_run(RunRequest(scenario_id=s.id), session)
 
     actions = [
-        log.action
-        for log in (await session.execute(select(models.AuditLog))).scalars().all()
+        log.action for log in (await session.execute(select(models.AuditLog))).scalars().all()
     ]
     assert AuditAction.RUN_FAILED in actions
 
@@ -543,13 +549,20 @@ def test_runner_skips_default_cloud_init_seed_for_windows_template() -> None:
 
 def test_legacy_linux_image_removes_agent_and_keeps_syslog() -> None:
     import subprocess
+
     runner = Runner(MockProxmoxAdapter())
-    asset = models.Asset(run_id=1, role="blue_workstation", template="tpl-debian-blue-gui-wazuh-xrdp")
-    seed = runner._build_seed_spec(asset=asset,
+    asset = models.Asset(
+        run_id=1, role="blue_workstation", template="tpl-debian-blue-gui-wazuh-xrdp"
+    )
+    seed = runner._build_seed_spec(
+        asset=asset,
         asset_spec={"role": asset.role, "template": asset.template},
-        scenario_spec={"telemetry": {"sinks": [{"type": "wazuh", "endpoint": "10.30.221.10:1514"}]},
-                       "assets": [{"role": "log_aggregator", "networks": ["blue"]}],
-                       "networks": [{"name": "blue", "cidr": "10.30.40.0/24"}]})
+        scenario_spec={
+            "telemetry": {"sinks": [{"type": "wazuh", "endpoint": "10.30.221.10:1514"}]},
+            "assets": [{"role": "log_aggregator", "networks": ["blue"]}],
+            "networks": [{"name": "blue", "cidr": "10.30.40.0/24"}],
+        },
+    )
     assert seed is not None
     assert "dpkg --remove wazuh-agent" in seed.runcmd[0]
     assert "agent-auth" not in "\n".join(seed.runcmd) + str(seed.files)
@@ -557,43 +570,69 @@ def test_legacy_linux_image_removes_agent_and_keeps_syslog() -> None:
     assert seed.files["/etc/rsyslog.d/30-divide-forward.conf"] == "*.* @@10.30.40.31:514\n"
     subprocess.run(["sh", "-n"], input=seed.runcmd[0], text=True, check=True)
     # Mock package tools in the shell; never uninstall a package on the test host.
-    result = subprocess.run(["bash", "-c",
-        "set -eu; dpkg-query() { printf 'hold ok installed'; }; "
-        "dpkg() { return 42; }; " + seed.runcmd[0] + "; echo unexpected-success"],
-        capture_output=True, text=True)
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            "set -eu; dpkg-query() { printf 'hold ok installed'; }; "
+            "dpkg() { return 42; }; " + seed.runcmd[0] + "; echo unexpected-success",
+        ],
+        capture_output=True,
+        text=True,
+    )
     assert result.returncode == 42
     assert "unexpected-success" not in result.stdout
 
 
 def test_compact_blue_workstation_receives_investigation_bundle() -> None:
     runner = Runner(MockProxmoxAdapter())
-    asset = models.Asset(run_id=1, role="blue_workstation", template="tpl-debian-blue-gui-wazuh-xrdp")
+    asset = models.Asset(
+        run_id=1, role="blue_workstation", template="tpl-debian-blue-gui-wazuh-xrdp"
+    )
     seed = runner._build_seed_spec(
         asset=asset,
         asset_spec={"role": asset.role, "template": asset.template},
         scenario_spec={
             "assets": [{"role": "blue_workstation", "networks": ["identity"]}],
-            "flags": [{"id": "blue-pivot", "side": "blue", "value": "FLAG{pivot}", "planted_on_role": "blue_workstation"}],
+            "flags": [
+                {
+                    "id": "blue-pivot",
+                    "side": "blue",
+                    "value": "FLAG{pivot}",
+                    "planted_on_role": "blue_workstation",
+                }
+            ],
         },
     )
 
     assert seed is not None
     assert "/opt/divide/evidence/incident-timeline.log" in seed.files
-    assert "dmz_gateway authenticated to dc01" in seed.files["/opt/divide/evidence/incident-timeline.log"]
+    assert (
+        "dmz_gateway authenticated to dc01"
+        in seed.files["/opt/divide/evidence/incident-timeline.log"]
+    )
     assert seed.files["/opt/divide/flags/blue-pivot.txt"] == "FLAG{pivot}\n"
 
 
 @pytest.mark.asyncio
 async def test_legacy_sink_never_starts_retired_manager(session: AsyncSession) -> None:
     from unittest.mock import AsyncMock
+
     scenario = _scenario_with("retired-manager", [_asset("desktop")])
-    scenario.spec = {**scenario.spec, "spec": {**scenario.spec["spec"],
-        "telemetry": {"sinks": [{"type": "wazuh", "endpoint": "10.30.221.10:1514"}]}}}
+    scenario.spec = {
+        **scenario.spec,
+        "spec": {
+            **scenario.spec["spec"],
+            "telemetry": {"sinks": [{"type": "wazuh", "endpoint": "10.30.221.10:1514"}]},
+        },
+    }
     session.add(scenario)
     await session.commit()
     adapter = MockProxmoxAdapter()
     adapter.seed_template("tpl-x", 9000)
-    adapter.ensure_vm_running = AsyncMock(side_effect=AssertionError("Retired manager must not start"))
+    adapter.ensure_vm_running = AsyncMock(
+        side_effect=AssertionError("Retired manager must not start")
+    )
     await Runner(adapter).start_run(RunRequest(scenario_id=scenario.id, timeout_min=-1), session)
     adapter.ensure_vm_running.assert_not_awaited()
 
@@ -693,8 +732,6 @@ async def test_get_vm_state_missing_raises() -> None:
         await adapter.get_vm_state(12345, "pve")
 
 
-
-
 # --- cancel_run -----------------------------------------------------------
 
 
@@ -752,10 +789,10 @@ async def test_cancel_run_tears_down_and_marks_cancelled(session: AsyncSession) 
 
     # Audit row recorded with actor + reason.
     audits = (
-        await session.execute(
-            select(models.AuditLog).where(models.AuditLog.run_id == run.id)
-        )
-    ).scalars().all()
+        (await session.execute(select(models.AuditLog).where(models.AuditLog.run_id == run.id)))
+        .scalars()
+        .all()
+    )
     actions = {a.action for a in audits}
     assert AuditAction.RUN_CANCELLED in actions
     cancel_audit = next(a for a in audits if a.action == AuditAction.RUN_CANCELLED)
@@ -802,16 +839,18 @@ async def test_cancel_run_isolates_from_stop_run_semantics(
     await session.flush()
 
     # cancel path
-    run_cancel = models.Run(
-        scenario_id=s.id, status=RunStatus.RUNNING, started_by="unit"
-    )
+    run_cancel = models.Run(scenario_id=s.id, status=RunStatus.RUNNING, started_by="unit")
     session.add(run_cancel)
     await session.flush()
     session.add(
         models.Asset(
-            run_id=run_cancel.id, role="red_attacker", kind="vm",
-            template="tpl-x", status=AssetStatus.RUNNING,
-            pve_vmid=9100, pve_node="pve",
+            run_id=run_cancel.id,
+            role="red_attacker",
+            kind="vm",
+            template="tpl-x",
+            status=AssetStatus.RUNNING,
+            pve_vmid=9100,
+            pve_node="pve",
         )
     )
     await session.commit()
@@ -822,16 +861,18 @@ async def test_cancel_run_isolates_from_stop_run_semantics(
     assert out_cancel.status == RunStatus.CANCELLED
 
     # stop path (separate run)
-    run_stop = models.Run(
-        scenario_id=s.id, status=RunStatus.RUNNING, started_by="unit"
-    )
+    run_stop = models.Run(scenario_id=s.id, status=RunStatus.RUNNING, started_by="unit")
     session.add(run_stop)
     await session.flush()
     session.add(
         models.Asset(
-            run_id=run_stop.id, role="red_attacker", kind="vm",
-            template="tpl-x", status=AssetStatus.RUNNING,
-            pve_vmid=9200, pve_node="pve",
+            run_id=run_stop.id,
+            role="red_attacker",
+            kind="vm",
+            template="tpl-x",
+            status=AssetStatus.RUNNING,
+            pve_vmid=9200,
+            pve_node="pve",
         )
     )
     await session.commit()
@@ -850,17 +891,13 @@ async def test_cancel_run_handles_no_assets_yet(session: AsyncSession) -> None:
     session.add(s)
     await session.commit()
 
-    run = models.Run(
-        scenario_id=s.id, status=RunStatus.PENDING, started_by="unit"
-    )
+    run = models.Run(scenario_id=s.id, status=RunStatus.PENDING, started_by="unit")
     session.add(run)
     await session.commit()
 
     adapter = MockProxmoxAdapter()
     runner = Runner(adapter=adapter)
-    cancelled = await runner.cancel_run(
-        run.id, reason="aborted before start", session=session
-    )
+    cancelled = await runner.cancel_run(run.id, reason="aborted before start", session=session)
     assert cancelled.status == RunStatus.CANCELLED
     assert adapter.stopped == []
     assert adapter.destroyed == []
@@ -872,23 +909,23 @@ async def test_cancel_run_records_error_as_reason(session: AsyncSession) -> None
     s = _scenario_with("why_cancelled", [_asset("red_attacker")])
     session.add(s)
     await session.flush()
-    run = models.Run(
-        scenario_id=s.id, status=RunStatus.RUNNING, started_by="unit"
-    )
+    run = models.Run(scenario_id=s.id, status=RunStatus.RUNNING, started_by="unit")
     session.add(run)
     await session.flush()
     session.add(
         models.Asset(
-            run_id=run.id, role="red_attacker", kind="vm",
-            template="tpl-x", status=AssetStatus.PLANNED,
-            pve_vmid=None, pve_node=None,
+            run_id=run.id,
+            role="red_attacker",
+            kind="vm",
+            template="tpl-x",
+            status=AssetStatus.PLANNED,
+            pve_vmid=None,
+            pve_node=None,
         )
     )
     await session.commit()
 
     adapter = MockProxmoxAdapter()
     runner = Runner(adapter=adapter)
-    out = await runner.cancel_run(
-        run.id, reason="scoring threshold already met", session=session
-    )
+    out = await runner.cancel_run(run.id, reason="scoring threshold already met", session=session)
     assert out.error == "scoring threshold already met"

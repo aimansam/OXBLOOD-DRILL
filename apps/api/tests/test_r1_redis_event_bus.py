@@ -21,6 +21,7 @@ Why two RedisEventBus instances per test?
   subscriber queue, to demonstrate that the Redis pub/sub layer
   does the fan-out.
 """
+
 from __future__ import annotations
 
 import time
@@ -32,6 +33,7 @@ from app.services.event_bus.redis_bus import RedisEventBus
 
 # --- shared fake-Redis fixture -----------------------------------------
 
+
 @pytest.fixture
 def shared_fake_redis():
     """A fakeredis server shared between sync + async clients.
@@ -42,12 +44,8 @@ def shared_fake_redis():
     server = fakeredis.FakeServer()
     return {
         "server": server,
-        "make_sync": lambda: fakeredis.FakeRedis(
-            server=server, decode_responses=True
-        ),
-        "make_async": lambda: faio.FakeRedis(
-            server=server, decode_responses=True
-        ),
+        "make_sync": lambda: fakeredis.FakeRedis(server=server, decode_responses=True),
+        "make_async": lambda: faio.FakeRedis(server=server, decode_responses=True),
     }
 
 
@@ -84,6 +82,7 @@ def _teardown_buses():
 
 
 # --- protocol-shape tests ---------------------------------------------
+
 
 def test_publish_and_recent_returns_in_order(shared_fake_redis):
     """publish() inserts at the left (LPUSH); recent() returns ascending."""
@@ -160,6 +159,7 @@ def test_recent_returns_newest_last(shared_fake_redis):
 
 # --- cross-instance fan-out (THE R1 win) -----------------------------
 
+
 def test_publish_on_bus_a_reaches_subscriber_on_bus_b(shared_fake_redis):
     """R1 core: an event published on bus A is delivered to a
     subscriber on bus B. This proves the cross-worker fan-out
@@ -185,9 +185,7 @@ def test_publish_on_bus_a_reaches_subscriber_on_bus_b(shared_fake_redis):
             ev = q_b.get(timeout=3.0)
         except Exception as e:  # pragma: no cover
             unsub_b()
-            raise AssertionError(
-                f"bus_b did not receive the event published on bus_a: {e}"
-            )
+            raise AssertionError(f"bus_b did not receive the event published on bus_a: {e}")
         assert ev["id"] == 100
         assert ev["kind"] == "run.started"
         assert ev["run_id"] == 7

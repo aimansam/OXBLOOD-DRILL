@@ -50,6 +50,7 @@ What auth does NOT do:
     until then the router documents this with a one-line comment
     on each proxmox endpoint.
 """
+
 from __future__ import annotations
 
 import base64
@@ -94,6 +95,7 @@ class Role(str, Enum):
     BLUE = "blue"
     OBSERVER = "observer"
 
+
 # Per-process fallback secret cache (used when neither divide_token_secret
 # nor proxmox.token_secret is configured). Cached so sign_token and
 # verify_token in the same process agree on the same secret.
@@ -101,6 +103,7 @@ _RANDOM_FALLBACK_SECRET: bytes | None = None
 
 
 # ---------- token model ---------------------------------------------------
+
 
 @dataclass(frozen=True)
 class TokenData:
@@ -173,9 +176,7 @@ def _signing_secret() -> bytes:
     import os
 
     pid_secret = os.environ.get("DIVIDE_TOKEN_DEV_SECRET")
-    _RANDOM_FALLBACK_SECRET = (
-        pid_secret.encode("utf-8") if pid_secret else os.urandom(32)
-    )
+    _RANDOM_FALLBACK_SECRET = pid_secret.encode("utf-8") if pid_secret else os.urandom(32)
     return _RANDOM_FALLBACK_SECRET
 
 
@@ -225,9 +226,7 @@ def verify_token(token: str) -> TokenData:
     payload_b64, sig_b64 = token.rsplit(".", 1)
     if not payload_b64 or not sig_b64:
         raise AuthError("malformed token (empty segment)")
-    expected_sig = hmac.new(
-        _signing_secret(), payload_b64.encode("ascii"), hashlib.sha256
-    ).digest()
+    expected_sig = hmac.new(_signing_secret(), payload_b64.encode("ascii"), hashlib.sha256).digest()
     try:
         actual_sig = _b64decode(sig_b64)
     except Exception as exc:  # noqa: BLE001

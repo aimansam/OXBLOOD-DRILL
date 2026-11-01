@@ -4,6 +4,7 @@ Revision ID: 0001
 Revises:
 Create Date: 2026-08-22 13:00:00.000000
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -29,8 +30,12 @@ def upgrade() -> None:
         sa.Column("spec", sa.JSON(), nullable=False),
         sa.Column("authors", sa.JSON(), nullable=False),
         sa.Column("source_path", sa.String(length=512), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id", name="pk_scenarios"),
         sa.UniqueConstraint("name", name="uq_scenarios_name"),
     )
@@ -45,7 +50,12 @@ def upgrade() -> None:
         sa.Column(
             "status",
             sa.Enum(
-                "pending", "running", "succeeded", "failed", "timeout", "cancelled",
+                "pending",
+                "running",
+                "succeeded",
+                "failed",
+                "timeout",
+                "cancelled",
                 name="run_status",
             ),
             nullable=False,
@@ -56,10 +66,17 @@ def upgrade() -> None:
         sa.Column("score_blue", sa.Integer(), nullable=True),
         sa.Column("score_red", sa.Integer(), nullable=True),
         sa.Column("error", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.ForeignKeyConstraint(
-            ["scenario_id"], ["scenarios.id"], name="fk_runs_scenario_id_scenarios", ondelete="RESTRICT"
+            ["scenario_id"],
+            ["scenarios.id"],
+            name="fk_runs_scenario_id_scenarios",
+            ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_runs"),
     )
@@ -78,8 +95,14 @@ def upgrade() -> None:
         sa.Column(
             "status",
             sa.Enum(
-                "planned", "cloning", "booting", "running", "stopping",
-                "stopped", "failed", "orphaned",
+                "planned",
+                "cloning",
+                "booting",
+                "running",
+                "stopping",
+                "stopped",
+                "failed",
+                "orphaned",
                 name="asset_status",
             ),
             nullable=False,
@@ -88,8 +111,12 @@ def upgrade() -> None:
         sa.Column("pve_node", sa.String(length=64), nullable=True),
         sa.Column("pve_ip", sa.String(length=45), nullable=True),
         sa.Column("error", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.ForeignKeyConstraint(
             ["run_id"], ["runs.id"], name="fk_assets_run_id_runs", ondelete="CASCADE"
         ),
@@ -107,9 +134,16 @@ def upgrade() -> None:
         sa.Column(
             "action",
             sa.Enum(
-                "scenario.created", "scenario.updated", "scenario.deleted",
-                "run.started", "run.completed", "run.failed", "run.cancelled",
-                "asset.spawned", "asset.failed", "asset.orphaned",
+                "scenario.created",
+                "scenario.updated",
+                "scenario.deleted",
+                "run.started",
+                "run.completed",
+                "run.failed",
+                "run.cancelled",
+                "asset.spawned",
+                "asset.failed",
+                "asset.orphaned",
                 name="audit_action",
             ),
             nullable=False,
@@ -120,7 +154,10 @@ def upgrade() -> None:
         sa.Column("asset_id", sa.Integer(), nullable=True),
         sa.Column("details", sa.JSON(), nullable=False),
         sa.ForeignKeyConstraint(
-            ["scenario_id"], ["scenarios.id"], name="fk_audit_log_scenario_id_scenarios", ondelete="SET NULL"
+            ["scenario_id"],
+            ["scenarios.id"],
+            name="fk_audit_log_scenario_id_scenarios",
+            ondelete="SET NULL",
         ),
         sa.ForeignKeyConstraint(
             ["run_id"], ["runs.id"], name="fk_audit_log_run_id_runs", ondelete="SET NULL"

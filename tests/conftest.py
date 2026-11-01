@@ -5,6 +5,7 @@ and a few live-drill tests that need a real API. The session-scoped
 ``client`` fixture spins up an in-process FastAPI app via TestClient
 so portal/mount assertions can hit ``/``, ``/setup/`` without needing docker-compose up.
 """
+
 from __future__ import annotations
 
 import os

@@ -25,6 +25,7 @@ Behaviour:
 Disable with ``DIVIDE_SKIP_MIGRATIONS=1`` for the rare case where the
 DB is intentionally pinned to an older revision (e.g. downgrade tests).
 """
+
 from __future__ import annotations
 
 import os
@@ -48,8 +49,7 @@ def main() -> int:
     )
     if proc.returncode != 0:
         print(
-            f"[prestart] alembic upgrade failed (rc={proc.returncode}); "
-            f"refusing to start uvicorn.",
+            f"[prestart] alembic upgrade failed (rc={proc.returncode}); refusing to start uvicorn.",
             file=sys.stderr,
         )
         return proc.returncode

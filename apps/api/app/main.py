@@ -1,4 +1,5 @@
 """FastAPI application entrypoint."""
+
 from __future__ import annotations
 
 import asyncio
@@ -117,9 +118,7 @@ async def lifespan(app: FastAPI):
                     sm_check = get_sessionmaker()
                     async with sm_check() as check_session:
                         user_count = (
-                            await check_session.execute(
-                                select(func.count()).select_from(User)
-                            )
+                            await check_session.execute(select(func.count()).select_from(User))
                         ).scalar_one()
                     if user_count == 0:
                         log.warning(
@@ -143,9 +142,10 @@ async def lifespan(app: FastAPI):
         try:
             from app.db.session import get_sessionmaker
 
-            paths = [Path(settings.scenarios_dir), *(
-                Path(p) for p in settings.extra_scenarios_dirs
-            )]
+            paths = [
+                Path(settings.scenarios_dir),
+                *(Path(p) for p in settings.extra_scenarios_dirs),
+            ]
             sm = get_sessionmaker()
             async with sm() as session:
                 report = await sync_files(session, paths)
@@ -161,8 +161,7 @@ async def lifespan(app: FastAPI):
                     log.warning(
                         "divide_api.scenario_sync.skipped",
                         skipped=[
-                            {"path": str(s.source_path), "error": s.error}
-                            for s in report.skipped
+                            {"path": str(s.source_path), "error": s.error} for s in report.skipped
                         ],
                     )
                 # Expose the report for /readyz / health.
@@ -225,9 +224,7 @@ async def lifespan(app: FastAPI):
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:  # noqa: BLE001
-                    log.warning(
-                        "divide_api.orphan_janitor.error", error=str(exc)
-                    )
+                    log.warning("divide_api.orphan_janitor.error", error=str(exc))
                 await asyncio.sleep(interval)
 
         janitor_task = asyncio.create_task(_janitor_loop())
@@ -259,6 +256,7 @@ async def lifespan(app: FastAPI):
     oxblood_timeout_task = None
     oxblood_timeout_interval_sec = max(5, pve_sync_interval_sec)
     if oxblood_timeout_interval_sec > 0:
+
         async def _oxblood_timeout_loop() -> None:
             from app.db.models_oxblood import DrillEvent
             from app.db.session import get_sessionmaker
@@ -330,8 +328,7 @@ async def lifespan(app: FastAPI):
                                     kind="lifecycle",
                                     title="Provisioned VMs cleaned up",
                                     detail=(
-                                        "Stopped and destroyed VMs for "
-                                        f"provision run {run_id}"
+                                        f"Stopped and destroyed VMs for provision run {run_id}"
                                     ),
                                 )
                             )
@@ -344,9 +341,7 @@ async def lifespan(app: FastAPI):
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:  # noqa: BLE001
-                    log.warning(
-                        "divide_api.oxblood_timeout.error", error=str(exc)
-                    )
+                    log.warning("divide_api.oxblood_timeout.error", error=str(exc))
                 await asyncio.sleep(oxblood_timeout_interval_sec)
 
         oxblood_timeout_task = asyncio.create_task(_oxblood_timeout_loop())
@@ -355,6 +350,7 @@ async def lifespan(app: FastAPI):
     # Syncs all RUNNING drills with actual PVE state every 30s.
     # Detects VM deletion and auto-transitions runs to FAILED.
     if pve_sync_interval_sec > 0:
+
         async def _pve_sync_loop() -> None:
             from sqlalchemy import select
             from sqlalchemy.orm import selectinload
@@ -373,12 +369,16 @@ async def lifespan(app: FastAPI):
                 try:
                     async with sm() as session:
                         runs = (
-                            await session.execute(
-                                select(Run)
-                                .where(Run.status == RunStatus.RUNNING)
-                                .options(selectinload(Run.assets))
+                            (
+                                await session.execute(
+                                    select(Run)
+                                    .where(Run.status == RunStatus.RUNNING)
+                                    .options(selectinload(Run.assets))
+                                )
                             )
-                        ).scalars().all()
+                            .scalars()
+                            .all()
+                        )
 
                         for run in runs:
                             if not run.assets:
@@ -427,8 +427,7 @@ async def lifespan(app: FastAPI):
 
                                             # If all assets are stopped, fail the run
                                             all_stopped = all(
-                                                a.status == AssetStatus.STOPPED
-                                                for a in run.assets
+                                                a.status == AssetStatus.STOPPED for a in run.assets
                                             )
                                             if all_stopped:
                                                 run.status = RunStatus.FAILED
@@ -466,9 +465,7 @@ async def lifespan(app: FastAPI):
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:  # noqa: BLE001
-                    log.warning(
-                        "divide_api.pve_sync.error", error=str(exc)
-                    )
+                    log.warning("divide_api.pve_sync.error", error=str(exc))
 
                 await asyncio.sleep(pve_sync_interval_sec)
 
@@ -618,7 +615,7 @@ def create_app() -> FastAPI:
     app.include_router(events.router, prefix="/api/v1", tags=["events"])
     # Q21: global audit search across all runs.
     app.include_router(audit.router, prefix="/api/v1/audit", tags=["audit"])
-    
+
     # v2 API endpoints (Drill schema). Learn endpoints (labs_v2,
     # learning_paths_v2, user_profiles_v2) live in the Learn product.
     app.include_router(drills_v2.router, tags=["drills_v2"])

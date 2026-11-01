@@ -17,6 +17,7 @@ The DB layer is hydrated at app startup by ``hydrate_proxmox_from_db``
 ``reload_proxmox_from_db`` to invalidate the local cache so the next
 PVE call picks up the new credentials without a container restart.
 """
+
 from __future__ import annotations
 
 import time
@@ -85,9 +86,7 @@ def _validate_config() -> tuple[str, str, str]:
         host = host.split("://", 1)[1]
     host = host.rstrip("/")
     if not (cfg.token_id or "").strip() or not cfg.token_secret:
-        raise ProxmoxNotConfiguredError(
-            "PROXMOX_TOKEN_ID and PROXMOX_TOKEN_SECRET must be set"
-        )
+        raise ProxmoxNotConfiguredError("PROXMOX_TOKEN_ID and PROXMOX_TOKEN_SECRET must be set")
     # PROXMOX_TOKEN_ID is the full "user!tokenname" string (e.g. "divide@pve!drill-token"),
     # NOT just the token name. proxmoxer wants (user, token_name) separately:
     #   token_name = everything after the first "!" in token_id

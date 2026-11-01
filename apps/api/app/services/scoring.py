@@ -24,6 +24,7 @@ A few choices made here:
     time; re-scoring with a different window later does not
     change history.
 """
+
 from __future__ import annotations
 
 import math

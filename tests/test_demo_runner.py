@@ -9,6 +9,7 @@ tests pin:
     surface are intact (no regressions from a future edit)
   * the Makefile exposes `make demo` + `make demo-open` targets
 """
+
 from __future__ import annotations
 
 import re
@@ -35,9 +36,7 @@ def test_demo_script_exists():
 
 def test_demo_script_is_executable():
     mode = DEMO_SH.stat().st_mode
-    assert mode & 0o111, (
-        f"tools/demo.sh must be executable (chmod +x); mode={oct(mode)}"
-    )
+    assert mode & 0o111, f"tools/demo.sh must be executable (chmod +x); mode={oct(mode)}"
 
 
 def test_demo_script_shebang():
@@ -55,9 +54,7 @@ def test_demo_script_checks_api_health():
     must tell the operator how to start the stack."""
     src = _read(DEMO_SH)
     assert "/healthz" in src
-    assert "make up" in src, (
-        "demo.sh must suggest 'make up' on the unreachable branch"
-    )
+    assert "make up" in src, "demo.sh must suggest 'make up' on the unreachable branch"
 
 
 def test_demo_script_lists_scenarios():
@@ -105,9 +102,7 @@ def test_demo_script_documents_demo_scenarios():
         "phish-to-ransom",
         "lateral-movement-baseline",
     ):
-        assert scenario in src, (
-            f"demo.sh must mention the {scenario!r} scenario"
-        )
+        assert scenario in src, f"demo.sh must mention the {scenario!r} scenario"
 
 
 def test_demo_script_supports_open_flag():
@@ -126,9 +121,7 @@ def test_demo_script_supports_api_override():
 def test_demo_script_exits_non_zero_on_unreachable_api():
     """A non-running API must fail loudly with a non-zero exit code."""
     src = _read(DEMO_SH)
-    assert "exit 2" in src, (
-        "demo.sh must exit 2 (or any non-zero) when /healthz is unreachable"
-    )
+    assert "exit 2" in src, "demo.sh must exit 2 (or any non-zero) when /healthz is unreachable"
 
 
 def test_demo_script_bash_syntax_valid():
@@ -140,9 +133,7 @@ def test_demo_script_bash_syntax_valid():
         capture_output=True,
         text=True,
     )
-    assert r.returncode == 0, (
-        f"tools/demo.sh has a bash syntax error:\n{r.stderr}"
-    )
+    assert r.returncode == 0, f"tools/demo.sh has a bash syntax error:\n{r.stderr}"
 
 
 # ---------- Makefile ----------------------------------------------------
@@ -166,9 +157,7 @@ def test_makefile_demo_target_runs_demo_sh():
     m = re.search(r"^demo:.*?\n\t(.+)", src, re.MULTILINE | re.DOTALL)
     assert m
     body = m.group(1)
-    assert "tools/demo.sh" in body, (
-        f"`make demo` must invoke tools/demo.sh; body={body!r}"
-    )
+    assert "tools/demo.sh" in body, f"`make demo` must invoke tools/demo.sh; body={body!r}"
 
 
 def test_makefile_demo_in_phony():
@@ -177,12 +166,8 @@ def test_makefile_demo_in_phony():
     phony_match = re.search(r"^\.PHONY:\s*(.+?)$", src, re.MULTILINE)
     assert phony_match, "Makefile must declare a .PHONY line"
     phony = phony_match.group(1)
-    assert re.search(r"\bdemo\b", phony), (
-        "`demo` must be in .PHONY"
-    )
-    assert re.search(r"\bdemo-open\b", phony), (
-        "`demo-open` must be in .PHONY"
-    )
+    assert re.search(r"\bdemo\b", phony), "`demo` must be in .PHONY"
+    assert re.search(r"\bdemo-open\b", phony), "`demo-open` must be in .PHONY"
 
 
 # ---------- Bundle size invariant ---------------------------------------
@@ -201,5 +186,5 @@ def test_demo_runner_does_not_change_bundle():
     # Generous 400 KB budget (F4-UI half-2 budget). Demo runner
     # doesn't add to it.
     assert total < 400 * 1024, (
-        f"Bundle grew to {total/1024:.1f} KB — demo runner is shell/docs only"
+        f"Bundle grew to {total / 1024:.1f} KB — demo runner is shell/docs only"
     )

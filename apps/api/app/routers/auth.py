@@ -62,6 +62,7 @@ Security considerations:
     - Password is never logged, never echoed in the response, and
       ``password_hash`` is never returned by ``GET /auth/users``.
 """
+
 from __future__ import annotations
 
 import time
@@ -126,9 +127,7 @@ async def _read_login_count(sub: str) -> int:
         client = _cache_module.get_redis()
         raw = await client.get(_login_bucket_key(sub))
     except Exception as exc:  # noqa: BLE001
-        if os.environ.get("DIVIDE_RATE_LIMIT_FAIL_CLOSED", "").lower() in (
-            "1", "true", "yes"
-        ):
+        if os.environ.get("DIVIDE_RATE_LIMIT_FAIL_CLOSED", "").lower() in ("1", "true", "yes"):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"rate limiter unavailable: {exc}",
@@ -182,9 +181,7 @@ async def _increment_login_limit(sub: str) -> None:
         pipe.expire(key, _LOGIN_WINDOW_SECONDS)
         await pipe.execute()
     except Exception as exc:  # noqa: BLE001 — fail-open is intentional
-        if os.environ.get("DIVIDE_RATE_LIMIT_FAIL_CLOSED", "").lower() in (
-            "1", "true", "yes"
-        ):
+        if os.environ.get("DIVIDE_RATE_LIMIT_FAIL_CLOSED", "").lower() in ("1", "true", "yes"):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"rate limiter unavailable: {exc}",
@@ -422,16 +419,11 @@ async def setup_first_admin(
     force case.
     """
     # Single-shot gate: 409 if any user already exists.
-    n = (
-        await session.execute(select(sql_func.count(db_models.User.id)))
-    ).scalar_one()
+    n = (await session.execute(select(sql_func.count(db_models.User.id)))).scalar_one()
     if n and n > 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "setup is single-shot: at least one user already exists; "
-                "sign in instead"
-            ),
+            detail=("setup is single-shot: at least one user already exists; sign in instead"),
         )
 
     try:
@@ -501,9 +493,7 @@ async def create_user_endpoint(
       HackTheBox / RangeForce.
     """
     try:
-        user = await create_user(
-            session, sub=body.sub, password=body.password, role=body.role
-        )
+        user = await create_user(session, sub=body.sub, password=body.password, role=body.role)
         await session.commit()
     except DuplicateSubError:
         raise HTTPException(
@@ -563,9 +553,7 @@ async def toggle_disabled_endpoint(
         )
 
     try:
-        user = await set_user_disabled(
-            session, sub=sub, disabled=not current.disabled
-        )
+        user = await set_user_disabled(session, sub=sub, disabled=not current.disabled)
         await session.commit()
     except UserNotFoundError:
         # Lost a race with another delete.
@@ -681,9 +669,7 @@ async def reset_password(
     sub = body.sub.strip()
     user: db_models.User | None = None
     try:
-        user = await consume_reset_token(
-            session, sub=sub, token=body.token
-        )
+        user = await consume_reset_token(session, sub=sub, token=body.token)
         await set_password(session, user=user, new_password=body.new_password)
         # P8: audit the successful reset. We log target_sub but
         # deliberately not the new password hash or the consumed
@@ -807,9 +793,7 @@ async def issue_reset_link(
     from app.core.config import settings
 
     portal_base = settings.portal_path.rstrip("/") + "/"
-    magic_link = (
-        f"{portal_base}#/reset?sub={user.sub}&token={token}"
-    )
+    magic_link = f"{portal_base}#/reset?sub={user.sub}&token={token}"
 
     return IssueResetLinkResponse(
         sub=user.sub,
@@ -827,9 +811,17 @@ async def issue_reset_link(
 @router.get(
     "/vpn-config",
     summary="Download your WireGuard VPN config (authenticated users only)",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.RED, Role.BLUE, Role.OBSERVER,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.RED,
+                Role.BLUE,
+                Role.OBSERVER,
+            )
+        )
+    ],
 )
 async def get_vpn_config(
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -886,7 +878,9 @@ async def get_vpn_config(
     from app.db import models as db_models
 
     count_row = await session.execute(
-        sql_select(sql_func.count()).select_from(db_models.User).where(
+        sql_select(sql_func.count())
+        .select_from(db_models.User)
+        .where(
             db_models.User.wg_peer_id < user.wg_peer_id,
             db_models.User.wg_peer_id.isnot(None),
         )
@@ -920,6 +914,7 @@ async def _fetch_wg_server_pubkey() -> str:
     Falls back to a placeholder if unreachable.
     """
     import httpx
+
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             resp = await client.get("http://wg-easy:51821/api/wireguard/server/key")
@@ -930,6 +925,7 @@ async def _fetch_wg_server_pubkey() -> str:
         pass
     # Fallback: operator must fill in manually or set DIVIDE_WG_SERVER_PUBKEY.
     from app.core.config import settings as _s
+
     fallback = getattr(_s, "wg_server_pubkey", "") or "<server-public-key>"
     return fallback
 

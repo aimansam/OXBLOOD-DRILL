@@ -35,6 +35,7 @@ installer interactively, run `apt-get install qemu-guest-agent`, shut
 down, and re-run this script with `--convert-only <vmid>` to flip
 template=1 on the existing VM. We support both flows.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -58,8 +59,7 @@ def _client() -> ProxmoxAPI:
         user=user,
         token_name=token_name,
         token_value=token_secret,
-        verify_ssl=os.environ.get("PROXMOX_VERIFY_SSL", "true").lower()
-        in ("1", "true", "yes"),
+        verify_ssl=os.environ.get("PROXMOX_VERIFY_SSL", "true").lower() in ("1", "true", "yes"),
         backend="https",
     )
 
@@ -162,17 +162,11 @@ _HINT = (
 def _wrap_403(exc: Exception, op: str) -> Exception:
     msg = str(exc)
     if "403" in msg or "Permission check failed" in msg:
-        return RuntimeError(
-            f"PVE denied {op!r} (403 Forbidden).\n"
-            f"{_HINT}\n"
-            f"Original error: {exc}"
-        )
+        return RuntimeError(f"PVE denied {op!r} (403 Forbidden).\n{_HINT}\nOriginal error: {exc}")
     return exc
 
 
-def _wait_for_task(
-    client: ProxmoxAPI, node: str, upid: str, timeout_s: float = 120.0
-) -> None:
+def _wait_for_task(client: ProxmoxAPI, node: str, upid: str, timeout_s: float = 120.0) -> None:
     """Poll a PVE task by UPID until it completes. Best-effort."""
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
@@ -183,9 +177,7 @@ def _wait_for_task(
             continue
         if status.get("status") == "stopped":
             if status.get("exitstatus") != "OK":
-                raise RuntimeError(
-                    f"task {upid} failed: {status.get('exitstatus')}"
-                )
+                raise RuntimeError(f"task {upid} failed: {status.get('exitstatus')}")
             return
         time.sleep(1)
     raise TimeoutError(f"task {upid} did not finish within {timeout_s}s")

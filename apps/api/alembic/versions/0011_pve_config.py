@@ -27,6 +27,7 @@ Revision ID: 0011_pve_config
 Revises: 0010_user_reset_tokens
 Create Date: 2026-08-26
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

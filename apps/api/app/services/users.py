@@ -38,6 +38,7 @@ What this module does NOT do:
         endpoint deliberately returns 202 on unknown subs so the
         caller can't enumerate users.
 """
+
 from __future__ import annotations
 
 import secrets
@@ -67,6 +68,7 @@ def _as_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=UTC)
     return dt
+
 
 # Singleton hasher; library is internally thread-safe.
 # = argon2-cffi defaults: time_cost=2, memory_cost=64 MiB, parallelism=4,
@@ -337,9 +339,7 @@ async def issue_reset_token(
         return None
     token = _new_reset_token()
     user.reset_token = token
-    user.reset_token_expires_at = datetime.now(UTC) + timedelta(
-        seconds=_RESET_TOKEN_TTL_S
-    )
+    user.reset_token_expires_at = datetime.now(UTC) + timedelta(seconds=_RESET_TOKEN_TTL_S)
     await session.flush()
     return token
 

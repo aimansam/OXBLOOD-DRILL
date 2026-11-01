@@ -20,6 +20,7 @@ breaks: the first admin can't have a token yet. The
 single-shot guard prevents an attacker from abusing a leaked
 URL to grow the user table after deployment.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -98,6 +99,7 @@ async def _seed_user(sub: str, role: str = "admin") -> None:
 
 # --- /setup (first-admin bootstrap) ------------------------------------
 
+
 def test_setup_creates_first_admin_and_returns_token(client):
     """Empty DB: setup creates an admin + mints a token."""
     r = client.post(
@@ -143,6 +145,7 @@ def test_setup_rejects_empty_sub_with_422(client):
 
 
 # --- /users POST (admin user creation) -------------------------------
+
 
 def test_create_user_as_admin_returns_201(client):
     """Admin can create a new user."""

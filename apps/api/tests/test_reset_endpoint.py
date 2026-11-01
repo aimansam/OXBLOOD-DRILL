@@ -9,6 +9,7 @@ Audit trail (B3): previously the endpoint wrote no audit row.
 Now writes ``run.reset`` (the new AuditAction value shipped
 with migration 0017) so "who reset what when" is answerable.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -60,9 +61,7 @@ async def _make_run(
     *,
     template_id: int | None = None,
 ) -> models.Run:
-    run = models.Run(
-        scenario_id=1, started_by="q23-test", status=status
-    )
+    run = models.Run(scenario_id=1, started_by="q23-test", status=status)
     if template_id is not None:
         run.template_id = template_id
     s.add(run)
@@ -153,11 +152,7 @@ async def test_reset_writes_audit_row_on_success(session):
         title="Q23 reset template",
         description="",
         scenario_id=1,
-        snapshot={
-            "assets": [
-                {"role": "drill_vm", "kind": "vm", "template": "tpl-x"}
-            ]
-        },
+        snapshot={"assets": [{"role": "drill_vm", "kind": "vm", "template": "tpl-x"}]},
         created_by="q23-test",
     )
     session.add(tpl)
@@ -181,13 +176,17 @@ async def test_reset_writes_audit_row_on_success(session):
     assert out["reset_by"] == "q23-actor"
 
     audit = (
-        await session.execute(
-            select(AuditLog).where(
-                AuditLog.action == AuditAction.RUN_RESET,
-                AuditLog.run_id == run.id,
+        (
+            await session.execute(
+                select(AuditLog).where(
+                    AuditLog.action == AuditAction.RUN_RESET,
+                    AuditLog.run_id == run.id,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(audit) == 1
     row = audit[0]
     assert row.actor == "q23-actor"
@@ -251,12 +250,16 @@ async def test_stop_on_already_terminal_run_is_noop(session):
     assert out.status == RunStatus.SUCCEEDED
 
     audit = (
-        await session.execute(
-            select(AuditLog).where(
-                AuditLog.action == AuditAction.RUN_STOPPED,
-                AuditLog.run_id == run.id,
+        (
+            await session.execute(
+                select(AuditLog).where(
+                    AuditLog.action == AuditAction.RUN_STOPPED,
+                    AuditLog.run_id == run.id,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     # The guard short-circuits before writing any audit row.
     assert audit == []

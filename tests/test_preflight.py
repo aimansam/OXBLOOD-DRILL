@@ -3,6 +3,7 @@
 We don't hit the real API / Prometheus / Grafana -- we use httpx's
 MockTransport to fake each endpoint and assert the report structure.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -100,9 +101,7 @@ def _prom_targets_up(r):
 
 
 def _grafana_ok(r):
-    return httpx.Response(
-        200, json={"dashboard": {"title": "div:ide", "panels": [{}] * 6}}
-    )
+    return httpx.Response(200, json={"dashboard": {"title": "div:ide", "panels": [{}] * 6}})
 
 
 # --- happy path ---------------------------------------------------------
@@ -197,9 +196,7 @@ def test_promox_not_configured_skips_pve_checks(monkeypatch, capsys):
         "http://localhost:8000/api/v1/proxmox/health": lambda r: httpx.Response(
             503, json={"detail": "Proxmox not configured"}
         ),
-        "http://localhost:8000/api/v1/scenarios": lambda r: httpx.Response(
-            200, json={"items": []}
-        ),
+        "http://localhost:8000/api/v1/scenarios": lambda r: httpx.Response(200, json={"items": []}),
         "http://localhost:8000/metrics": _metrics,
         "http://localhost:9090/api/v1/targets": lambda r: httpx.Response(
             200, json={"data": {"activeTargets": []}}
@@ -223,9 +220,7 @@ def test_prometheus_target_down_prints_error(monkeypatch, capsys):
         "http://localhost:8000/api/v1/proxmox/health": lambda r: httpx.Response(
             503, json={"detail": "x"}
         ),
-        "http://localhost:8000/api/v1/scenarios": lambda r: httpx.Response(
-            200, json={"items": []}
-        ),
+        "http://localhost:8000/api/v1/scenarios": lambda r: httpx.Response(200, json={"items": []}),
         "http://localhost:8000/metrics": _metrics,
         "http://localhost:9090/api/v1/targets": lambda r: httpx.Response(
             200,
@@ -260,9 +255,7 @@ def test_custom_scenario_and_template_args(monkeypatch):
         "http://localhost:8000/api/v1/proxmox/health": lambda r: httpx.Response(
             503, json={"detail": "x"}
         ),
-        "http://localhost:8000/api/v1/scenarios": lambda r: httpx.Response(
-            200, json={"items": []}
-        ),
+        "http://localhost:8000/api/v1/scenarios": lambda r: httpx.Response(200, json={"items": []}),
         "http://localhost:8000/metrics": _metrics,
         "http://localhost:9090/api/v1/targets": lambda r: httpx.Response(
             200, json={"data": {"activeTargets": []}}
@@ -270,7 +263,9 @@ def test_custom_scenario_and_template_args(monkeypatch):
         "http://localhost:3000/api/dashboards/uid/divide-drill-platform": _grafana_ok,
     }
     rc = _run_with_handlers(
-        handlers, monkeypatch, argv=["--scenario", "phish-to-ransom", "--template", "tpl-ubuntu-2204"]
+        handlers,
+        monkeypatch,
+        argv=["--scenario", "phish-to-ransom", "--template", "tpl-ubuntu-2204"],
     )
     # Just confirms we ran with the args -- not everything passes.
     assert rc == 1
@@ -286,6 +281,7 @@ def _acl_handlers(perms_response=None, perms_status=200, **kwargs):
     perms_status is the HTTP status.
     Any extra kwargs are added as additional handlers.
     """
+
     def perms(req):
         return httpx.Response(perms_status, json=perms_response or {})
 
@@ -313,17 +309,19 @@ def test_acl_propagated_root_grant_passes(monkeypatch):
     / with propagate=1, which lists every VM.* priv under / in
     /access/permissions.
     """
-    handlers = _acl_handlers(perms_response={
-        "items": {
-            "/": {
-                "VM.Allocate": 1,
-                "VM.Clone": 1,
-                "VM.PowerMgmt": 1,
+    handlers = _acl_handlers(
+        perms_response={
+            "items": {
+                "/": {
+                    "VM.Allocate": 1,
+                    "VM.Clone": 1,
+                    "VM.PowerMgmt": 1,
+                },
             },
-        },
-        "total_paths": 1,
-        "write_paths": ["/"],
-    })
+            "total_paths": 1,
+            "write_paths": ["/"],
+        }
+    )
     assert _run_with_handlers(handlers, monkeypatch) == 0
 
 
@@ -333,18 +331,20 @@ def test_acl_legacy_vms_path_also_accepted(monkeypatch):
     Some PVE versions list privileges under the legacy /vms path
     rather than /. Either path covering all DRILL_PRIVS passes.
     """
-    handlers = _acl_handlers(perms_response={
-        "items": {
-            "/": {"VM.Audit": 1},  # only audit on /, not enough on its own
-            "/vms": {
-                "VM.Allocate": 1,
-                "VM.Clone": 1,
-                "VM.PowerMgmt": 1,
+    handlers = _acl_handlers(
+        perms_response={
+            "items": {
+                "/": {"VM.Audit": 1},  # only audit on /, not enough on its own
+                "/vms": {
+                    "VM.Allocate": 1,
+                    "VM.Clone": 1,
+                    "VM.PowerMgmt": 1,
+                },
             },
-        },
-        "total_paths": 2,
-        "write_paths": ["/vms"],
-    })
+            "total_paths": 2,
+            "write_paths": ["/vms"],
+        }
+    )
     assert _run_with_handlers(handlers, monkeypatch) == 0
 
 
@@ -353,32 +353,36 @@ def test_acl_v2vm_path_accepted(monkeypatch):
 
     Newer PVE versions use /v2/vm in /access/permissions.
     """
-    handlers = _acl_handlers(perms_response={
-        "items": {
-            "/v2/vm": {
-                "VM.Allocate": 1,
-                "VM.Clone": 1,
-                "VM.PowerMgmt": 1,
+    handlers = _acl_handlers(
+        perms_response={
+            "items": {
+                "/v2/vm": {
+                    "VM.Allocate": 1,
+                    "VM.Clone": 1,
+                    "VM.PowerMgmt": 1,
+                },
             },
-        },
-        "total_paths": 1,
-        "write_paths": ["/v2/vm"],
-    })
+            "total_paths": 1,
+            "write_paths": ["/v2/vm"],
+        }
+    )
     assert _run_with_handlers(handlers, monkeypatch) == 0
 
 
 def test_acl_only_pveauditor_fails(monkeypatch, capsys):
     """Only read privs (PVEAuditor equivalent) → FAIL with pveum hint."""
-    handlers = _acl_handlers(perms_response={
-        "items": {
-            "/": {
-                "VM.Audit": 1,
-                "VM.Console": 1,
+    handlers = _acl_handlers(
+        perms_response={
+            "items": {
+                "/": {
+                    "VM.Audit": 1,
+                    "VM.Console": 1,
+                },
             },
-        },
-        "total_paths": 1,
-        "write_paths": [],  # no write paths = no VM.Allocate/Clone/PowerMgmt
-    })
+            "total_paths": 1,
+            "write_paths": [],  # no write paths = no VM.Allocate/Clone/PowerMgmt
+        }
+    )
     rc = _run_with_handlers(handlers, monkeypatch)
     out = capsys.readouterr().out
     assert rc == 1
@@ -400,6 +404,7 @@ def test_acl_empty_response_fails_with_pveum_hint(monkeypatch, capsys):
 
 def test_acl_502_fails_with_pveum_hint(monkeypatch, capsys):
     """If the permissions endpoint errors, check should still fail cleanly."""
+
     def bad_perms(req):
         return httpx.Response(502, text="upstream error")
 
@@ -414,17 +419,19 @@ def test_acl_502_fails_with_pveum_hint(monkeypatch, capsys):
 
 def test_acl_partial_coverage_lists_missing(monkeypatch, capsys):
     """Partial drill privs → FAIL with explicit list of missing privs."""
-    handlers = _acl_handlers(perms_response={
-        "items": {
-            "/": {
-                "VM.Allocate": 1,
-                "VM.Clone": 1,
-                # VM.PowerMgmt missing on purpose
+    handlers = _acl_handlers(
+        perms_response={
+            "items": {
+                "/": {
+                    "VM.Allocate": 1,
+                    "VM.Clone": 1,
+                    # VM.PowerMgmt missing on purpose
+                },
             },
-        },
-        "total_paths": 1,
-        "write_paths": ["/"],
-    })
+            "total_paths": 1,
+            "write_paths": ["/"],
+        }
+    )
     rc = _run_with_handlers(handlers, monkeypatch)
     out = capsys.readouterr().out
     assert rc == 1

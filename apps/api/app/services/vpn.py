@@ -12,6 +12,7 @@ invalidates all configs at once.
 IP allocation: each user gets a /32 in DIVIDE_WG_SUBNET based on
 their peer_index (server = index 0 → .1, clients start at .2).
 """
+
 from __future__ import annotations
 
 import base64
@@ -26,9 +27,12 @@ from app.core.config import settings
 # Curve25519 key derivation
 # ---------------------------------------------------------------------------
 
+
 def _clamp(raw: bytes) -> bytearray:
     k = bytearray(raw[:32])
-    k[0] &= 248; k[31] &= 127; k[31] |= 64
+    k[0] &= 248
+    k[31] &= 127
+    k[31] |= 64
     return k
 
 
@@ -43,12 +47,15 @@ def _mul_base(k: int) -> int:
             x2, x3 = x3, x2
             z2, z3 = z3, z2
         swap = bit
-        A = (x2 + z2) % p; AA = A * A % p
-        B = (x2 - z2) % p; BB = B * B % p
+        A = (x2 + z2) % p
+        AA = A * A % p
+        B = (x2 - z2) % p
+        BB = B * B % p
         E = (AA - BB) % p
         C = (x3 + z3) % p
         D = (x3 - z3) % p
-        DA = D * A % p; CB = C * B % p
+        DA = D * A % p
+        CB = C * B % p
         x3 = pow(DA + CB, 2, p)
         z3 = 9 * pow(DA - CB, 2, p) % p
         x2 = AA * BB % p
@@ -62,13 +69,14 @@ def _keypair(peer_id: str, secret: str) -> tuple[str, str]:
     """Return (privkey_b64, pubkey_b64) for peer_id."""
     raw = hmac.new(secret.encode(), peer_id.encode(), hashlib.sha256).digest()
     priv = _clamp(raw)
-    pub  = _mul_base(int.from_bytes(priv, "little")).to_bytes(32, "little")
+    pub = _mul_base(int.from_bytes(priv, "little")).to_bytes(32, "little")
     return base64.b64encode(bytes(priv)).decode(), base64.b64encode(pub).decode()
 
 
 # ---------------------------------------------------------------------------
 # IP allocation
 # ---------------------------------------------------------------------------
+
 
 def _host_ip(index: int, subnet: str) -> str:
     hosts = list(ipaddress.IPv4Network(subnet, strict=False).hosts())
@@ -89,6 +97,7 @@ def client_ip(peer_index: int, subnet: str | None = None) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def assign_peer_id() -> str:
     """Generate a new stable UUID for a user's WireGuard peer."""
     return str(uuid.uuid4())
@@ -108,12 +117,12 @@ def build_client_config(
 ) -> str:
     """Render a WireGuard client .conf for the given peer."""
     s = settings
-    _subnet  = subnet      or s.wg_subnet
+    _subnet = subnet or s.wg_subnet
     _allowed = allowed_ips or s.wg_allowed_ips
-    _dns     = dns         or s.wg_dns
-    _host    = host        or s.wg_host or "<your-server-ip>"
-    _port    = port        or s.wg_port
-    _secret  = peer_secret or s.wg_peer_secret.get_secret_value()
+    _dns = dns or s.wg_dns
+    _host = host or s.wg_host or "<your-server-ip>"
+    _port = port or s.wg_port
+    _secret = peer_secret or s.wg_peer_secret.get_secret_value()
 
     priv, _ = _keypair(peer_id, _secret)
     ip = client_ip(peer_index, _subnet)

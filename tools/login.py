@@ -34,6 +34,7 @@ Exit codes:
   2  HTTP error (4xx, 5xx) — message printed to stderr
   3  network error
 """
+
 from __future__ import annotations
 
 import argparse

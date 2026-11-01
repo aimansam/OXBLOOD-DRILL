@@ -23,6 +23,7 @@ Contract checks:
   * Mismatched sub + token pairs are rejected with the generic
     401 message.
 """
+
 from __future__ import annotations
 
 import os
@@ -42,17 +43,13 @@ def _bootstrap_admin(
     client: TestClient, *, sub: str = "alice", password: str = "oldpass123"
 ) -> None:
     """Create an admin via the setup endpoint (empty DB only)."""
-    resp = client.post(
-        "/api/v1/auth/setup", json={"sub": sub, "password": password}
-    )
+    resp = client.post("/api/v1/auth/setup", json={"sub": sub, "password": password})
     assert resp.status_code == 201, resp.text
 
 
 def _login(client: TestClient, sub: str, password: str) -> str:
     """Sign in and return the bearer token."""
-    resp = client.post(
-        "/api/v1/auth/login", json={"sub": sub, "password": password}
-    )
+    resp = client.post("/api/v1/auth/login", json={"sub": sub, "password": password})
     assert resp.status_code == 200, resp.text
     return resp.json()["token"]
 
@@ -75,21 +72,15 @@ def _sync_session():
 
 def _get_reset_token(sub: str) -> str:
     with _sync_session() as s:
-        row = s.execute(
-            select(db_models.User).where(db_models.User.sub == sub)
-        ).scalar_one()
+        row = s.execute(select(db_models.User).where(db_models.User.sub == sub)).scalar_one()
         assert row.reset_token is not None, f"no reset token for sub={sub!r}"
         return row.reset_token
 
 
 def _backdate_token(sub: str, *, hours: int = 1) -> None:
     with _sync_session() as s:
-        row = s.execute(
-            select(db_models.User).where(db_models.User.sub == sub)
-        ).scalar_one()
-        row.reset_token_expires_at = datetime.now(UTC) - timedelta(
-            hours=hours
-        )
+        row = s.execute(select(db_models.User).where(db_models.User.sub == sub)).scalar_one()
+        row.reset_token_expires_at = datetime.now(UTC) - timedelta(hours=hours)
         s.commit()
 
 
@@ -115,9 +106,7 @@ class TestForgotPassword:
     """Forgot-password must not enumerate."""
 
     def test_unknown_sub_returns_202(self, client: TestClient) -> None:
-        resp = client.post(
-            "/api/v1/auth/forgot-password", json={"sub": "ghost"}
-        )
+        resp = client.post("/api/v1/auth/forgot-password", json={"sub": "ghost"})
         assert resp.status_code == 202
         body = resp.json()
         assert body["ok"] is True
@@ -125,35 +114,25 @@ class TestForgotPassword:
 
     def test_known_sub_writes_token(self, client: TestClient) -> None:
         _bootstrap_admin(client, sub="resetuser", password="hunter22")
-        resp = client.post(
-            "/api/v1/auth/forgot-password", json={"sub": "resetuser"}
-        )
+        resp = client.post("/api/v1/auth/forgot-password", json={"sub": "resetuser"})
         assert resp.status_code == 202
         with _sync_session() as s:
             row = s.execute(
-                select(db_models.User).where(
-                    db_models.User.sub == "resetuser"
-                )
+                select(db_models.User).where(db_models.User.sub == "resetuser")
             ).scalar_one()
             assert row.reset_token is not None
             assert len(row.reset_token) >= 32
             assert row.reset_token_expires_at is not None
 
-    def test_unknown_sub_does_not_create_user(
-        self, client: TestClient
-    ) -> None:
+    def test_unknown_sub_does_not_create_user(self, client: TestClient) -> None:
         before = client.get("/api/v1/auth/users")
         n_before = len(before.json())
-        client.post(
-            "/api/v1/auth/forgot-password", json={"sub": "phantom"}
-        )
+        client.post("/api/v1/auth/forgot-password", json={"sub": "phantom"})
         after = client.get("/api/v1/auth/users")
         assert len(after.json()) == n_before
 
     def test_empty_sub_returns_422(self, client: TestClient) -> None:
-        resp = client.post(
-            "/api/v1/auth/forgot-password", json={"sub": ""}
-        )
+        resp = client.post("/api/v1/auth/forgot-password", json={"sub": ""})
         # pydantic Field(min_length=1) -> 422.
         assert resp.status_code == 422
 
@@ -166,9 +145,7 @@ class TestResetPassword:
 
     def test_happy_path(self, client: TestClient) -> None:
         _bootstrap_admin(client, sub="bob", password="hunter22")
-        client.post(
-            "/api/v1/auth/forgot-password", json={"sub": "bob"}
-        )
+        client.post("/api/v1/auth/forgot-password", json={"sub": "bob"})
         token = _get_reset_token("bob")
 
         r = client.post(
@@ -182,9 +159,7 @@ class TestResetPassword:
         assert r.status_code == 204
 
         # Old password rejected.
-        old = client.post(
-            "/api/v1/auth/login", json={"sub": "bob", "password": "hunter22"}
-        )
+        old = client.post("/api/v1/auth/login", json={"sub": "bob", "password": "hunter22"})
         assert old.status_code == 401
 
         # New password accepted.
@@ -196,9 +171,7 @@ class TestResetPassword:
 
     def test_token_is_single_use(self, client: TestClient) -> None:
         _bootstrap_admin(client, sub="carol", password="hunter22")
-        client.post(
-            "/api/v1/auth/forgot-password", json={"sub": "carol"}
-        )
+        client.post("/api/v1/auth/forgot-password", json={"sub": "carol"})
         token = _get_reset_token("carol")
 
         r1 = client.post(
@@ -226,18 +199,14 @@ class TestResetPassword:
         # Token columns are NULL after a successful reset.
         with _sync_session() as s:
             row = s.execute(
-                select(db_models.User).where(
-                    db_models.User.sub == "carol"
-                )
+                select(db_models.User).where(db_models.User.sub == "carol")
             ).scalar_one()
             assert row.reset_token is None
             assert row.reset_token_expires_at is None
 
     def test_mismatched_sub_returns_401(self, client: TestClient) -> None:
         _bootstrap_admin(client, sub="dave", password="hunter22")
-        client.post(
-            "/api/v1/auth/forgot-password", json={"sub": "dave"}
-        )
+        client.post("/api/v1/auth/forgot-password", json={"sub": "dave"})
         token = _get_reset_token("dave")
         r = client.post(
             "/api/v1/auth/reset-password",
@@ -251,9 +220,7 @@ class TestResetPassword:
 
     def test_mismatched_token_returns_401(self, client: TestClient) -> None:
         _bootstrap_admin(client, sub="eve", password="hunter22")
-        client.post(
-            "/api/v1/auth/forgot-password", json={"sub": "eve"}
-        )
+        client.post("/api/v1/auth/forgot-password", json={"sub": "eve"})
         r = client.post(
             "/api/v1/auth/reset-password",
             json={
@@ -266,9 +233,7 @@ class TestResetPassword:
 
     def test_expired_token_returns_401(self, client: TestClient) -> None:
         _bootstrap_admin(client, sub="frank", password="hunter22")
-        client.post(
-            "/api/v1/auth/forgot-password", json={"sub": "frank"}
-        )
+        client.post("/api/v1/auth/forgot-password", json={"sub": "frank"})
         _backdate_token("frank")
         token = _get_reset_token("frank")
         r = client.post(
@@ -283,9 +248,7 @@ class TestResetPassword:
 
     def test_weak_password_returns_422(self, client: TestClient) -> None:
         _bootstrap_admin(client, sub="gina", password="hunter22")
-        client.post(
-            "/api/v1/auth/forgot-password", json={"sub": "gina"}
-        )
+        client.post("/api/v1/auth/forgot-password", json={"sub": "gina"})
         token = _get_reset_token("gina")
         r = client.post(
             "/api/v1/auth/reset-password",
@@ -306,9 +269,7 @@ class TestResetPassword:
         retry).
         """
         _bootstrap_admin(client, sub="henry", password="hunter22")
-        client.post(
-            "/api/v1/auth/forgot-password", json={"sub": "henry"}
-        )
+        client.post("/api/v1/auth/forgot-password", json={"sub": "henry"})
         token = _get_reset_token("henry")
 
         # Two concurrent consume attempts -- we can't actually
@@ -382,9 +343,7 @@ class TestIssueResetLink:
         body = r.json()
         assert body["sub"] == "victim"
         assert body["reset_token"]
-        assert body["magic_link"].startswith(
-            "/#/reset?sub=victim&token="
-        )
+        assert body["magic_link"].startswith("/#/reset?sub=victim&token=")
         assert body["expires_at"]
 
     def test_magic_link_respects_divide_portal_path_env(
@@ -419,17 +378,13 @@ class TestIssueResetLink:
                 headers={"X-Divide-Token": admin_tok},
             )
             assert r.status_code == 200
-            assert r.json()["magic_link"].startswith(
-                "/my-portal/#/reset?sub=victim&token="
-            )
+            assert r.json()["magic_link"].startswith("/my-portal/#/reset?sub=victim&token=")
             # And the default path is NOT used.
             assert not r.json()["magic_link"].startswith("/#/reset")
         finally:
             get_settings.cache_clear()
 
-    def test_non_admin_cannot_issue_reset_link(
-        self, client: TestClient
-    ) -> None:
+    def test_non_admin_cannot_issue_reset_link(self, client: TestClient) -> None:
         _bootstrap_admin(client, sub="admin", password="adminpass1")
         admin_tok = _login(client, "admin", "adminpass1")
         client.post(
@@ -444,9 +399,7 @@ class TestIssueResetLink:
         )
         assert r.status_code == 403
 
-    def test_unauthenticated_cannot_issue_reset_link(
-        self, client: TestClient
-    ) -> None:
+    def test_unauthenticated_cannot_issue_reset_link(self, client: TestClient) -> None:
         _bootstrap_admin(client, sub="admin", password="adminpass1")
         r = client.post("/api/v1/auth/users/victim/issue-reset")
         assert r.status_code == 401
@@ -510,9 +463,7 @@ class TestIssueResetLink:
         )
         assert login.status_code == 200
 
-    def test_admin_issue_and_user_consume_write_audit_rows(
-        self, client: TestClient
-    ) -> None:
+    def test_admin_issue_and_user_consume_write_audit_rows(self, client: TestClient) -> None:
         """P8: ``password.reset.issued`` and ``password.reset.used``
         must each write a row to ``audit_log``.
 
@@ -555,9 +506,7 @@ class TestIssueResetLink:
         from app.db import models as db_models  # noqa: F401
         from sqlalchemy import create_engine, select  # noqa: F401
 
-        url = os.environ["DIVIDE_DB_URL"].replace(
-            "sqlite+aiosqlite://", "sqlite:///"
-        )
+        url = os.environ["DIVIDE_DB_URL"].replace("sqlite+aiosqlite://", "sqlite:///")
         engine = create_engine(url)
         with engine.connect() as conn:
             # Note: SQLite stores JSON columns as TEXT, so we can't
@@ -575,22 +524,16 @@ class TestIssueResetLink:
                 )
             ).all()
         rows = [
-            r for r in rows
-            if isinstance(r.details, dict)
-            and r.details.get("target_sub") == "alice"
+            r
+            for r in rows
+            if isinstance(r.details, dict) and r.details.get("target_sub") == "alice"
         ]
         # Two rows: one for the issue (admin as actor), one for
         # the consume (alice as actor -- the row's actor may be
         # None or "alice" depending on the consume-path's
         # choice; we only assert at-least-one-used row exists).
-        issued = [
-            r for r in rows
-            if r.action == db_models.AuditAction.PASSWORD_RESET_ISSUED
-        ]
-        used = [
-            r for r in rows
-            if r.action == db_models.AuditAction.PASSWORD_RESET_USED
-        ]
+        issued = [r for r in rows if r.action == db_models.AuditAction.PASSWORD_RESET_ISSUED]
+        used = [r for r in rows if r.action == db_models.AuditAction.PASSWORD_RESET_USED]
         assert len(issued) == 1
         assert issued[0].actor == "admin"
         assert issued[0].details["target_sub"] == "alice"

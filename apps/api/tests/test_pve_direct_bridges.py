@@ -27,6 +27,7 @@ Coverage:
 The tests inject a fake httpx transport via ``httpx.MockTransport``
 so no real network calls happen.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -85,9 +86,7 @@ def _three_bridge_plan() -> BridgePlan:
     )
 
 
-def _patch_httpx(
-    monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTransport
-) -> None:
+def _patch_httpx(monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTransport) -> None:
     """Replace httpx.AsyncClient inside the sdn module."""
 
     class _PatchedClient(httpx.AsyncClient):
@@ -110,12 +109,11 @@ def _run(coro):
     """
     return asyncio.run(coro)
 
+
 class TestApplyDirectPlan:
     """Happy-path applier tests. All network calls are mocked."""
 
-    def test_creates_three_bridges(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_creates_three_bridges(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Empty node -> 3 POSTs to /nodes/{n}/network, all succeed."""
         posted_bodies: list[dict[str, Any]] = []
         get_calls = {"n": 0}
@@ -170,9 +168,7 @@ class TestApplyDirectPlan:
 class TestDirectPlanIdempotent:
     """Re-running apply when bridges already exist is a no-op."""
 
-    def test_skips_existing_bridges(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_skips_existing_bridges(self, monkeypatch: pytest.MonkeyPatch) -> None:
         existing = [
             {"iface": "vmbr100", "type": "bridge"},
             {"iface": "vmbr101", "type": "bridge"},
@@ -184,9 +180,7 @@ class TestDirectPlanIdempotent:
             if request.method == "GET":
                 return httpx.Response(200, json={"data": existing})
             if request.method == "POST":
-                posted_bodies.append(
-                    json.loads(request.content) if request.content else {}
-                )
+                posted_bodies.append(json.loads(request.content) if request.content else {})
                 return httpx.Response(200, json={"data": None})
             return httpx.Response(404, json={"data": None})
 
@@ -219,20 +213,14 @@ class TestDirectPlanPermissionDenied:
                 403,
                 json={
                     "data": None,
-                    "message": (
-                        "Permission check failed (/nodes/pve, Sys.Modify)"
-                    ),
+                    "message": ("Permission check failed (/nodes/pve, Sys.Modify)"),
                 },
             )
 
         _patch_httpx(monkeypatch, httpx.MockTransport(handler))
 
         with pytest.raises(SdnPermissionError) as exc_info:
-            _run(
-                apply_direct_plan(
-                    _three_bridge_plan(), auth=_make_auth(user="divide@pve@pam")
-                )
-            )
+            _run(apply_direct_plan(_three_bridge_plan(), auth=_make_auth(user="divide@pve@pam")))
 
         err = exc_info.value
         assert err.required_role == "Sys.Modify"
@@ -247,9 +235,7 @@ class TestDirectPlanPermissionDenied:
 class TestDirectPlanConflicts:
     """The applier refuses plans with CIDR overlaps (no network calls)."""
 
-    def test_conflicting_plan_raises_before_any_call(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_conflicting_plan_raises_before_any_call(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Two networks with the same CIDR -> planner flags a conflict.
         plan = plan_bridges(
             [

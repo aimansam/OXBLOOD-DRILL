@@ -17,6 +17,7 @@ We verify the fix at the unit level: ``record_event`` must
 *not* call ``session.rollback()`` on flush failure; it must
 return ``None`` and let the outer transaction continue.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock

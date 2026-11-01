@@ -13,6 +13,7 @@ Usage:
 Defaults to examples/scenarios/lateral-movement-baseline.scenario.yaml
 (smaller, faster).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -57,10 +58,10 @@ async def _smoke(scenario_path: Path) -> int:
             spec=spec,
             authors=m.get("authors", []),
             source_path=(
-            str(scenario_path.relative_to(ROOT))
-            if scenario_path.is_absolute()
-            else str(scenario_path)
-        ),
+                str(scenario_path.relative_to(ROOT))
+                if scenario_path.is_absolute()
+                else str(scenario_path)
+            ),
         )
         session.add(scenario)
         await session.commit()
@@ -89,10 +90,14 @@ async def _smoke(scenario_path: Path) -> int:
             await session.execute(select(models.Run).where(models.Run.id == result.run_id))
         ).scalar_one()
         assets = (
-            await session.execute(
-                select(models.Asset).where(models.Asset.run_id == result.run_id)
+            (
+                await session.execute(
+                    select(models.Asset).where(models.Asset.run_id == result.run_id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     print(
         f"[4/5] runner produced Run id={run.id} status={run.status.value!r} "

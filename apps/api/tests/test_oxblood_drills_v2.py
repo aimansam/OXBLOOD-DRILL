@@ -50,7 +50,9 @@ def test_prepared_range_reserves_environment_without_timer(sessionmaker, phase):
 
     async def case():
         async with sessionmaker() as db:
-            drill = await create_drill(db, title="Prepared", environment_config={"provision_status": phase})
+            drill = await create_drill(
+                db, title="Prepared", environment_config={"provision_status": phase}
+            )
             assert drill.actual_start_at is None
             state = await environment_lock_status(db)
             assert not state["available"]
@@ -58,6 +60,7 @@ def test_prepared_range_reserves_environment_without_timer(sessionmaker, phase):
             with pytest.raises(HTTPException) as exc:
                 await acquire_environment_lock(db, owner_sub="other", owner_role="lead")
             assert exc.value.status_code == 409
+
     _run(case())
 
 
@@ -71,6 +74,7 @@ def test_unbound_claim_cannot_be_overwritten(sessionmaker):
             with pytest.raises(HTTPException) as exc:
                 await acquire_environment_lock(db, owner_sub="second", owner_role="lead")
             assert exc.value.status_code == 409
+
     _run(case())
 
 
@@ -84,8 +88,19 @@ def test_prepare_is_idempotent_and_does_not_start_exercise(sessionmaker, monkeyp
 
     async def case():
         async with sessionmaker() as db:
-            db.add(auth_models.Scenario(id=1, name="prepare", title="Prepare", version=1,
-                difficulty="beginner", duration_min=10, tags=[], authors=[], spec={"spec": {"assets": []}}))
+            db.add(
+                auth_models.Scenario(
+                    id=1,
+                    name="prepare",
+                    title="Prepare",
+                    version=1,
+                    difficulty="beginner",
+                    duration_min=10,
+                    tags=[],
+                    authors=[],
+                    spec={"spec": {"assets": []}},
+                )
+            )
             await db.flush()
             drill = await create_drill(db, title="Prepare", scenario_id=1)
             token = TokenData(sub="operator", role="lead", iat=0, exp=9999999999)
@@ -99,6 +114,7 @@ def test_prepare_is_idempotent_and_does_not_start_exercise(sessionmaker, monkeyp
                 await drills_v2.start_drill_endpoint(drill.id, db, token)
             assert exc.value.status_code == 409
             assert drill.actual_start_at is None
+
     _run(case())
 
 
@@ -110,17 +126,40 @@ def test_start_requires_fresh_readiness(sessionmaker, monkeypatch, ready):
     from app.routers import drills_v2
     from fastapi import HTTPException
 
-    monkeypatch.setattr(drills_v2, "_refresh_drill_provision_state", AsyncMock(return_value={"errors": []}))
-    probe = AsyncMock(return_value={"mood": "ready" if ready else "needs_attention", "checks": [], "checked_at": "now"})
+    monkeypatch.setattr(
+        drills_v2, "_refresh_drill_provision_state", AsyncMock(return_value={"errors": []})
+    )
+    probe = AsyncMock(
+        return_value={
+            "mood": "ready" if ready else "needs_attention",
+            "checks": [],
+            "checked_at": "now",
+        }
+    )
     monkeypatch.setattr(drills_v2, "_range_health", probe)
 
     async def case():
         async with sessionmaker() as db:
-            db.add(auth_models.Scenario(id=1, name="start", title="Start", version=1,
-                difficulty="beginner", duration_min=10, tags=[], authors=[], spec={"spec": {"assets": []}}))
+            db.add(
+                auth_models.Scenario(
+                    id=1,
+                    name="start",
+                    title="Start",
+                    version=1,
+                    difficulty="beginner",
+                    duration_min=10,
+                    tags=[],
+                    authors=[],
+                    spec={"spec": {"assets": []}},
+                )
+            )
             await db.flush()
-            drill = await create_drill(db, title="Prepared", scenario_id=1,
-                                       environment_config={"provision_status": "validation_failed"})
+            drill = await create_drill(
+                db,
+                title="Prepared",
+                scenario_id=1,
+                environment_config={"provision_status": "validation_failed"},
+            )
             token = TokenData(sub="operator", role="lead", iat=0, exp=9999999999)
             if ready:
                 result = await drills_v2.start_drill_endpoint(drill.id, db, token)
@@ -132,6 +171,7 @@ def test_start_requires_fresh_readiness(sessionmaker, monkeypatch, ready):
                 assert exc.value.detail["code"] == "range_not_ready"
                 assert drill.actual_start_at is None
             probe.assert_awaited_once()
+
     _run(case())
 
 
@@ -144,36 +184,68 @@ def test_readiness_requires_every_address_and_completed_setup(sessionmaker, monk
 
     async def case():
         async with sessionmaker() as db:
-            scenario = auth_models.Scenario(name="readiness", title="Readiness", version=1,
-                difficulty="beginner", duration_min=10, tags=[], authors=[], spec={"spec": {
-                    "assets": [{"role": "desktop", "count": 2}],
-                    "telemetry": {"sinks": [{"type": "wazuh"}]},
-                    "validation": {"probes": [
-                        {"id": "desktop", "type": "tcp_connect", "role": "desktop", "port": 3389},
-                        {"id": "telemetry", "type": "telemetry_declared"},
-                    ]},
-                }})
+            scenario = auth_models.Scenario(
+                name="readiness",
+                title="Readiness",
+                version=1,
+                difficulty="beginner",
+                duration_min=10,
+                tags=[],
+                authors=[],
+                spec={
+                    "spec": {
+                        "assets": [{"role": "desktop", "count": 2}],
+                        "telemetry": {"sinks": [{"type": "wazuh"}]},
+                        "validation": {
+                            "probes": [
+                                {
+                                    "id": "desktop",
+                                    "type": "tcp_connect",
+                                    "role": "desktop",
+                                    "port": 3389,
+                                },
+                                {"id": "telemetry", "type": "telemetry_declared"},
+                            ]
+                        },
+                    }
+                },
+            )
             db.add(scenario)
             await db.flush()
             run = auth_models.Run(scenario_id=scenario.id, status=auth_models.RunStatus.RUNNING)
             db.add(run)
             await db.flush()
-            assets = [auth_models.Asset(run_id=run.id, role=f"desktop_{i}", template="desktop",
-                       status=auth_models.AssetStatus.RUNNING, pve_ip="10.0.0.1" if i == 1 else None)
-                      for i in (1, 2)]
+            assets = [
+                auth_models.Asset(
+                    run_id=run.id,
+                    role=f"desktop_{i}",
+                    template="desktop",
+                    status=auth_models.AssetStatus.RUNNING,
+                    pve_ip="10.0.0.1" if i == 1 else None,
+                )
+                for i in (1, 2)
+            ]
             db.add_all(assets)
-            drill = await create_drill(db, title="Health", scenario_id=scenario.id,
-                environment_config={"provision_status": "starting", "provision_run_id": run.id})
+            drill = await create_drill(
+                db,
+                title="Health",
+                scenario_id=scenario.id,
+                environment_config={"provision_status": "starting", "provision_run_id": run.id},
+            )
             health = await drills_v2._range_health(db, drill)
             checks = {check["id"]: check for check in health["checks"]}
             assert health["mood"] != "ready"
             assert checks["guest-setup"]["state"] != "ready"
             assert checks["desktop"]["state"] != "ready"
             assert checks["telemetry"]["required"] is False
-            drill.environment_config = {**drill.environment_config, "provision_status": "validating"}
+            drill.environment_config = {
+                **drill.environment_config,
+                "provision_status": "validating",
+            }
             assets[1].pve_ip = "10.0.0.2"
             await db.commit()
             assert (await drills_v2._range_health(db, drill))["mood"] == "ready"
+
     _run(case())
 
 
@@ -342,16 +414,12 @@ def test_link_scenario_updates_drill_run_scenario(sessionmaker):
             reloaded = await get_drill(session, drill.id)
             objectives = (
                 await session.execute(
-                    m.DrillObjective.__table__.select().where(
-                        m.DrillObjective.drill_id == drill.id
-                    )
+                    m.DrillObjective.__table__.select().where(m.DrillObjective.drill_id == drill.id)
                 )
             ).all()
             flags = (
                 await session.execute(
-                    m.DrillFlag.__table__.select().where(
-                        m.DrillFlag.drill_id == drill.id
-                    )
+                    m.DrillFlag.__table__.select().where(m.DrillFlag.drill_id == drill.id)
                 )
             ).all()
 
@@ -524,7 +592,10 @@ def test_v2_prepare_provisions_without_starting_scenario_backed_drill(sessionmak
     monkeypatch.setattr(drills_v2, "get_sessionmaker", lambda: sessionmaker)
     try:
         client = TestClient(app)
-        response = client.post(f"/api/v2/drills/{drill_id}/prepare", headers={"X-Divide-Token": sign_token("operator", "lead", 60)})
+        response = client.post(
+            f"/api/v2/drills/{drill_id}/prepare",
+            headers={"X-Divide-Token": sign_token("operator", "lead", 60)},
+        )
         body = client.get(f"/api/v2/drills/{drill_id}").json()
     finally:
         app.dependency_overrides.pop(get_session, None)
@@ -594,7 +665,10 @@ def test_v2_start_retries_failed_provision_for_active_drill(sessionmaker, monkey
     monkeypatch.setattr(drills_v2, "get_sessionmaker", lambda: sessionmaker)
     try:
         client = TestClient(app)
-        response = client.post(f"/api/v2/drills/{drill_id}/prepare", headers={"X-Divide-Token": sign_token("operator", "lead", 60)})
+        response = client.post(
+            f"/api/v2/drills/{drill_id}/prepare",
+            headers={"X-Divide-Token": sign_token("operator", "lead", 60)},
+        )
         body = client.get(f"/api/v2/drills/{drill_id}").json()
     finally:
         app.dependency_overrides.pop(get_session, None)
@@ -792,20 +866,22 @@ def test_v2_range_health_reports_human_readiness(sessionmaker, monkeypatch):
             )
             session.add_all([red, blue])
             await session.flush()
-            session.add_all([
-                m.DrillParticipant(
-                    drill_id=drill.id,
-                    user_id=red.id,
-                    role="red",
-                    status="registered",
-                ),
-                m.DrillParticipant(
-                    drill_id=drill.id,
-                    user_id=blue.id,
-                    role="blue",
-                    status="registered",
-                ),
-            ])
+            session.add_all(
+                [
+                    m.DrillParticipant(
+                        drill_id=drill.id,
+                        user_id=red.id,
+                        role="red",
+                        status="registered",
+                    ),
+                    m.DrillParticipant(
+                        drill_id=drill.id,
+                        user_id=blue.id,
+                        role="blue",
+                        status="registered",
+                    ),
+                ]
+            )
             await session.commit()
             return drill.id
 
@@ -911,7 +987,10 @@ def test_v2_failed_provision_retry_cleans_previous_run_first(sessionmaker, monke
     monkeypatch.setattr(drills_v2, "get_sessionmaker", lambda: sessionmaker)
     try:
         client = TestClient(app)
-        response = client.post(f"/api/v2/drills/{drill_id}/prepare", headers={"X-Divide-Token": sign_token("operator", "lead", 60)})
+        response = client.post(
+            f"/api/v2/drills/{drill_id}/prepare",
+            headers={"X-Divide-Token": sign_token("operator", "lead", 60)},
+        )
         body = client.get(f"/api/v2/drills/{drill_id}").json()
     finally:
         app.dependency_overrides.pop(get_session, None)
@@ -924,7 +1003,9 @@ def test_v2_failed_provision_retry_cleans_previous_run_first(sessionmaker, monke
     assert body["environment_config"]["provision_status"] == "validation_failed"
 
 
-@pytest.mark.parametrize("status,expected", [(m.DrillStatus.ACTIVE, "completed"), (m.DrillStatus.SCHEDULED, "cancelled")])
+@pytest.mark.parametrize(
+    "status,expected", [(m.DrillStatus.ACTIVE, "completed"), (m.DrillStatus.SCHEDULED, "cancelled")]
+)
 def test_v2_stop_cleans_up_provision_run(sessionmaker, monkeypatch, status, expected):
     async def _seed():
         async with sessionmaker() as session:
@@ -964,7 +1045,10 @@ def test_v2_stop_cleans_up_provision_run(sessionmaker, monkeypatch, status, expe
     monkeypatch.setattr(drills_v2, "_get_runner", lambda: fake_runner)
     try:
         client = TestClient(app)
-        response = client.post(f"/api/v2/drills/{drill_id}/stop", headers={"X-Divide-Token": sign_token("operator", "lead", 60)})
+        response = client.post(
+            f"/api/v2/drills/{drill_id}/stop",
+            headers={"X-Divide-Token": sign_token("operator", "lead", 60)},
+        )
         body = client.get(f"/api/v2/drills/{drill_id}").json()
     finally:
         app.dependency_overrides.pop(get_session, None)
@@ -1082,10 +1166,7 @@ def test_v2_get_marks_overdue_active_drill_completed(sessionmaker):
     assert body["status"] == "completed"
     assert body["actual_end_at"] is not None
     assert body["environment_config"]["timeout_status"] == "reached"
-    assert any(
-        event["title"] == "Drill time limit reached"
-        for event in events["events"]
-    )
+    assert any(event["title"] == "Drill time limit reached" for event in events["events"])
 
 
 def test_v2_console_requires_login_and_returns_allowed_ticket(sessionmaker, monkeypatch):
@@ -1137,7 +1218,11 @@ def test_v2_console_requires_login_and_returns_allowed_ticket(sessionmaker, monk
             user = auth_models.User(sub="red", password_hash="test", role="red")
             session.add(user)
             await session.flush()
-            session.add(m.DrillParticipant(drill_id=drill.id, user_id=user.id, role="red", status="registered"))
+            session.add(
+                m.DrillParticipant(
+                    drill_id=drill.id, user_id=user.id, role="red", status="registered"
+                )
+            )
             await session.commit()
             return drill.id, asset.id
 

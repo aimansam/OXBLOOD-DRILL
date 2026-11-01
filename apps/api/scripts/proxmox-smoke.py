@@ -7,6 +7,7 @@ Usage:
 
 Exits 0 if reachable, 1 otherwise. Never raises.
 """
+
 from __future__ import annotations
 
 import os

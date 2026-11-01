@@ -12,6 +12,7 @@ Revision ID: 0007_templates
 Revises: 0006_exercises
 Create Date: 2026-08-25
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -47,20 +48,12 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
         ),
-        sa.ForeignKeyConstraint(
-            ["from_run_id"], ["runs.id"], ondelete="SET NULL"
-        ),
-        sa.ForeignKeyConstraint(
-            ["scenario_id"], ["scenarios.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["from_run_id"], ["runs.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["scenario_id"], ["scenarios.id"], ondelete="RESTRICT"),
         sa.UniqueConstraint("name", name="uq_templates_name"),
     )
-    op.create_index(
-        "ix_templates_scenario_id", "templates", ["scenario_id"]
-    )
-    op.create_index(
-        "ix_templates_created_by", "templates", ["created_by"]
-    )
+    op.create_index("ix_templates_scenario_id", "templates", ["scenario_id"])
+    op.create_index("ix_templates_created_by", "templates", ["created_by"])
 
     # Run.template_id (nullable, SET NULL on delete)
     with op.batch_alter_table("runs") as batch_op:

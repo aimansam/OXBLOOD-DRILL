@@ -9,6 +9,7 @@ Three surfaces:
 
 Total: 27 tests.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -113,9 +114,12 @@ def test_resolve_flag_found():
         "spec": {
             "flags": [
                 {
-                    "id": "f1", "side": "red", "value": "pwned",
+                    "id": "f1",
+                    "side": "red",
+                    "value": "pwned",
                     "planted_on_role": "victim",
-                    "decay_window_seconds": 600, "base_points": 50,
+                    "decay_window_seconds": 600,
+                    "base_points": 50,
                 }
             ]
         }
@@ -137,33 +141,70 @@ def test_resolve_flag_accepts_inner_or_outer_spec():
     """The helper handles both ``spec.spec.flags`` and
     ``spec.flags`` shapes (the API stores the parsed YAML with
     the inner spec nested once)."""
-    nested = {"spec": {"flags": [{"id": "f1", "side": "red",
-                                     "value": "v", "planted_on_role": "r",
-                                     "decay_window_seconds": 60,
-                                     "base_points": 10}]}}
-    flat = {"flags": [{"id": "f1", "side": "red", "value": "v",
-                        "planted_on_role": "r", "decay_window_seconds": 60,
-                        "base_points": 10}]}
+    nested = {
+        "spec": {
+            "flags": [
+                {
+                    "id": "f1",
+                    "side": "red",
+                    "value": "v",
+                    "planted_on_role": "r",
+                    "decay_window_seconds": 60,
+                    "base_points": 10,
+                }
+            ]
+        }
+    }
+    flat = {
+        "flags": [
+            {
+                "id": "f1",
+                "side": "red",
+                "value": "v",
+                "planted_on_role": "r",
+                "decay_window_seconds": 60,
+                "base_points": 10,
+            }
+        ]
+    }
     assert resolve_flag(nested, "f1").flag_id == "f1"
     assert resolve_flag(flat, "f1").flag_id == "f1"
 
 
 def test_verify_flag_value_correct():
-    spec = {"spec": {"flags": [{"id": "f1", "side": "red",
-                                  "value": "secret_value",
-                                  "planted_on_role": "fileserver",
-                                  "decay_window_seconds": 60,
-                                  "base_points": 100}]}}
+    spec = {
+        "spec": {
+            "flags": [
+                {
+                    "id": "f1",
+                    "side": "red",
+                    "value": "secret_value",
+                    "planted_on_role": "fileserver",
+                    "decay_window_seconds": 60,
+                    "base_points": 100,
+                }
+            ]
+        }
+    }
     fs = resolve_flag(spec, "f1")
     assert verify_flag_value(fs, "secret_value") is True
 
 
 def test_verify_flag_value_wrong():
-    spec = {"spec": {"flags": [{"id": "f1", "side": "red",
-                                  "value": "secret_value",
-                                  "planted_on_role": "fileserver",
-                                  "decay_window_seconds": 60,
-                                  "base_points": 100}]}}
+    spec = {
+        "spec": {
+            "flags": [
+                {
+                    "id": "f1",
+                    "side": "red",
+                    "value": "secret_value",
+                    "planted_on_role": "fileserver",
+                    "decay_window_seconds": 60,
+                    "base_points": 100,
+                }
+            ]
+        }
+    }
     fs = resolve_flag(spec, "f1")
     assert verify_flag_value(fs, "guess") is False
 
@@ -194,6 +235,7 @@ def test_capture_seconds_negative_clamped():
 async def _seed_scenario_with_flag():
     """Insert a scenario + run + planted flag via the API session."""
     import uuid
+
     sm = get_sessionmaker()
     async with sm() as session:
         scen = models.Scenario(
@@ -209,7 +251,8 @@ async def _seed_scenario_with_flag():
                     "assets": [],
                     "flags": [
                         {
-                            "id": "f1", "side": "red",
+                            "id": "f1",
+                            "side": "red",
                             "value": "FLAG{pwned}",
                             "planted_on_role": "fileserver",
                             "decay_window_seconds": 600,
@@ -236,6 +279,7 @@ def test_submit_flag_correct_value_200():
     """End-to-end: a valid flag submission returns the points."""
     run_id = asyncio.run(_seed_scenario_with_flag())
     from app.main import app
+
     token = sign_token(sub="alice", role="blue", ttl_s=300)
     client = TestClient(app, headers={"X-Divide-Token": token})
     r = client.post(
@@ -253,6 +297,7 @@ def test_submit_flag_wrong_value_422():
     """Mismatched value -> 422 with a clear error."""
     run_id = asyncio.run(_seed_scenario_with_flag())
     from app.main import app
+
     token = sign_token(sub="alice", role="blue", ttl_s=300)
     client = TestClient(app, headers={"X-Divide-Token": token})
     r = client.post(
@@ -264,6 +309,7 @@ def test_submit_flag_wrong_value_422():
 
 def test_submit_flag_missing_run_404():
     from app.main import app
+
     token = sign_token(sub="alice", role="blue", ttl_s=300)
     client = TestClient(app, headers={"X-Divide-Token": token})
     r = client.post(
@@ -277,6 +323,7 @@ def test_submit_flag_missing_in_spec_404():
     """A flag_id not in spec.flags[] returns 404, not 500."""
     run_id = asyncio.run(_seed_scenario_with_flag())
     from app.main import app
+
     token = sign_token(sub="alice", role="blue", ttl_s=300)
     client = TestClient(app, headers={"X-Divide-Token": token})
     r = client.post(
@@ -290,6 +337,7 @@ def test_submit_flag_duplicate_409():
     """The same team capturing the same flag twice -> 409 (one row)."""
     run_id = asyncio.run(_seed_scenario_with_flag())
     from app.main import app
+
     token = sign_token(sub="alice", role="blue", ttl_s=300)
     client = TestClient(app, headers={"X-Divide-Token": token})
     r1 = client.post(
@@ -308,6 +356,7 @@ def test_submit_flag_terminal_run_409():
     """Run in a terminal state can't accept new submissions."""
     run_id = asyncio.run(_seed_terminal_run())
     from app.main import app
+
     token = sign_token(sub="alice", role="blue", ttl_s=300)
     client = TestClient(app, headers={"X-Divide-Token": token})
     r = client.post(
@@ -320,6 +369,7 @@ def test_submit_flag_terminal_run_409():
 async def _seed_terminal_run():
     """Seed a run that's already in SUCCEEDED state."""
     import uuid
+
     sm = get_sessionmaker()
     async with sm() as session:
         scen = models.Scenario(
@@ -331,11 +381,19 @@ async def _seed_terminal_run():
             spec={
                 "apiVersion": "divide/v1",
                 "kind": "Scenario",
-                "spec": {"assets": [], "flags": [
-                    {"id": "f1", "side": "red", "value": "v",
-                     "planted_on_role": "r", "decay_window_seconds": 60,
-                     "base_points": 10}
-                ]},
+                "spec": {
+                    "assets": [],
+                    "flags": [
+                        {
+                            "id": "f1",
+                            "side": "red",
+                            "value": "v",
+                            "planted_on_role": "r",
+                            "decay_window_seconds": 60,
+                            "base_points": 10,
+                        }
+                    ],
+                },
             },
         )
         session.add(scen)
@@ -356,6 +414,7 @@ def test_submit_flag_403_for_unauthorized_submitter():
     """Someone not the run owner (and not admin/lead) -> 403."""
     run_id = asyncio.run(_seed_scenario_with_flag())
     from app.main import app
+
     # alice owns the run; eve is a red user.
     token = sign_token(sub="eve", role="red", ttl_s=300)
     client = TestClient(app, headers={"X-Divide-Token": token})
@@ -373,13 +432,18 @@ def test_models_flag_submission_fields():
     """The FlagSubmission model has all the fields the API pins."""
     fields = {c.name for c in models.FlagSubmission.__table__.columns}
     expected = {
-        "id", "run_id", "flag_id", "team", "submitted_by",
-        "captured_at", "points", "elapsed_seconds",
-        "created_at", "updated_at",  # TimestampMixin
+        "id",
+        "run_id",
+        "flag_id",
+        "team",
+        "submitted_by",
+        "captured_at",
+        "points",
+        "elapsed_seconds",
+        "created_at",
+        "updated_at",  # TimestampMixin
     }
-    assert expected <= fields, (
-        f"missing columns: {expected - fields}"
-    )
+    assert expected <= fields, f"missing columns: {expected - fields}"
 
 
 def test_models_flag_submission_unique():
@@ -387,16 +451,12 @@ def test_models_flag_submission_unique():
     table_args = models.FlagSubmission.__table_args__
     found = False
     for entry in table_args:
-        if hasattr(entry, "name") and entry.name == (
-            "uq_flag_submissions_run_flag_team"
-        ):
+        if hasattr(entry, "name") and entry.name == ("uq_flag_submissions_run_flag_team"):
             found = True
             # Confirm the columns.
             cols = {c.name for c in entry.columns}
             assert cols == {"run_id", "flag_id", "team"}
-    assert found, (
-        "UniqueConstraint uq_flag_submissions_run_flag_team must exist"
-    )
+    assert found, "UniqueConstraint uq_flag_submissions_run_flag_team must exist"
 
 
 def test_models_flag_side_enum():
@@ -407,9 +467,9 @@ def test_models_flag_side_enum():
 def test_alembic_0005_migration_runs():
     """The migration source is on disk and chains after 0004."""
     from pathlib import Path
+
     src = (
-        Path(__file__).resolve().parents[1]
-        / "alembic" / "versions" / "0005_flag_submissions.py"
+        Path(__file__).resolve().parents[1] / "alembic" / "versions" / "0005_flag_submissions.py"
     ).read_text()
     assert 'down_revision = "0004_asset_instance"' in src
     assert 'revision = "0005_flag_submissions"' in src
@@ -424,6 +484,7 @@ def test_alembic_0005_migration_runs():
 @pytest.fixture
 def mock_adapter_with_vm():
     from app.runners.mock_adapter import MockProxmoxAdapter
+
     a = MockProxmoxAdapter(templates={"tpl-x": 9000})
     return a
 
@@ -445,19 +506,22 @@ async def test_runner_writes_flag_planted_audit(
         await conn.run_sync(Base.metadata.create_all)
     async with AsyncSession(engine, expire_on_commit=False) as session:
         scen = models.Scenario(
-            name="flag-test", title="flag-test", version=1,
-            difficulty="beginner", duration_min=30,
+            name="flag-test",
+            title="flag-test",
+            version=1,
+            difficulty="beginner",
+            duration_min=30,
             spec={
                 "apiVersion": "divide/v1",
                 "kind": "Scenario",
                 "spec": {
                     "assets": [
-                        {"role": "fileserver", "kind": "vm",
-                         "template": "tpl-x", "networks": []}
+                        {"role": "fileserver", "kind": "vm", "template": "tpl-x", "networks": []}
                     ],
                     "flags": [
                         {
-                            "id": "f1", "side": "red",
+                            "id": "f1",
+                            "side": "red",
                             "value": "FLAG{pwned}",
                             "planted_on_role": "fileserver",
                             "decay_window_seconds": 600,
@@ -474,11 +538,17 @@ async def test_runner_writes_flag_planted_audit(
     async with AsyncSession(engine, expire_on_commit=False) as session:
         await runner.start_run(RunRequest(scenario_id=1), session=session)
         # Audit rows
-        rows = (await session.execute(
-            select(models.AuditLog).where(
-                models.AuditLog.action == "flag.planted"
-            ).where(models.AuditLog.run_id == 1)
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(models.AuditLog)
+                    .where(models.AuditLog.action == "flag.planted")
+                    .where(models.AuditLog.run_id == 1)
+                )
+            )
+            .scalars()
+            .all()
+        )
         assert len(rows) == 1, f"expected 1 flag.planted audit; got {len(rows)}"
         details = rows[0].details
         assert details["flag_id"] == "f1"
@@ -503,19 +573,22 @@ async def test_runner_logs_warning_when_planted_on_unknown_role(
         await conn.run_sync(Base.metadata.create_all)
     async with AsyncSession(engine, expire_on_commit=False) as session:
         scen = models.Scenario(
-            name="unknown-role", title="unknown-role", version=1,
-            difficulty="beginner", duration_min=30,
+            name="unknown-role",
+            title="unknown-role",
+            version=1,
+            difficulty="beginner",
+            duration_min=30,
             spec={
                 "apiVersion": "divide/v1",
                 "kind": "Scenario",
                 "spec": {
                     "assets": [
-                        {"role": "victim", "kind": "vm",
-                         "template": "tpl-x", "networks": []}
+                        {"role": "victim", "kind": "vm", "template": "tpl-x", "networks": []}
                     ],
                     "flags": [
                         {
-                            "id": "f1", "side": "red",
+                            "id": "f1",
+                            "side": "red",
                             "value": "v",
                             "planted_on_role": "ghost",  # doesn't exist
                             "decay_window_seconds": 60,
@@ -529,26 +602,28 @@ async def test_runner_logs_warning_when_planted_on_unknown_role(
         await session.commit()
 
     from app.runners.runner import Runner, RunRequest
+
     runner = Runner(adapter=mock_adapter_with_vm)
     async with AsyncSession(engine, expire_on_commit=False) as session:
         with patch("app.runners.runner.log") as mock_log:
-            await runner.start_run(
-                RunRequest(scenario_id=1), session=session
-            )
+            await runner.start_run(RunRequest(scenario_id=1), session=session)
             # INFO-level planted log; the audit row still happens.
             audit_count = sum(
-                1 for call in mock_log.info.call_args_list
-                if "runner.flags.planted" in str(call)
+                1 for call in mock_log.info.call_args_list if "runner.flags.planted" in str(call)
             )
-            assert audit_count == 1, (
-                "expected one runner.flags.planted log line"
-            )
+            assert audit_count == 1, "expected one runner.flags.planted log line"
 
-        rows = (await session.execute(
-            select(models.AuditLog).where(
-                models.AuditLog.action == "flag.planted"
-            ).where(models.AuditLog.run_id == 1)
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(models.AuditLog)
+                    .where(models.AuditLog.action == "flag.planted")
+                    .where(models.AuditLog.run_id == 1)
+                )
+            )
+            .scalars()
+            .all()
+        )
         assert len(rows) == 1
         assert rows[0].asset_id is None
     await engine.dispose()

@@ -23,6 +23,7 @@ RBAC: admin, lead, observer. Red/blue can read their own drill
 audits via the per-run endpoint but not the global feed -- they
 shouldn't see other trainees' events.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -96,9 +97,7 @@ async def search_audit(
         # Cast to text so the substring match works against the
         # ``values_callable`` string values (``run.failed``,
         # ``run.stopped`` etc).
-        stmt = stmt.where(
-            db_models.AuditLog.action.cast(db_models.String).ilike(f"%{action}%")
-        )
+        stmt = stmt.where(db_models.AuditLog.action.cast(db_models.String).ilike(f"%{action}%"))
     if actor is not None:
         stmt = stmt.where(db_models.AuditLog.actor == actor)
     if run_id is not None:

@@ -1,4 +1,5 @@
 """Exclusive ownership for the shared cyber-drill environment."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -10,22 +11,35 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models_oxblood import Drill, DrillEnvironmentLock, DrillStatus
 
 LOCK_KEY = "default"
-ACTIVE_LOCK_STATUSES = {"starting", "provisioning", "validating", "ready", "active", "paused", "cleanup_required"}
+ACTIVE_LOCK_STATUSES = {
+    "starting",
+    "provisioning",
+    "validating",
+    "ready",
+    "active",
+    "paused",
+    "cleanup_required",
+}
 
 
 async def _other_environment_owner(db: AsyncSession, drill_id: int | None = None):
-    candidates = (await db.execute(
-        select(Drill).where(Drill.deleted_at.is_(None))
-        .where(Drill.id != drill_id if drill_id is not None else True)
-        .order_by(Drill.id.desc())
-    )).scalars()
+    candidates = (
+        await db.execute(
+            select(Drill)
+            .where(Drill.deleted_at.is_(None))
+            .where(Drill.id != drill_id if drill_id is not None else True)
+            .order_by(Drill.id.desc())
+        )
+    ).scalars()
     for drill in candidates:
         env = drill.environment_config or {}
         if drill.status in {DrillStatus.ACTIVE, DrillStatus.PAUSED} or (
             env.get("cleanup_status") != "stopped"
-            and (env.get("provision_run_id") or env.get("provision_status") in {
-                "starting", "waiting", "validating", "validation_failed", "started", "failed"
-            })
+            and (
+                env.get("provision_run_id")
+                or env.get("provision_status")
+                in {"starting", "waiting", "validating", "validation_failed", "started", "failed"}
+            )
         ):
             return drill
     return None
@@ -67,10 +81,16 @@ async def acquire_environment_lock(
         # row before rejecting the next operator run.
         owner = await db.get(Drill, row.drill_id) if row.drill_id is not None else None
         owner_env = owner.environment_config or {} if owner is not None else {}
-        owner_is_terminal = (owner is None and row.drill_id is not None) or (owner is not None and (owner.deleted_at is not None or (
-            owner.status in {DrillStatus.COMPLETED, DrillStatus.CANCELLED}
-            and owner_env.get("cleanup_status") == "stopped"
-        )))
+        owner_is_terminal = (owner is None and row.drill_id is not None) or (
+            owner is not None
+            and (
+                owner.deleted_at is not None
+                or (
+                    owner.status in {DrillStatus.COMPLETED, DrillStatus.CANCELLED}
+                    and owner_env.get("cleanup_status") == "stopped"
+                )
+            )
+        )
         if owner_is_terminal:
             row.drill_id = None
             row.status = "released"
@@ -126,7 +146,9 @@ async def bind_environment_lock(
     """Attach a newly-created drill to the already-claimed lock."""
     row = await _lock_row(db, for_update=True)
     if row.status not in ACTIVE_LOCK_STATUSES or row.drill_id not in (None, drill_id):
-        raise HTTPException(status_code=409, detail="The drill environment lock changed before start.")
+        raise HTTPException(
+            status_code=409, detail="The drill environment lock changed before start."
+        )
     row.drill_id = drill_id
     row.owner_sub = owner_sub
     row.owner_role = owner_role
@@ -177,7 +199,12 @@ async def environment_lock_status(db: AsyncSession) -> dict:
     row = await _lock_row(db)
     if row.status in ACTIVE_LOCK_STATUSES and row.drill_id is not None:
         drill = await db.get(Drill, row.drill_id)
-        if drill is None or drill.deleted_at is not None or drill.status in {DrillStatus.COMPLETED, DrillStatus.CANCELLED} and (drill.environment_config or {}).get("cleanup_status") == "stopped":
+        if (
+            drill is None
+            or drill.deleted_at is not None
+            or drill.status in {DrillStatus.COMPLETED, DrillStatus.CANCELLED}
+            and (drill.environment_config or {}).get("cleanup_status") == "stopped"
+        ):
             row.drill_id = None
             row.status = "released"
             row.released_at = _now()
@@ -193,7 +220,9 @@ async def environment_lock_status(db: AsyncSession) -> dict:
                 "drill_id": active.id,
                 "owner_sub": active_env.get("run_owner_sub"),
                 "owner_role": active_env.get("run_owner_role"),
-                "acquired_at": active.actual_start_at.isoformat() if active.actual_start_at else None,
+                "acquired_at": active.actual_start_at.isoformat()
+                if active.actual_start_at
+                else None,
                 "released_at": None,
             }
     return {

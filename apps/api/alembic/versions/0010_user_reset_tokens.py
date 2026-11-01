@@ -32,6 +32,7 @@ Revision ID: 0010_user_reset_tokens
 Revises: 0009_wg_peer
 Create Date: 2026-08-25
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

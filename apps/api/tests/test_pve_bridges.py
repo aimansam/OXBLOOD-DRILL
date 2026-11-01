@@ -11,6 +11,7 @@ Conflict detection is the most important thing the planner does --
 it must catch the F3-RUNBOOK's known foot-gun of two scenarios
 declaring the same bridge slot with different CIDRs.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -71,10 +72,15 @@ class TestPlanBridges:
     def test_cidr_overlap_detected(self) -> None:
         plan = plan_bridges(
             [
-                {"name": "a", "spec": {"networks": [
-                    {"name": "n1", "cidr": "10.50.0.0/24"},
-                    {"name": "n2", "cidr": "10.50.0.0/24"},
-                ]}},
+                {
+                    "name": "a",
+                    "spec": {
+                        "networks": [
+                            {"name": "n1", "cidr": "10.50.0.0/24"},
+                            {"name": "n2", "cidr": "10.50.0.0/24"},
+                        ]
+                    },
+                },
             ]
         )
         assert any("overlap" in c.lower() for c in plan.conflicts)
@@ -82,13 +88,23 @@ class TestPlanBridges:
     def test_per_scenario_allocation(self) -> None:
         plan = plan_bridges(
             [
-                {"name": "a", "spec": {"networks": [
-                    {"name": "n1", "cidr": "10.0.0.0/24"},
-                    {"name": "n2", "cidr": "10.0.1.0/24"},
-                ]}},
-                {"name": "b", "spec": {"networks": [
-                    {"name": "n1", "cidr": "10.0.2.0/24"},
-                ]}},
+                {
+                    "name": "a",
+                    "spec": {
+                        "networks": [
+                            {"name": "n1", "cidr": "10.0.0.0/24"},
+                            {"name": "n2", "cidr": "10.0.1.0/24"},
+                        ]
+                    },
+                },
+                {
+                    "name": "b",
+                    "spec": {
+                        "networks": [
+                            {"name": "n1", "cidr": "10.0.2.0/24"},
+                        ]
+                    },
+                },
             ]
         )
         assert plan.conflicts == []
@@ -103,10 +119,17 @@ class TestPlanBridges:
 
     def test_missing_cidr_skipped(self) -> None:
         plan = plan_bridges(
-            [{"name": "x", "spec": {"networks": [
-                {"name": "broken"},
-                {"name": "good", "cidr": "10.0.0.0/24"},
-            ]}}]
+            [
+                {
+                    "name": "x",
+                    "spec": {
+                        "networks": [
+                            {"name": "broken"},
+                            {"name": "good", "cidr": "10.0.0.0/24"},
+                        ]
+                    },
+                }
+            ]
         )
         assert len(plan.bridges) == 1
         assert plan.bridges[0].network == "good"
@@ -114,17 +137,20 @@ class TestPlanBridges:
     def test_invalid_cidr_raises(self) -> None:
         with pytest.raises(BridgePlanError):
             plan_bridges(
-                [{"name": "x", "spec": {"networks": [
-                    {"name": "bad", "cidr": "not-a-cidr"}
-                ]}}]
+                [{"name": "x", "spec": {"networks": [{"name": "bad", "cidr": "not-a-cidr"}]}}]
             )
 
     def test_double_nested_spec(self) -> None:
         plan = plan_bridges(
-            [{"name": "x", "spec": {
-                "metadata": {"name": "x"},
-                "spec": {"networks": [{"name": "v", "cidr": "10.50.0.0/24"}]}
-            }}]
+            [
+                {
+                    "name": "x",
+                    "spec": {
+                        "metadata": {"name": "x"},
+                        "spec": {"networks": [{"name": "v", "cidr": "10.50.0.0/24"}]},
+                    },
+                }
+            ]
         )
         assert len(plan.bridges) == 1
         assert plan.bridges[0].cidr == "10.50.0.0/24"
@@ -145,15 +171,14 @@ class TestPlanBridges:
         assert "post-up   iptables -A FORWARD -i vmbr100 -j DROP" in s
         assert "post-down iptables -D FORWARD -i vmbr100 -j DROP" in s
 
+
 # --- HTTP endpoint tests --------------------------------------------------
 
 
 class TestAdminBridgeEndpoints:
     """Contract tests for the 3 new admin endpoints."""
 
-    def test_expected_bridges_returns_list(
-        self, client: TestClient
-    ) -> None:
+    def test_expected_bridges_returns_list(self, client: TestClient) -> None:
         # Bootstrap an admin.
         client.post(
             "/api/v1/auth/setup",
@@ -173,15 +198,11 @@ class TestAdminBridgeEndpoints:
         assert "conflicts" in body
         assert isinstance(body["bridges"], list)
 
-    def test_expected_bridges_requires_admin(
-        self, client: TestClient
-    ) -> None:
+    def test_expected_bridges_requires_admin(self, client: TestClient) -> None:
         r = client.get("/api/v1/admin/expected-bridges")
         assert r.status_code == 401
 
-    def test_pve_setup_bridges_requires_creds(
-        self, client: TestClient
-    ) -> None:
+    def test_pve_setup_bridges_requires_creds(self, client: TestClient) -> None:
         client.post(
             "/api/v1/auth/setup",
             json={"sub": "admin", "password": "adminpass1"},
@@ -204,9 +225,7 @@ class TestAdminBridgeEndpoints:
         if r.status_code == 502:
             assert "PVE" in r.json()["detail"] or "host" in r.json()["detail"]
 
-    def test_pve_setup_bridges_dry_run(
-        self, client: TestClient
-    ) -> None:
+    def test_pve_setup_bridges_dry_run(self, client: TestClient) -> None:
         client.post(
             "/api/v1/auth/setup",
             json={"sub": "admin", "password": "adminpass1"},
@@ -227,9 +246,7 @@ class TestAdminBridgeEndpoints:
         assert body.get("reload_method") in ("direct-dry-run", "none")
         assert "would create" in body.get("message", "")
 
-    def test_pve_bridge_status_returns_expected(
-        self, client: TestClient
-    ) -> None:
+    def test_pve_bridge_status_returns_expected(self, client: TestClient) -> None:
         client.post(
             "/api/v1/auth/setup",
             json={"sub": "admin", "password": "adminpass1"},

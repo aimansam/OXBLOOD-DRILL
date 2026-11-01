@@ -37,6 +37,7 @@ Typical usage:
   # Wait for a specific scenario to succeed:
   python tools/watch_drill.py --scenario first-live-drill
 """
+
 from __future__ import annotations
 
 import argparse
@@ -123,12 +124,8 @@ def _cancel(api_base, run_id, token=None):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
-    ap.add_argument(
-        "--api-base", default=DEFAULT_API_BASE
-    )
-    ap.add_argument(
-        "--prom-base", default=DEFAULT_PROM_BASE
-    )
+    ap.add_argument("--api-base", default=DEFAULT_API_BASE)
+    ap.add_argument("--prom-base", default=DEFAULT_PROM_BASE)
     ap.add_argument(
         "--token",
         default=DEFAULT_TOKEN,
@@ -180,19 +177,14 @@ def main():
     if not args.api_poll:
         baseline = _get_counter(args.prom_base, {"outcome": args.outcome})
         if baseline is None:
-            print(
-                f"WARN: Prometheus unreachable at {args.prom_base}; "
-                f"falling back to API polling"
-            )
+            print(f"WARN: Prometheus unreachable at {args.prom_base}; falling back to API polling")
             args.api_poll = True
         else:
             print(f"OK: Prometheus reachable; baseline {args.outcome}={baseline}")
 
     started_at = time.monotonic()
     deadline = started_at + args.timeout
-    cancel_at = (
-        started_at + args.cancel_after if args.cancel_after is not None else None
-    )
+    cancel_at = started_at + args.cancel_after if args.cancel_after is not None else None
     cancel_sent = False
     last_run_id = _latest_run_id(args.api_base, args.scenario) if args.api_poll else None
 

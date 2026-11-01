@@ -32,6 +32,7 @@ is now a single button that POSTs to ``/api/v1/admin/pve-setup-bridges``
 with no body -- the API uses the credentials already saved in Step -1
 to create the SDN zone + Vnets.
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -159,20 +160,12 @@ def plan_bridges(scenarios: Iterable[dict]) -> BridgePlan:
     triples: list[tuple[str, str, str]] = []
     vlan_entries: list[tuple[str, str, str, int]] = []
     for scenario in scenarios:
-        name = (
-            scenario.get("name")
-            or scenario.get("metadata", {}).get("name")
-            or "?"
-        )
+        name = scenario.get("name") or scenario.get("metadata", {}).get("name") or "?"
         # DB stores the whole YAML body under ``spec``; the body
         # itself has ``spec: { ... networks: [...] }``. We accept
         # both shapes (DB rows + /scenarios output) for callers.
         outer = scenario.get("spec") or {}
-        inner = (
-            outer.get("spec")
-            if isinstance(outer.get("spec"), dict)
-            else outer
-        )
+        inner = outer.get("spec") if isinstance(outer.get("spec"), dict) else outer
         networks = inner.get("networks") or []
         for offset, net in enumerate(networks):
             cidr = net.get("cidr")
@@ -189,13 +182,9 @@ def plan_bridges(scenarios: Iterable[dict]) -> BridgePlan:
                 try:
                     vlan_id = int(net["vlan_id"])
                 except (TypeError, ValueError) as exc:
-                    raise BridgePlanError(
-                        f"scenario {name!r}: vlan_id must be an integer"
-                    ) from exc
+                    raise BridgePlanError(f"scenario {name!r}: vlan_id must be an integer") from exc
                 if not 1 <= vlan_id <= 4094:
-                    raise BridgePlanError(
-                        f"scenario {name!r}: vlan_id {vlan_id} is outside 1-4094"
-                    )
+                    raise BridgePlanError(f"scenario {name!r}: vlan_id {vlan_id} is outside 1-4094")
                 vlan_entries.append((name, net_name, cidr, vlan_id))
 
     # VLAN scenarios share one operator-owned, VLAN-aware bridge. VLAN IDs
@@ -226,9 +215,7 @@ def plan_bridges(scenarios: Iterable[dict]) -> BridgePlan:
             conflicts=conflicts,
         )
     if vlan_entries:
-        raise BridgePlanError(
-            "scenario catalog mixes VLAN and non-VLAN network definitions"
-        )
+        raise BridgePlanError("scenario catalog mixes VLAN and non-VLAN network definitions")
 
     # Step 2: dedup. Two scenarios that share a network_name
     # intentionally want the one bridge (e.g. two scenarios
@@ -255,7 +242,8 @@ def plan_bridges(scenarios: Iterable[dict]) -> BridgePlan:
             # Another scenario already has this exact (name, cidr).
             # Re-use its bridge name.
             existing_bridge = next(
-                b for b in by_bridge.values()
+                b
+                for b in by_bridge.values()
                 if b.scenario == dup_key[0] and b.network == dup_key[1]
             )
             bridge_name = existing_bridge.name
@@ -278,9 +266,7 @@ def plan_bridges(scenarios: Iterable[dict]) -> BridgePlan:
         try:
             gateway_ip = _first_host_ip(cidr)
         except ValueError as exc:
-            raise BridgePlanError(
-                f"scenario {scenario!r}: invalid CIDR {cidr!r}: {exc}"
-            ) from exc
+            raise BridgePlanError(f"scenario {scenario!r}: invalid CIDR {cidr!r}: {exc}") from exc
         spec_obj = BridgeSpec(
             name=bridge_name,
             cidr=cidr,
@@ -296,10 +282,7 @@ def plan_bridges(scenarios: Iterable[dict]) -> BridgePlan:
     for i, (cidr_a, name_a) in enumerate(used_cidrs):
         for cidr_b, name_b in used_cidrs[i + 1 :]:
             if _cidrs_overlap(cidr_a, cidr_b):
-                conflicts.append(
-                    f"CIDR overlap: {name_a}={cidr_a} overlaps "
-                    f"{name_b}={cidr_b}"
-                )
+                conflicts.append(f"CIDR overlap: {name_a}={cidr_a} overlaps {name_b}={cidr_b}")
 
     return BridgePlan(
         bridges=sorted(by_bridge.values(), key=lambda b: int(b.name[4:])),
@@ -314,12 +297,14 @@ async def plan_bridges_from_db(session: AsyncSession) -> BridgePlan:
     from app.db import models as db_models
 
     rows = (
-        await session.execute(
-            select(db_models.Scenario).where(
-                db_models.Scenario.archived_at.is_(None)
+        (
+            await session.execute(
+                select(db_models.Scenario).where(db_models.Scenario.archived_at.is_(None))
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     scenario_dicts = [
         {
             "name": r.name,
@@ -463,9 +448,7 @@ def _cidr_prefixlen(cidr: str) -> int:
 def _cidrs_overlap(a: str, b: str) -> bool:
     """True if the two CIDRs share any address."""
     try:
-        return ipaddress.ip_network(a, strict=False).overlaps(
-            ipaddress.ip_network(b, strict=False)
-        )
+        return ipaddress.ip_network(a, strict=False).overlaps(ipaddress.ip_network(b, strict=False))
     except ValueError:
         return False
 

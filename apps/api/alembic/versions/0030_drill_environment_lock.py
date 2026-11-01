@@ -3,6 +3,7 @@
 Revision ID: 0030_drill_environment_lock
 Revises: 0029_run_timeout_min
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -28,7 +29,12 @@ def upgrade() -> None:
             sa.Column("status", sa.String(length=32), nullable=False, server_default="released"),
             sa.Column("acquired_at", sa.DateTime(timezone=True), nullable=True),
             sa.Column("released_at", sa.DateTime(timezone=True), nullable=True),
-            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
             sa.UniqueConstraint("lock_key", name="uq_drill_environment_locks_key"),
         )
         op.create_index("idx_drill_environment_locks_status", "drill_environment_locks", ["status"])

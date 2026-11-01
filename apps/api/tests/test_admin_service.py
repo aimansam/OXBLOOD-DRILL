@@ -9,6 +9,7 @@ These tests cover:
 
 We mock the proxmoxer client and httpx entirely -- no live PVE.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -57,13 +58,17 @@ def test_probe_reports_missing_drill_privs(monkeypatch):
 
     # probe_pve imports get_version/list_permissions/list_storage directly,
     # so we patch them at the admin module level.
-    monkeypatch.setattr("app.services.admin.get_version",
-                        lambda: {"version": "9.1", "release": "9"})
-    monkeypatch.setattr("app.services.admin.list_permissions",
-                        lambda: {"/": {"VM.Audit": 1, "VM.Console": 1}})
+    monkeypatch.setattr(
+        "app.services.admin.get_version", lambda: {"version": "9.1", "release": "9"}
+    )
+    monkeypatch.setattr(
+        "app.services.admin.list_permissions", lambda: {"/": {"VM.Audit": 1, "VM.Console": 1}}
+    )
     monkeypatch.setattr("app.services.admin.list_storage", lambda: [])
-    monkeypatch.setattr("app.services.admin.get_proxmox_client",
-                        lambda: MagicMock(nodes=MagicMock(get=lambda: [{"node": "pve"}])))
+    monkeypatch.setattr(
+        "app.services.admin.get_proxmox_client",
+        lambda: MagicMock(nodes=MagicMock(get=lambda: [{"node": "pve"}])),
+    )
 
     result = probe_pve()
 
@@ -87,8 +92,12 @@ def test_probe_passes_when_full_perms_present(monkeypatch):
 
     perms = {
         "/": {
-            "VM.Allocate": 1, "VM.Clone": 1, "VM.PowerMgmt": 1,
-            "Datastore.AllocateSpace": 1, "Datastore.Allocate": 1, "Datastore.Audit": 1,
+            "VM.Allocate": 1,
+            "VM.Clone": 1,
+            "VM.PowerMgmt": 1,
+            "Datastore.AllocateSpace": 1,
+            "Datastore.Allocate": 1,
+            "Datastore.Audit": 1,
         },
     }
     storage = [
@@ -97,12 +106,15 @@ def test_probe_passes_when_full_perms_present(monkeypatch):
     ]
     nodes = [{"node": "pve"}]
 
-    monkeypatch.setattr("app.services.admin.get_version",
-                        lambda: {"version": "9.1", "release": "9"})
+    monkeypatch.setattr(
+        "app.services.admin.get_version", lambda: {"version": "9.1", "release": "9"}
+    )
     monkeypatch.setattr("app.services.admin.list_permissions", lambda: perms)
     monkeypatch.setattr("app.services.admin.list_storage", lambda: storage)
-    monkeypatch.setattr("app.services.admin.get_proxmox_client",
-                        lambda: MagicMock(nodes=MagicMock(get=lambda: nodes)))
+    monkeypatch.setattr(
+        "app.services.admin.get_proxmox_client",
+        lambda: MagicMock(nodes=MagicMock(get=lambda: nodes)),
+    )
 
     result = probe_pve()
 
@@ -203,10 +215,14 @@ def test_upload_qcow2_streams_in_chunks(tmp_path, monkeypatch):
     fake = _FakeAsyncClient(status=200, body={"data": "local:import/debian-13.qcow2"})
 
     with patch("httpx.AsyncClient", return_value=fake):
-        result = asyncio.run(adm.upload_qcow2(
-            local_path=fpath, node="pve", storage="local",
-            progress_callback=lambda s, t: progress_calls.append((s, t)),
-        ))
+        result = asyncio.run(
+            adm.upload_qcow2(
+                local_path=fpath,
+                node="pve",
+                storage="local",
+                progress_callback=lambda s, t: progress_calls.append((s, t)),
+            )
+        )
 
     assert result.status == "success"
     assert result.result_volid == "local:import/debian-13.qcow2"
@@ -226,9 +242,13 @@ def test_upload_qcow2_handles_pve_error(tmp_path, monkeypatch):
     fake = _FakeAsyncClient(status=403, body={"errors": "permission denied"})
 
     with patch("httpx.AsyncClient", return_value=fake):
-        result = asyncio.run(adm.upload_qcow2(
-            local_path=fpath, node="pve", storage="local",
-        ))
+        result = asyncio.run(
+            adm.upload_qcow2(
+                local_path=fpath,
+                node="pve",
+                storage="local",
+            )
+        )
 
     assert result.status == "error"
     assert "403" in (result.error or "")
@@ -260,8 +280,7 @@ def test_upload_qcow2_passes_file_handle_not_generator(tmp_path, monkeypatch):
             # 'filename' (NOT 'content' -- 'content' is the storage
             # content-type filter, passed in the URL query string).
             assert "filename" in files, (
-                "PVE rejects uploads with the file under any other field "
-                "name; expected 'filename'"
+                "PVE rejects uploads with the file under any other field name; expected 'filename'"
             )
             # Capture the file body BEFORE draining, so the wrapper
             # is still alive for an inspection call below.
@@ -279,22 +298,28 @@ def test_upload_qcow2_passes_file_handle_not_generator(tmp_path, monkeypatch):
     assert hasattr(file_obj, "read"), "upload body has no .read(); httpx will crash"
     # 2. Must not be a bare generator (the old broken shape).
     import types
-    assert not isinstance(file_obj, types.GeneratorType), \
+
+    assert not isinstance(file_obj, types.GeneratorType), (
         "upload body is still a generator; httpx will crash with AttributeError"
+    )
     # 3. Must be a real file-like (raw handle) so peek_filelike_length()
     #    can use fileno() to derive Content-Length.
-    assert hasattr(file_obj, "fileno"), \
+    assert hasattr(file_obj, "fileno"), (
         "upload body has no .fileno(); httpx falls back to chunked encoding and PVE drops the connection"
+    )
 
 
 def test_upload_qcow2_missing_file_raises(tmp_path):
     from app.services import admin as adm
 
     with pytest.raises(FileNotFoundError):
-        asyncio.run(adm.upload_qcow2(
-            local_path=tmp_path / "nonexistent.qcow2",
-            node="pve", storage="local",
-        ))
+        asyncio.run(
+            adm.upload_qcow2(
+                local_path=tmp_path / "nonexistent.qcow2",
+                node="pve",
+                storage="local",
+            )
+        )
 
 
 # --- create_template_from_qcow2 --------------------------------------------
@@ -339,17 +364,23 @@ def test_create_template_walks_through_steps(monkeypatch):
     # patch it in the admin module's namespace.
     monkeypatch.setattr("app.services.admin.get_proxmox_client", lambda: mock_client)
 
-    result = asyncio.run(adm.create_template_from_qcow2(
-        template_name="tpl-test",
-        source_volid="local:import/debian-13.qcow2",
-        node="pve",
-        job_id="testjob01",
-    ))
+    result = asyncio.run(
+        adm.create_template_from_qcow2(
+            template_name="tpl-test",
+            source_volid="local:import/debian-13.qcow2",
+            node="pve",
+            job_id="testjob01",
+        )
+    )
 
     assert result.status == "success"
     assert result.vmid == 9000
     assert call_order == [
-        "nextid", "qemu.create", "qemu.import", "qemu.config", "qemu.template",
+        "nextid",
+        "qemu.create",
+        "qemu.import",
+        "qemu.config",
+        "qemu.template",
     ]
 
 
@@ -375,16 +406,19 @@ def test_create_template_records_failure_on_error(monkeypatch):
     def _import_raises(**kw):
         if "import-from=" in kw.get("scsi0", ""):
             raise RuntimeError("disk full")
+
     qemu.return_value.config.post.side_effect = _import_raises
     mock_client.nodes.return_value.qemu = qemu
 
     monkeypatch.setattr("app.services.admin.get_proxmox_client", lambda: mock_client)
 
-    result = asyncio.run(adm.create_template_from_qcow2(
-        template_name="tpl-test",
-        source_volid="local:import/debian-13.qcow2",
-        node="pve",
-    ))
+    result = asyncio.run(
+        adm.create_template_from_qcow2(
+            template_name="tpl-test",
+            source_volid="local:import/debian-13.qcow2",
+            node="pve",
+        )
+    )
 
     assert result.status == "error"
     assert "disk full" in (result.error or "")

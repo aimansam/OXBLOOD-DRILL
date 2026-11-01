@@ -38,6 +38,7 @@ What this does NOT do:
     through the API's credential-login endpoint and exercises the
     argon2id + rate-limit path.
 """
+
 from __future__ import annotations
 
 import argparse

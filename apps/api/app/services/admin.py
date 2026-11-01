@@ -22,6 +22,7 @@ must grant ``PVEDatastoreAdmin`` (a built-in PVE role that covers
 endpoints will succeed; ``probe_pve()`` is the canonical way to detect
 that gap.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -221,11 +222,7 @@ class UploadProgress:
     result_volid: str | None  # set on success (PVE returns its volid)
 
     def to_dict(self) -> dict[str, Any]:
-        pct = (
-            (self.bytes_sent / self.total_bytes * 100.0)
-            if self.total_bytes > 0
-            else 0.0
-        )
+        pct = (self.bytes_sent / self.total_bytes * 100.0) if self.total_bytes > 0 else 0.0
         return {
             "job_id": self.job_id,
             "filename": self.filename,
@@ -267,9 +264,7 @@ async def upload_qcow2(
 
     total = local_path.stat().st_size
     filename = filename or local_path.name
-    job_id = job_id or hashlib.sha1(
-        f"{local_path}-{time.time()}".encode()
-    ).hexdigest()[:12]
+    job_id = job_id or hashlib.sha1(f"{local_path}-{time.time()}".encode()).hexdigest()[:12]
 
     progress = UploadProgress(
         job_id=job_id,
@@ -288,16 +283,13 @@ async def upload_qcow2(
 
     host, user, token_name, token_secret = _validate_config()
     port = int(os.environ.get("PROXMOX_PORT", "8006"))
-    verify = (os.environ.get("PROXMOX_VERIFY_SSL", "true").lower() == "true")
+    verify = os.environ.get("PROXMOX_VERIFY_SSL", "true").lower() == "true"
     scheme = "https" if verify or port == 8006 else "http"
     # `content=import` is required so PVE accepts .qcow2 files via the
     # upload endpoint -- the storage's allowed content types include
     # 'import' for raw qemu-img targets. Without this query param PVE
     # returns 400 'wrong file extension'.
-    url = (
-        f"{scheme}://{host}:{port}/api2/json/nodes/{node}/storage"
-        f"/{storage}/upload?content=import"
-    )
+    url = f"{scheme}://{host}:{port}/api2/json/nodes/{node}/storage/{storage}/upload?content=import"
 
     headers = {
         "Authorization": f"PVEAPIToken={user}!{token_name}={token_secret}",
@@ -316,7 +308,9 @@ async def upload_qcow2(
         fh = open(local_path, "rb")
         try:
             try:
-                async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=10.0), verify=verify) as client:
+                async with httpx.AsyncClient(
+                    timeout=httpx.Timeout(600.0, connect=10.0), verify=verify
+                ) as client:
                     # PVE expects the file under the field name 'filename',
                     # not 'content'. The 'content' parameter is the storage
                     # content-type filter (we pass it via the URL query
@@ -424,9 +418,7 @@ async def create_template_from_qcow2(
 
     The returned ``TemplateProgress.vmid`` is the new VMID on success.
     """
-    job_id = job_id or hashlib.sha1(
-        f"{template_name}-{time.time()}".encode()
-    ).hexdigest()[:12]
+    job_id = job_id or hashlib.sha1(f"{template_name}-{time.time()}".encode()).hexdigest()[:12]
     progress = TemplateProgress(
         job_id=job_id,
         template_name=template_name,
@@ -457,15 +449,11 @@ async def create_template_from_qcow2(
 
         progress.step = "importing disk"
         await _set_template_progress(progress)
-        await asyncio.to_thread(
-            _import_disk, vmid, node, source_volid, disk_storage
-        )
+        await asyncio.to_thread(_import_disk, vmid, node, source_volid, disk_storage)
 
         progress.step = "configuring VM"
         await _set_template_progress(progress)
-        await asyncio.to_thread(
-            _configure_vm, vmid, node, name=template_name
-        )
+        await asyncio.to_thread(_configure_vm, vmid, node, name=template_name)
 
         progress.step = "marking as template"
         await _set_template_progress(progress)
@@ -484,7 +472,12 @@ async def create_template_from_qcow2(
 
 
 def _create_qemu_vm(
-    vmid: int, node: str, _disk_storage: str, _disk_gb: int, cores: int, memory_mb: int,
+    vmid: int,
+    node: str,
+    _disk_storage: str,
+    _disk_gb: int,
+    cores: int,
+    memory_mb: int,
     bridge: str | None = None,
 ) -> None:
     """POST /nodes/{n}/qemu with the skeleton (no disk yet).

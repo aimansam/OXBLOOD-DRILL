@@ -12,6 +12,7 @@ What we assert:
     sinks still fire.
   * build_sinks_from_spec() honours the scenario spec.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -127,9 +128,7 @@ def test_stdout_sink_writes_json_line(caplog):
     with caplog.at_level(logging.INFO, logger="divide.telemetry.stdout"):
         asyncio.run(_go())
 
-    matched = [
-        r for r in caplog.records if r.name == "divide.telemetry.stdout"
-    ]
+    matched = [r for r in caplog.records if r.name == "divide.telemetry.stdout"]
     assert matched, caplog.records
     payload = matched[-1].getMessage()
     assert "run_id" in payload
@@ -149,9 +148,7 @@ def test_build_sinks_with_no_spec_returns_empty_list():
 def test_build_sinks_returns_stdout_when_configured():
     from app.services.telemetry import build_sinks_from_spec
 
-    sinks = build_sinks_from_spec(
-        {"telemetry": {"sinks": [{"type": "stdout"}]}}
-    )
+    sinks = build_sinks_from_spec({"telemetry": {"sinks": [{"type": "stdout"}]}})
     assert [s.name for s in sinks] == ["stdout"]
 
 
@@ -164,9 +161,7 @@ def test_build_sinks_skips_minio_when_package_missing(monkeypatch):
     # ``minio`` module.
     monkeypatch.setattr(t_module, "_MINIO_AVAILABLE", False, raising=False)
 
-    sinks = build_sinks_from_spec(
-        {"telemetry": {"sinks": [{"type": "minio", "bucket": "x"}]}}
-    )
+    sinks = build_sinks_from_spec({"telemetry": {"sinks": [{"type": "minio", "bucket": "x"}]}})
     assert sinks == []
 
 
@@ -192,9 +187,7 @@ def test_build_sinks_logs_unknown_sink_type(caplog):
     from app.services.telemetry import build_sinks_from_spec
 
     with caplog.at_level(logging.WARNING, logger="app.services.telemetry"):
-        sinks = build_sinks_from_spec(
-            {"telemetry": {"sinks": [{"type": "definitely-not-real"}]}}
-        )
+        sinks = build_sinks_from_spec({"telemetry": {"sinks": [{"type": "definitely-not-real"}]}})
     assert sinks == []
     matched = [r for r in caplog.records if "unknown_sink" in r.getMessage()]
     assert matched

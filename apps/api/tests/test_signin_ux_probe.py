@@ -10,6 +10,7 @@ Contract:
     → 200 {"needs_setup": false}  when at least one user exists
     No token required (public endpoint).
 """
+
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -67,9 +68,7 @@ class TestSetupProbeWithAdmin:
         r2 = client.get("/api/v1/auth/setup")
         assert r1.json() == r2.json() == {"needs_setup": False}
 
-    def test_probe_without_token_still_returns_false(
-        self, client: TestClient
-    ) -> None:
+    def test_probe_without_token_still_returns_false(self, client: TestClient) -> None:
         """Even after admin exists, no token needed to call the probe."""
         client.post(
             "/api/v1/auth/setup",

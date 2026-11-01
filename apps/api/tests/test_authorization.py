@@ -32,6 +32,7 @@ Note: proxmox endpoints are NOT gated yet (see
 plan). Once M5 lands, this file should be extended with the
 proxmox matrix; for now it's intentionally absent.
 """
+
 from __future__ import annotations
 
 from typing import NamedTuple
@@ -80,37 +81,29 @@ MATRIX: list = [
     _Cell("GET", "/api/v1/admin/drill-template-status", Role.LEAD, 403),
     _Cell("GET", "/api/v1/admin/storage", None, 401),
     _Cell("GET", "/api/v1/admin/storage", Role.LEAD, 403),
-
     # --- POST /api/v1/drills (admin, lead, red) ------------------------
     _Cell("POST", "/api/v1/drills", None, 401),
     _Cell("POST", "/api/v1/drills", Role.BLUE, 403),
     _Cell("POST", "/api/v1/drills", Role.OBSERVER, 403),
-
     # --- POST /api/v1/drills/{id}/stop (admin, lead) --------------------
     _Cell("POST", "/api/v1/drills/999999/stop", None, 401),
     _Cell("POST", "/api/v1/drills/999999/stop", Role.RED, 403),
     _Cell("POST", "/api/v1/drills/999999/stop", Role.BLUE, 403),
     _Cell("POST", "/api/v1/drills/999999/stop", Role.OBSERVER, 403),
-
     # --- POST /api/v1/drills/{id}/cancel (admin, lead, red) -------------
     _Cell("POST", "/api/v1/drills/999999/cancel", None, 401),
     _Cell("POST", "/api/v1/drills/999999/cancel", Role.BLUE, 403),
     _Cell("POST", "/api/v1/drills/999999/cancel", Role.OBSERVER, 403),
-
     # --- GET /api/v1/drills (any role; visibility filter) ---------------
     _Cell("GET", "/api/v1/drills", None, 401),
-
     # --- GET /api/v1/drills/{id} (any role; visibility filter) ----------
     _Cell("GET", "/api/v1/drills/999999", None, 401),
-
     # --- GET /api/v1/drills/{id}/audit (any role; visibility filter) ---
     _Cell("GET", "/api/v1/drills/999999/audit", None, 401),
 ]
 
 
-@pytest.mark.parametrize(
-    "cell", MATRIX, ids=[f"{c.method} {c.path} role={c.role}" for c in MATRIX]
-)
+@pytest.mark.parametrize("cell", MATRIX, ids=[f"{c.method} {c.path} role={c.role}" for c in MATRIX])
 def test_rbac_matrix_cell(client, cell: _Cell):
     """One assertion per (endpoint, role) cell.
 
@@ -181,12 +174,8 @@ def test_rbac_visible_runs_query_filters_for_red_and_blue():
     from app.core.auth import TokenData
     from app.services.authorization import visible_runs_query
 
-    red_q = visible_runs_query(
-        TokenData(sub="alice", role="red", iat=0, exp=10**10)
-    )
-    admin_q = visible_runs_query(
-        TokenData(sub="root", role="admin", iat=0, exp=10**10)
-    )
+    red_q = visible_runs_query(TokenData(sub="alice", role="red", iat=0, exp=10**10))
+    admin_q = visible_runs_query(TokenData(sub="root", role="admin", iat=0, exp=10**10))
 
     # Red: WHERE clause must reference started_by == 'alice'.
     red_compiled = str(red_q.compile(compile_kwargs={"literal_binds": True}))
@@ -200,9 +189,7 @@ def test_rbac_visible_runs_query_filters_for_red_and_blue():
 
     # Admin: no WHERE clause at all (the see-all path returns the
     # full table).
-    admin_compiled = str(
-        admin_q.compile(compile_kwargs={"literal_binds": True})
-    )
+    admin_compiled = str(admin_q.compile(compile_kwargs={"literal_binds": True}))
     assert "WHERE" not in admin_compiled.upper(), (
         f"admin query should not have a WHERE clause; got: {admin_compiled}"
     )
@@ -221,9 +208,7 @@ def test_rbac_visible_runs_query_empty_for_anon():
     compiled = str(q.compile(compile_kwargs={"literal_binds": True}))
     # Either an explicit `false` or a 1=0 clause is acceptable; both
     # are how SQLAlchemy renders a tautologically-false WHERE.
-    assert ("false" in compiled.lower()) or ("1 = 0" in compiled) or (
-        "0 = 1" in compiled
-    )
+    assert ("false" in compiled.lower()) or ("1 = 0" in compiled) or ("0 = 1" in compiled)
 
 
 # ---------- Drill cancel own-only filter (the 403 case) ------------------
@@ -254,11 +239,9 @@ def test_cancel_endpoint_has_red_own_only_check_in_code():
     )
     # Must check run.started_by against token.sub.
     assert "started_by" in src and "token.sub" in src, (
-        "cancel_drill must compare run.started_by to token.sub for "
-        "the own-only filter."
+        "cancel_drill must compare run.started_by to token.sub for the own-only filter."
     )
     # Must raise 403, not 404, when red tries to cancel someone else's run.
     assert "HTTP_403_FORBIDDEN" in src, (
-        "cancel_drill must raise 403 (not 404) when red tries to "
-        "cancel a run they didn't start."
+        "cancel_drill must raise 403 (not 404) when red tries to cancel a run they didn't start."
     )

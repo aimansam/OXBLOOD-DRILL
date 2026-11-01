@@ -35,6 +35,7 @@ Why this is *not* a session/whoami in the IdP sense:
 For the M3.2 plan this lets the portal's TokenBar render a
 "verified identity" badge instead of the unverified decode.
 """
+
 from __future__ import annotations
 
 import time

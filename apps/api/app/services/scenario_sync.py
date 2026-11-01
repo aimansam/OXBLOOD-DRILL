@@ -26,6 +26,7 @@ Design choices
 - We do not delete history: even an "archived" scenario still has
   linked Runs that we must preserve for after-action reports.
 """
+
 from __future__ import annotations
 
 import logging
@@ -90,6 +91,7 @@ _format_checker = FormatChecker()
 @_format_checker.checks("cidr", raises=ValueError)
 def _check_cidr(value: object) -> bool:
     import ipaddress
+
     if not isinstance(value, str):
         return True
     ipaddress.ip_network(value, strict=False)
@@ -192,9 +194,7 @@ def _load_yaml(path: Path) -> object:
 
 
 def _format_validation_error(err: ValidationError) -> str:
-    path = "$" + "".join(
-        f".{p}" if isinstance(p, str) else f"[{p}]" for p in err.absolute_path
-    )
+    path = "$" + "".join(f".{p}" if isinstance(p, str) else f"[{p}]" for p in err.absolute_path)
     msg = err.message.splitlines()[0] if err.message else "validation error"
     return f"{path}: {msg}"
 
@@ -229,11 +229,11 @@ async def sync_files(
     for path in files:
         try:
             data = _load_yaml(path)
-            errors = sorted(
-                validator.iter_errors(data), key=lambda e: list(e.absolute_path)
-            )
+            errors = sorted(validator.iter_errors(data), key=lambda e: list(e.absolute_path))
         except (yaml.YAMLError, OSError) as exc:
-            log.warning("scenario_sync.parse_failed", extra={"file_path": str(path), "error": str(exc)})
+            log.warning(
+                "scenario_sync.parse_failed", extra={"file_path": str(path), "error": str(exc)}
+            )
             report.skipped.append(
                 ScenarioUpsert(source_path=path, name=None, action="skipped", error=str(exc))
             )
@@ -280,9 +280,7 @@ async def sync_files(
     return report
 
 
-async def _upsert_one(
-    session: AsyncSession, path: Path, data: dict
-) -> ScenarioUpsert:
+async def _upsert_one(session: AsyncSession, path: Path, data: dict) -> ScenarioUpsert:
     metadata = data.get("metadata") or {}
     name = metadata.get("name")
     if not name:
@@ -353,10 +351,14 @@ async def _archive_missing(
     path is no longer present in the sync set."""
     now = datetime.now(UTC)
     rows = (
-        await session.execute(
-            select(models.Scenario).where(models.Scenario.archived_at.is_(None))
+        (
+            await session.execute(
+                select(models.Scenario).where(models.Scenario.archived_at.is_(None))
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     for row in rows:
         # If we saw its source_path or its name, keep it.
         if row.name in seen_names:

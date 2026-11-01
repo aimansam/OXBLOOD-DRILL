@@ -6,6 +6,7 @@
 - ``DELETE /api/v1/scenarios/{name}`` soft-delete (set archived_at)
 - ``POST /api/v1/scenarios/{name}/restore`` un-archive
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -39,9 +40,7 @@ def _get_validator() -> Draft202012Validator:
     if _validator is None:
         with _find_scenario_schema().open(encoding="utf-8") as f:
             schema = yaml.safe_load(f)
-        _validator = Draft202012Validator(
-            schema, format_checker=FormatChecker()
-        )
+        _validator = Draft202012Validator(schema, format_checker=FormatChecker())
     return _validator
 
 
@@ -117,9 +116,7 @@ async def list_scenarios(
 @router.get("/{name}", summary="Get one scenario by name")
 async def get_scenario(name: str, session: AsyncSession = Depends(get_session)) -> dict:
     row = (
-        await session.execute(
-            select(db_models.Scenario).where(db_models.Scenario.name == name)
-        )
+        await session.execute(select(db_models.Scenario).where(db_models.Scenario.name == name))
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"scenario {name!r} not found")
@@ -198,9 +195,7 @@ async def import_scenario(
         )
 
     row = (
-        await session.execute(
-            select(db_models.Scenario).where(db_models.Scenario.name == name)
-        )
+        await session.execute(select(db_models.Scenario).where(db_models.Scenario.name == name))
     ).scalar_one_or_none()
 
     payload = dict(
@@ -236,9 +231,7 @@ async def archive_scenario(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     row = (
-        await session.execute(
-            select(db_models.Scenario).where(db_models.Scenario.name == name)
-        )
+        await session.execute(select(db_models.Scenario).where(db_models.Scenario.name == name))
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"scenario {name!r} not found")
@@ -253,9 +246,7 @@ async def restore_scenario(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     row = (
-        await session.execute(
-            select(db_models.Scenario).where(db_models.Scenario.name == name)
-        )
+        await session.execute(select(db_models.Scenario).where(db_models.Scenario.name == name))
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"scenario {name!r} not found")
@@ -269,8 +260,6 @@ async def restore_scenario(
 
 
 def _format_validation_error(err: ValidationError) -> str:
-    path = "$" + "".join(
-        f".{p}" if isinstance(p, str) else f"[{p}]" for p in err.absolute_path
-    )
+    path = "$" + "".join(f".{p}" if isinstance(p, str) else f"[{p}]" for p in err.absolute_path)
     msg = err.message.splitlines()[0] if err.message else "validation error"
     return f"{path}: {msg}"

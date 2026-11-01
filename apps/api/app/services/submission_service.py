@@ -3,6 +3,7 @@
 Handles flag submissions, evidence uploads, scoring with time decay,
 leaderboard generation, and first blood tracking.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -29,6 +30,7 @@ from app.db.models_oxblood import (
 # Flag Submission & Validation
 # ============================================================================
 
+
 async def submit_flag(
     db: AsyncSession,
     user_id: int,
@@ -42,36 +44,32 @@ async def submit_flag(
 ) -> dict:
     """Submit a flag and calculate points (Drill-native drill_flags)."""
     if drill_flag is None:
-        flag_result = await db.execute(
-            select(DrillFlag).where(DrillFlag.id == lab_flag_id)
-        )
+        flag_result = await db.execute(select(DrillFlag).where(DrillFlag.id == lab_flag_id))
         drill_flag = flag_result.scalar_one_or_none()
     if drill_flag is None:
         raise ValueError("Flag not found")
     flag_value_expected = drill_flag.value
     decay_window = drill_flag.decay_window_seconds
-    
+
     # Get drill start time for time decay calculation
     elapsed_seconds = 0
     if drill_id:
-        drill_result = await db.execute(
-            select(Drill).where(Drill.id == drill_id)
-        )
+        drill_result = await db.execute(select(Drill).where(Drill.id == drill_id))
         drill = drill_result.scalar_one_or_none()
         if drill and drill.actual_start_at:
             now = datetime.now(UTC)
             elapsed_seconds = int((now - drill.actual_start_at).total_seconds())
-    
+
     # Validate flag
-    is_correct = (flag_value.strip() == flag_value_expected.strip())
-    
+    is_correct = flag_value.strip() == flag_value_expected.strip()
+
     # Calculate points
     points_earned = 0
     time_decay_factor = 1.0
     if is_correct:
         time_decay_factor = calculate_time_decay(elapsed_seconds, decay_window)
         points_earned = calculate_flag_points(drill_flag, time_decay_factor, hints_used)
-    
+
     # Create parent submission
     submission = Submission(
         user_id=user_id,
@@ -83,15 +81,13 @@ async def submit_flag(
     )
     db.add(submission)
     await db.flush()  # Get submission.id
-    
+
     # Get attempt number
     attempt_result = await db.execute(
-        select(func.count(FlagSubmission.id)).where(
-            FlagSubmission.lab_flag_id == lab_flag_id
-        )
+        select(func.count(FlagSubmission.id)).where(FlagSubmission.lab_flag_id == lab_flag_id)
     )
     attempt_number = attempt_result.scalar() + 1
-    
+
     # Create flag submission record
     flag_submission = FlagSubmission(
         submission_id=submission.id,
@@ -104,7 +100,7 @@ async def submit_flag(
         hints_used=hints_used,
     )
     db.add(flag_submission)
-    
+
     # Update score if correct
     first_blood = None
     objective_completed = False
@@ -116,17 +112,17 @@ async def submit_flag(
             if objective is not None and objective.status != "completed":
                 objective.status = "completed"
                 objective_completed = True
-                await update_user_score(
-                    db, user_id, drill_id, 0, "objective_completion", team_id
-                )
-        
+                await update_user_score(db, user_id, drill_id, 0, "objective_completion", team_id)
+
         # Check for first blood
-        first_blood = await check_and_record_first_blood(db, drill_id, lab_flag_id, user_id, team_id)
-    
+        first_blood = await check_and_record_first_blood(
+            db, drill_id, lab_flag_id, user_id, team_id
+        )
+
     await db.commit()
     await db.refresh(submission)
     await db.refresh(flag_submission)
-    
+
     return {
         "submission_id": submission.id,
         "is_correct": is_correct,
@@ -141,7 +137,7 @@ async def submit_flag(
 
 def calculate_time_decay(elapsed_seconds: int, decay_window: int) -> float:
     """Calculate time decay factor.
-    
+
     Formula: max(0.5, 1 - (elapsed / decay_window))
     Minimum factor is 0.5 (50% of base points).
     """
@@ -153,13 +149,13 @@ def calculate_time_decay(elapsed_seconds: int, decay_window: int) -> float:
 
 def calculate_flag_points(flag, time_decay_factor: float, hints_used: int) -> int:
     """Calculate final points for a flag capture.
-    
+
     Formula: (base_points * time_decay) - (hints_used * hint_penalty)
     Minimum 0 points.
     """
     base_points = flag.points
     points_after_decay = base_points * time_decay_factor
-    hint_penalty = hints_used * getattr(flag, 'hint_penalty', 10)
+    hint_penalty = hints_used * getattr(flag, "hint_penalty", 10)
     final_points = max(0, points_after_decay - hint_penalty)
     return int(final_points)
 
@@ -181,7 +177,7 @@ async def check_and_record_first_blood(
     )
     if existing.scalar_one_or_none():
         return None  # Already claimed
-    
+
     # Record first blood
     first_blood = FirstBlood(
         drill_id=drill_id,
@@ -197,6 +193,7 @@ async def check_and_record_first_blood(
 # ============================================================================
 # Submission Queries
 # ============================================================================
+
 
 async def list_user_submissions(
     db: AsyncSession,
@@ -216,9 +213,7 @@ async def list_user_submissions(
 
 async def get_submission(db: AsyncSession, submission_id: int) -> Submission | None:
     """Get a submission by ID."""
-    result = await db.execute(
-        select(Submission).where(Submission.id == submission_id)
-    )
+    result = await db.execute(select(Submission).where(Submission.id == submission_id))
     return result.scalar_one_or_none()
 
 
@@ -233,6 +228,7 @@ async def get_flag_submission(db: AsyncSession, submission_id: int) -> FlagSubmi
 # ============================================================================
 # Evidence Management
 # ============================================================================
+
 
 async def upload_evidence(
     db: AsyncSession,
@@ -303,9 +299,7 @@ async def list_submission_evidence(
 ) -> list[EvidenceSubmission]:
     """List all evidence for a submission."""
     result = await db.execute(
-        select(EvidenceSubmission).where(
-            EvidenceSubmission.submission_id == submission_id
-        )
+        select(EvidenceSubmission).where(EvidenceSubmission.submission_id == submission_id)
     )
     return result.scalars().all()
 
@@ -313,6 +307,7 @@ async def list_submission_evidence(
 # ============================================================================
 # Score Management
 # ============================================================================
+
 
 async def update_user_score(
     db: AsyncSession,
@@ -331,7 +326,7 @@ async def update_user_score(
         )
     )
     score = result.scalar_one_or_none()
-    
+
     if score:
         previous_total = score.total_points
         score.total_points += points_earned
@@ -352,7 +347,7 @@ async def update_user_score(
         )
         db.add(score)
         await db.flush()
-    
+
     # Record score history
     history = ScoreHistory(
         user_id=user_id,
@@ -365,7 +360,7 @@ async def update_user_score(
         details={"points_earned": points_earned},
     )
     db.add(history)
-    
+
     return score
 
 
@@ -397,11 +392,13 @@ async def record_milestone_score(
     """Award a response milestone once and retain its timing in score history."""
     action = "milestone_%s" % milestone
     existing = await db.execute(
-        select(ScoreHistory.id).where(
+        select(ScoreHistory.id)
+        .where(
             ScoreHistory.user_id == user_id,
             ScoreHistory.drill_id == drill_id,
             ScoreHistory.action == action,
-        ).limit(1)
+        )
+        .limit(1)
     )
     if existing.scalar_one_or_none() is not None:
         return {"points_awarded": 0, "already_recorded": True}
@@ -418,9 +415,7 @@ async def record_milestone_score(
 async def get_drill_scores(db: AsyncSession, drill_id: int) -> list[Score]:
     """Get all scores for a drill, ordered by rank."""
     result = await db.execute(
-        select(Score)
-        .where(Score.drill_id == drill_id)
-        .order_by(Score.total_points.desc())
+        select(Score).where(Score.drill_id == drill_id).order_by(Score.total_points.desc())
     )
     return result.scalars().all()
 
@@ -428,9 +423,7 @@ async def get_drill_scores(db: AsyncSession, drill_id: int) -> list[Score]:
 async def get_user_scores(db: AsyncSession, user_id: int) -> list[Score]:
     """Get all scores for a user across drills."""
     result = await db.execute(
-        select(Score)
-        .where(Score.user_id == user_id)
-        .order_by(Score.last_updated_at.desc())
+        select(Score).where(Score.user_id == user_id).order_by(Score.last_updated_at.desc())
     )
     return result.scalars().all()
 
@@ -450,16 +443,18 @@ async def get_leaderboard(
             .limit(limit)
         )
         scores = result.scalars().all()
-        
+
         leaderboard = []
         for rank, score in enumerate(scores, 1):
-            leaderboard.append({
-                "rank": rank,
-                "user_id": score.user_id,
-                "total_points": score.total_points,
-                "flags_captured": score.flags_captured,
-                "completion_time_seconds": score.completion_time_seconds,
-            })
+            leaderboard.append(
+                {
+                    "rank": rank,
+                    "user_id": score.user_id,
+                    "total_points": score.total_points,
+                    "flags_captured": score.flags_captured,
+                    "completion_time_seconds": score.completion_time_seconds,
+                }
+            )
         return leaderboard
     else:
         # Global leaderboard - aggregate all scores
@@ -474,15 +469,17 @@ async def get_leaderboard(
             .limit(limit)
         )
         rows = result.all()
-        
+
         leaderboard = []
         for rank, row in enumerate(rows, 1):
-            leaderboard.append({
-                "rank": rank,
-                "user_id": row.user_id,
-                "total_points": int(row.total_points or 0),
-                "flags_captured": int(row.total_flags or 0),
-            })
+            leaderboard.append(
+                {
+                    "rank": rank,
+                    "user_id": row.user_id,
+                    "total_points": int(row.total_points or 0),
+                    "flags_captured": int(row.total_flags or 0),
+                }
+            )
         return leaderboard
 
 
@@ -504,12 +501,11 @@ async def get_score_history(
 # First Blood
 # ============================================================================
 
+
 async def get_drill_first_bloods(db: AsyncSession, drill_id: int) -> list[FirstBlood]:
     """Get all first blood records for a drill."""
     result = await db.execute(
-        select(FirstBlood)
-        .where(FirstBlood.drill_id == drill_id)
-        .order_by(FirstBlood.captured_at)
+        select(FirstBlood).where(FirstBlood.drill_id == drill_id).order_by(FirstBlood.captured_at)
     )
     return result.scalars().all()
 
@@ -528,24 +524,21 @@ async def get_user_first_bloods(db: AsyncSession, user_id: int) -> list[FirstBlo
 # Statistics
 # ============================================================================
 
+
 async def get_drill_stats(db: AsyncSession, drill_id: int) -> dict:
     """Get statistics for a drill."""
     # Total participants
     participant_result = await db.execute(
-        select(func.count(DrillParticipant.id)).where(
-            DrillParticipant.drill_id == drill_id
-        )
+        select(func.count(DrillParticipant.id)).where(DrillParticipant.drill_id == drill_id)
     )
     total_participants = participant_result.scalar() or 0
-    
+
     # Total submissions
     submission_result = await db.execute(
-        select(func.count(Submission.id)).where(
-            Submission.drill_id == drill_id
-        )
+        select(func.count(Submission.id)).where(Submission.drill_id == drill_id)
     )
     total_submissions = submission_result.scalar() or 0
-    
+
     # Correct submissions
     correct_result = await db.execute(
         select(func.count(Submission.id)).where(
@@ -554,28 +547,28 @@ async def get_drill_stats(db: AsyncSession, drill_id: int) -> dict:
         )
     )
     correct_submissions = correct_result.scalar() or 0
-    
+
     # Total flags available: Drill-native drill_flags count.
     flag_result = await db.execute(
         select(func.count(DrillFlag.id)).where(DrillFlag.drill_id == drill_id)
     )
     total_flags = flag_result.scalar() or 0
-    
+
     # First bloods claimed
     first_blood_result = await db.execute(
-        select(func.count(FirstBlood.id)).where(
-            FirstBlood.drill_id == drill_id
-        )
+        select(func.count(FirstBlood.id)).where(FirstBlood.drill_id == drill_id)
     )
     first_bloods_claimed = first_blood_result.scalar() or 0
-    
+
     return {
         "total_participants": total_participants,
         "total_submissions": total_submissions,
         "correct_submissions": correct_submissions,
         "total_flags": total_flags,
         "first_bloods_claimed": first_bloods_claimed,
-        "success_rate": round((correct_submissions / total_submissions * 100), 2) if total_submissions > 0 else 0,
+        "success_rate": round((correct_submissions / total_submissions * 100), 2)
+        if total_submissions > 0
+        else 0,
     }
 
 
@@ -590,23 +583,19 @@ async def get_user_stats(db: AsyncSession, user_id: int) -> dict:
         ).where(Score.user_id == user_id)
     )
     score_row = score_result.one()
-    
+
     # First bloods achieved
     first_blood_result = await db.execute(
-        select(func.count(FirstBlood.id)).where(
-            FirstBlood.user_id == user_id
-        )
+        select(func.count(FirstBlood.id)).where(FirstBlood.user_id == user_id)
     )
     first_bloods = first_blood_result.scalar() or 0
-    
+
     # Total submissions
     submission_result = await db.execute(
-        select(func.count(Submission.id)).where(
-            Submission.user_id == user_id
-        )
+        select(func.count(Submission.id)).where(Submission.user_id == user_id)
     )
     total_submissions = submission_result.scalar() or 0
-    
+
     return {
         "total_points": int(score_row.total_points or 0),
         "total_flags": int(score_row.total_flags or 0),

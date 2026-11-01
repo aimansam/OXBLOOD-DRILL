@@ -10,6 +10,7 @@ We test by driving ``Runner._watchdog_timeout_fire`` directly with
 tiny timeouts — bypassing ``_schedule_watchdog`` so we don't have to
 manage a live event loop in pytest.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -55,9 +56,7 @@ def seed_one_run():
                     },
                     "spec": {
                         "objectives": {"red": ["x"], "blue": ["y"]},
-                        "assets": [
-                            {"role": "drill_vm", "kind": "vm", "template": "tpl-x"}
-                        ],
+                        "assets": [{"role": "drill_vm", "kind": "vm", "template": "tpl-x"}],
                     },
                 },
             )
@@ -92,6 +91,7 @@ def test_watchdog_flips_running_to_timeout_after_deadline(runner, seed_one_run):
 
     Tiny 0.05-min timeout (3 s) so the test runs fast.
     """
+
     async def _go():
         await runner._watchdog_timeout_fire(
             run_id=seed_one_run,
@@ -102,11 +102,7 @@ def test_watchdog_flips_running_to_timeout_after_deadline(runner, seed_one_run):
         sm = get_sessionmaker()
         async with sm() as s:
             row = (
-                await s.execute(
-                    select(db_models.Run).where(
-                        db_models.Run.id == seed_one_run
-                    )
-                )
+                await s.execute(select(db_models.Run).where(db_models.Run.id == seed_one_run))
             ).scalar_one()
             return row.status, row.error
 
@@ -119,16 +115,13 @@ def test_watchdog_no_op_when_run_already_terminal(runner, seed_one_run):
     """If a run cancelled/completed before the deadline, the watchdog
     is a no-op — it logs and returns.
     """
+
     async def _go():
         # Mark the run CANCELLED first.
         sm = get_sessionmaker()
         async with sm() as s:
             row = (
-                await s.execute(
-                    select(db_models.Run).where(
-                        db_models.Run.id == seed_one_run
-                    )
-                )
+                await s.execute(select(db_models.Run).where(db_models.Run.id == seed_one_run))
             ).scalar_one()
             row.status = db_models.RunStatus.CANCELLED
             row.ended_at = datetime.now(UTC)
@@ -144,11 +137,7 @@ def test_watchdog_no_op_when_run_already_terminal(runner, seed_one_run):
 
         async with sm() as s:
             row = (
-                await s.execute(
-                    select(db_models.Run).where(
-                        db_models.Run.id == seed_one_run
-                    )
-                )
+                await s.execute(select(db_models.Run).where(db_models.Run.id == seed_one_run))
             ).scalar_one()
             return row.status, row.error
 
@@ -158,6 +147,7 @@ def test_watchdog_no_op_when_run_already_terminal(runner, seed_one_run):
 
 def test_watchdog_writes_run_timeout_audit(runner, seed_one_run):
     """Watchdog writes an audit row with action=RUN_TIMEOUT, actor=watchdog."""
+
     async def _go():
         await runner._watchdog_timeout_fire(
             run_id=seed_one_run,
@@ -168,15 +158,16 @@ def test_watchdog_writes_run_timeout_audit(runner, seed_one_run):
         sm = get_sessionmaker()
         async with sm() as s:
             rows = (
-                await s.execute(
-                    select(db_models.AuditLog)
-                    .where(db_models.AuditLog.run_id == seed_one_run)
-                    .where(
-                        db_models.AuditLog.action
-                        == db_models.AuditAction.RUN_TIMEOUT
+                (
+                    await s.execute(
+                        select(db_models.AuditLog)
+                        .where(db_models.AuditLog.run_id == seed_one_run)
+                        .where(db_models.AuditLog.action == db_models.AuditAction.RUN_TIMEOUT)
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             return rows
 
     rows = asyncio.run(_go())

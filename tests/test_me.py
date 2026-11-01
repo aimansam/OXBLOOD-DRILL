@@ -11,6 +11,7 @@ see apps/portal/app/src/lib/auth.ts (useMe) + app.tsx role
 router. The tests pin the wire shape so the portal's useMe() can
 rely on it.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -53,9 +54,7 @@ def test_me_admin_returns_full_payload(client: TestClient, admin_token: str):
     "role_value",
     ["admin", "lead", "red", "blue", "observer"],
 )
-def test_me_every_role_returns_correct_role_string(
-    client: TestClient, role_value: str
-):
+def test_me_every_role_returns_correct_role_string(client: TestClient, role_value: str):
     """All five roles from the Role enum round-trip through /me.
     Catches typos and rollouts where the server returns a different
     case or value than the Role enum.

@@ -4,6 +4,7 @@ Revision ID: 0027_oxblood_link_backfill
 Revises: 0026_oxblood_runtime_fix
 Create Date: 2026-09-10
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

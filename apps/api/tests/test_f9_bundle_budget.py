@@ -17,6 +17,7 @@ the in-process equivalent -- it catches the regression
 where someone changes the threshold to a non-numeric value or
 breaks the comparison logic.
 """
+
 from __future__ import annotations
 
 import os
@@ -79,6 +80,4 @@ def test_real_portal_bundle_within_budget():
     # Allow a small tolerance for the rare case where the build is
     # within a few bytes of the limit; we just want to catch
     # runaway deps (e.g., adding recharts adds ~80 KB).
-    assert size <= LIMIT_KB, (
-        f"portal bundle {size:.2f} KB exceeds {LIMIT_KB:.2f} KB budget"
-    )
+    assert size <= LIMIT_KB, f"portal bundle {size:.2f} KB exceeds {LIMIT_KB:.2f} KB budget"

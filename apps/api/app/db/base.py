@@ -3,6 +3,7 @@
 Centralising the conventions here keeps Alembic autogenerate reliable and
 avoids the "constraint name drift" footgun.
 """
+
 from __future__ import annotations
 
 from datetime import datetime

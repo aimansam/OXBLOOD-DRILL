@@ -11,6 +11,7 @@ these endpoints use the ``admin_headers`` fixture, which mints a
 fresh admin token. Tests for the gate itself (no token, wrong role)
 live in ``test_authorization.py``.
 """
+
 from __future__ import annotations
 
 from datetime import UTC
@@ -153,9 +154,7 @@ def test_cancel_drill_returns_200_for_running_run(client, admin_headers):
     scenarios = client.get("/api/v1/scenarios").json()["items"]
     if not scenarios:
         # No scenarios -> /cancel on a fake id must be 404.
-        cancel = client.post(
-            "/api/v1/drills/99999/cancel", headers=admin_headers
-        )
+        cancel = client.post("/api/v1/drills/99999/cancel", headers=admin_headers)
         assert cancel.status_code == 404
         return
 
@@ -168,9 +167,7 @@ def test_cancel_drill_returns_200_for_running_run(client, admin_headers):
     if start.status_code == 200:
         # Mock happened to find the template; cancel should work or 409.
         run_id = start.json()["run_id"]
-        cancel = client.post(
-            f"/api/v1/drills/{run_id}/cancel", headers=admin_headers
-        )
+        cancel = client.post(f"/api/v1/drills/{run_id}/cancel", headers=admin_headers)
         assert cancel.status_code in (200, 409)
         if cancel.status_code == 200:
             body = cancel.json()
@@ -180,9 +177,7 @@ def test_cancel_drill_returns_200_for_running_run(client, admin_headers):
             assert "assets" in body
     else:
         # No run was created -> cancel a fake id -> 404.
-        cancel = client.post(
-            "/api/v1/drills/99999/cancel", headers=admin_headers
-        )
+        cancel = client.post("/api/v1/drills/99999/cancel", headers=admin_headers)
         assert cancel.status_code == 404
 
 
@@ -339,11 +334,7 @@ def _cleanup_test_row(scen_name: str) -> None:
 
     async def _do() -> None:
         async with sm() as s:
-            await s.execute(
-                delete(db_models.Scenario).where(
-                    db_models.Scenario.name == scen_name
-                )
-            )
+            await s.execute(delete(db_models.Scenario).where(db_models.Scenario.name == scen_name))
             await s.commit()
 
     asyncio.run(_do())
@@ -361,9 +352,7 @@ def _cleanup_admin(sub: str) -> None:
 
     async def _do() -> None:
         async with sm() as s:
-            await s.execute(
-                delete(db_models.User).where(db_models.User.sub == sub)
-            )
+            await s.execute(delete(db_models.User).where(db_models.User.sub == sub))
             await s.commit()
 
     asyncio.run(_do())
@@ -402,11 +391,7 @@ def _create_scenario_for_test(client, name: str) -> int:
     async def _insert() -> int:
         async with sm() as s:
             existing = (
-                await s.execute(
-                    select(db_models.Scenario).where(
-                        db_models.Scenario.name == name
-                    )
-                )
+                await s.execute(select(db_models.Scenario).where(db_models.Scenario.name == name))
             ).scalar_one_or_none()
             if existing is not None:
                 return existing.id

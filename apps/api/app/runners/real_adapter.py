@@ -32,6 +32,7 @@ All proxmoxer exceptions are wrapped as `ProxmoxAPIError` (reused from
 `ProxmoxAPIError` with a clear message — never as an asyncio.TimeoutError,
 which the runner doesn't know how to handle.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -82,7 +83,8 @@ def _is_missing_vm_error(value: object) -> bool:
         "not found" in message
         or "no such" in message
         or "does not exist" in message
-        or "configuration file" in message and "qemu-server" in message
+        or "configuration file" in message
+        and "qemu-server" in message
     )
 
 
@@ -114,9 +116,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         if not host:
             raise ProxmoxNotConfiguredError("Proxmox host is empty")
         if not token_id or not token_secret:
-            raise ProxmoxNotConfiguredError(
-                "Proxmox token_id and token_secret are required"
-            )
+            raise ProxmoxNotConfiguredError("Proxmox token_id and token_secret are required")
         self._host = host.split("://", 1)[-1].rstrip("/") if "://" in host else host
         self._port = int(port)
         self._user = user
@@ -152,13 +152,9 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             raise ProxmoxNotConfiguredError("PROXMOX_HOST is not set")
         token_id = (p.token_id or "").strip()
         token_secret_raw = p.token_secret
-        token_secret = (
-            token_secret_raw.get_secret_value() if token_secret_raw is not None else None
-        )
+        token_secret = token_secret_raw.get_secret_value() if token_secret_raw is not None else None
         if not token_id or not token_secret:
-            raise ProxmoxNotConfiguredError(
-                "PROXMOX_TOKEN_ID and PROXMOX_TOKEN_SECRET must be set"
-            )
+            raise ProxmoxNotConfiguredError("PROXMOX_TOKEN_ID and PROXMOX_TOKEN_SECRET must be set")
         return cls(
             host=host,
             port=int(p.port),
@@ -237,9 +233,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         except ProxmoxNotConfiguredError:
             raise
         except TimeoutError as exc:
-            raise ProxmoxAPIError(
-                f"proxmoxer call timed out after {self._timeout_s}s"
-            ) from exc
+            raise ProxmoxAPIError(f"proxmoxer call timed out after {self._timeout_s}s") from exc
         except Exception as exc:  # noqa: BLE001
             msg = str(exc)
             if "403" in msg or "Permission check failed" in msg:
@@ -284,7 +278,13 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 128, int(provisioning.get("linked_clone_reserve_mb") or 1024)
             )
             if not spec.get("assets"):
-                return [{"id": "assets", "ready": False, "detail": "The scenario has no machines to prepare."}]
+                return [
+                    {
+                        "id": "assets",
+                        "ready": False,
+                        "detail": "The scenario has no machines to prepare.",
+                    }
+                ]
             for asset in spec.get("assets", []):
                 name = asset["template"]
                 template = templates.get(name)
@@ -298,12 +298,18 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                     if config.get("lock"):
                         issue = f"Template {name} is locked ({config['lock']}). Wait for its task to finish."
                     if not self._primary_disk_key(config):
-                        issue = f"Template {name} has no supported boot disk. Repair the image first."
+                        issue = (
+                            f"Template {name} has no supported boot disk. Repair the image first."
+                        )
                     if not template.get("maxdisk"):
                         issue = f"Template {name} disk capacity is unknown. Check template storage before preparing."
                     count = max(1, min(int(asset.get("count") or 1), 64))
                     resources = asset.get("resources") or {}
-                    memory_required += count * int(resources.get("ram_mb") or config.get("memory") or 512) * 1024 ** 2
+                    memory_required += (
+                        count
+                        * int(resources.get("ram_mb") or config.get("memory") or 512)
+                        * 1024**2
+                    )
                     if snapshot_mode:
                         # Persistent baselines reuse existing disks. Their
                         # snapshot capacity is checked at baseline creation,
@@ -313,7 +319,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                         # Linked clones share their template's immutable disk.
                         # Reserve only a conservative writable delta per VM,
                         # rather than the full virtual disk size.
-                        writable_delta = count * linked_clone_reserve_mb * 1024 ** 2
+                        writable_delta = count * linked_clone_reserve_mb * 1024**2
                         disk_required += writable_delta
                         disk_key = self._primary_disk_key(config)
                         disk_value = str(config.get(disk_key) or "") if disk_key else ""
@@ -327,48 +333,86 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                     else:
                         disk_required += count * max(
                             int(template.get("maxdisk") or 0),
-                            int(resources.get("disk_gb") or 0) * 1024 ** 3,
+                            int(resources.get("disk_gb") or 0) * 1024**3,
                         )
-                checks.append({"id": f"template:{asset['role']}", "ready": issue is None,
-                               "detail": issue or f"Template {name} is available on {node}."})
+                checks.append(
+                    {
+                        "id": f"template:{asset['role']}",
+                        "ready": issue is None,
+                        "detail": issue or f"Template {name} is available on {node}.",
+                    }
+                )
 
             try:
                 status = client.nodes(node).status.get()
             except Exception as exc:
-                checks.append({"id": "host-read-access", "ready": False,
-                               "detail": f"Cannot verify RAM on {node}: {exc}. The PVE token needs read access (Sys.Audit) on /nodes/{node}."})
+                checks.append(
+                    {
+                        "id": "host-read-access",
+                        "ready": False,
+                        "detail": f"Cannot verify RAM on {node}: {exc}. The PVE token needs read access (Sys.Audit) on /nodes/{node}.",
+                    }
+                )
                 status = {}
             memory = status.get("memory") or {}
             # QEMU memory is reserved by the guest; an LXC maxmem is only a
             # limit, and its actual use is already included in host memory.used.
-            allocated = sum(int(r.get("maxmem") or 0) for r in inventory
-                            if r.get("node") == node and not r.get("template")
-                            and r.get("status") == "running"
-                            and r.get("type", "qemu") == "qemu")
-            reserve = max(0, settings.range_host_reserve_mb) * 1024 ** 2
-            available = max(0, int(memory.get("total") or 0) - max(allocated, int(memory.get("used") or 0)) - reserve)
-            checks.append({"id": "memory", "ready": available >= memory_required and bool(memory.get("total")),
-                           "required_bytes": memory_required, "available_bytes": available if memory.get("total") else None,
-                           "detail": (f"Range needs {memory_required / 1024**3:.1f} GiB RAM; {available / 1024**3:.1f} GiB available after existing guests and host reserve. Free capacity before retrying if insufficient."
-                                      if memory.get("total") else f"Range needs {memory_required / 1024**3:.1f} GiB RAM; available host capacity could not be verified.")})
+            allocated = sum(
+                int(r.get("maxmem") or 0)
+                for r in inventory
+                if r.get("node") == node
+                and not r.get("template")
+                and r.get("status") == "running"
+                and r.get("type", "qemu") == "qemu"
+            )
+            reserve = max(0, settings.range_host_reserve_mb) * 1024**2
+            available = max(
+                0,
+                int(memory.get("total") or 0)
+                - max(allocated, int(memory.get("used") or 0))
+                - reserve,
+            )
+            checks.append(
+                {
+                    "id": "memory",
+                    "ready": available >= memory_required and bool(memory.get("total")),
+                    "required_bytes": memory_required,
+                    "available_bytes": available if memory.get("total") else None,
+                    "detail": (
+                        f"Range needs {memory_required / 1024**3:.1f} GiB RAM; {available / 1024**3:.1f} GiB available after existing guests and host reserve. Free capacity before retrying if insufficient."
+                        if memory.get("total")
+                        else f"Range needs {memory_required / 1024**3:.1f} GiB RAM; available host capacity could not be verified."
+                    ),
+                }
+            )
             storage_requirements = (
-                {} if snapshot_mode else
-                linked_storage_required if linked_clone else {self._clone_storage: disk_required}
+                {}
+                if snapshot_mode
+                else linked_storage_required
+                if linked_clone
+                else {self._clone_storage: disk_required}
             )
             if snapshot_mode:
-                checks.append({
-                    "id": "storage:snapshot-baseline",
-                    "ready": True,
-                    "required_bytes": 0,
-                    "available_bytes": None,
-                    "detail": "Persistent snapshot baselines reuse existing VM disks.",
-                })
+                checks.append(
+                    {
+                        "id": "storage:snapshot-baseline",
+                        "ready": True,
+                        "required_bytes": 0,
+                        "available_bytes": None,
+                        "detail": "Persistent snapshot baselines reuse existing VM disks.",
+                    }
+                )
             for storage_name, required in sorted(storage_requirements.items()):
                 try:
                     storage = client.nodes(node).storage(storage_name).status.get()
                 except Exception as exc:
-                    checks.append({"id": f"storage-read-access:{storage_name}", "ready": False,
-                                   "detail": f"Cannot verify clone storage {storage_name}: {exc}. Check token read permissions and storage availability."})
+                    checks.append(
+                        {
+                            "id": f"storage-read-access:{storage_name}",
+                            "ready": False,
+                            "detail": f"Cannot verify clone storage {storage_name}: {exc}. Check token read permissions and storage availability.",
+                        }
+                    )
                     storage = {}
                 free = int(storage.get("avail") or 0)
                 clone_detail = (
@@ -377,25 +421,43 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                     if linked_clone
                     else f"Full clones need up to {required / 1024**3:.1f} GiB on {storage_name}; {free / 1024**3:.1f} GiB free. The storage must be active."
                 )
-                checks.append({"id": f"storage:{storage_name}", "ready": bool(storage.get("active")) and free >= required,
-                               "required_bytes": required, "available_bytes": free,
-                               "detail": clone_detail})
+                checks.append(
+                    {
+                        "id": f"storage:{storage_name}",
+                        "ready": bool(storage.get("active")) and free >= required,
+                        "required_bytes": required,
+                        "available_bytes": free,
+                        "detail": clone_detail,
+                    }
+                )
             if any(net.get("vlan_id") is not None for net in spec.get("networks", [])):
                 try:
                     networks = client.nodes(node).network.get()
                 except Exception as exc:
-                    checks.append({"id": "network-read-access", "ready": False,
-                                   "detail": f"Cannot verify bridges on {node}: {exc}. Check token read permissions."})
+                    checks.append(
+                        {
+                            "id": "network-read-access",
+                            "ready": False,
+                            "detail": f"Cannot verify bridges on {node}: {exc}. Check token read permissions.",
+                        }
+                    )
                     networks = []
                 bridge = next((n for n in networks if n.get("iface") == "vmbr200"), {})
-                checks.append({"id": "network", "ready": bool(int(bridge.get("active") or 0)) and bool(int(bridge.get("bridge_vlan_aware") or 0)),
-                               "detail": "vmbr200 must be active and VLAN-aware before preparation. Check Infrastructure > Bridges."})
+                checks.append(
+                    {
+                        "id": "network",
+                        "ready": bool(int(bridge.get("active") or 0))
+                        and bool(int(bridge.get("bridge_vlan_aware") or 0)),
+                        "detail": "vmbr200 must be active and VLAN-aware before preparation. Check Infrastructure > Bridges.",
+                    }
+                )
             return checks
 
         return await self._call(_do)
 
     async def find_vm(self, name: str) -> VmState | None:
         """Find a permanent, non-template VM by its PVE display name."""
+
         def _do() -> dict | None:
             resources = self._get_client().cluster.resources.get(type="vm")
             for resource in resources:
@@ -437,12 +499,15 @@ class RealProxmoxAdapter(ProxmoxAdapter):
 
         log.info(
             "pve_runner.clone_start source_vmid=%s new_vmid=%s node=%s name=%s",
-            spec.source_vmid, spec.new_vmid, node, spec.name,
+            spec.source_vmid,
+            spec.new_vmid,
+            node,
+            spec.name,
         )
 
         # Allocate VMID BEFORE cloning to ensure we know the exact VMID
         new_vmid = int(spec.new_vmid) if spec.new_vmid is not None else await self.allocate_vmid()
-        
+
         clone_params: dict[str, Any] = {
             "name": spec.name,
             "newid": new_vmid,
@@ -455,9 +520,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             clone_params["storage"] = spec.storage or self._clone_storage
 
         def _do() -> Any:
-            return self._get_client().nodes(node).qemu(spec.source_vmid).clone.post(
-                **clone_params
-            )
+            return self._get_client().nodes(node).qemu(spec.source_vmid).clone.post(**clone_params)
 
         try:
             clone_upid = await self._call(_do)
@@ -489,12 +552,14 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                     cleanup_exc,
                 )
             clone_params.clear()
-            clone_params.update({
-                "name": spec.name,
-                "newid": new_vmid,
-                "full": 1,
-                "storage": self._clone_storage,
-            })
+            clone_params.update(
+                {
+                    "name": spec.name,
+                    "newid": new_vmid,
+                    "full": 1,
+                    "storage": self._clone_storage,
+                }
+            )
             clone_upid = await self._call(_do)
         await self._wait_for_task(node, clone_upid, description=f"clone VM {new_vmid}")
         # PVE can report the clone task as stopped a moment before the
@@ -508,7 +573,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         # Log config after clone
         def _get_config_after_clone() -> dict:
             return self._get_client().nodes(node).qemu(new_vmid).config.get()
-        
+
         config_after_clone = await self._call(_get_config_after_clone)
         log.info(
             "pve_runner.config_after_clone vmid=%s boot=%s scsi0=%s ide2=%s",
@@ -530,9 +595,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             )
 
             def _remove_template_cdrom() -> None:
-                self._get_client().nodes(node).qemu(new_vmid).config.post(
-                    delete="ide2"
-                )
+                self._get_client().nodes(node).qemu(new_vmid).config.post(delete="ide2")
 
             await self._call_with_lock_retry(
                 _remove_template_cdrom,
@@ -558,7 +621,12 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 config_overrides[f"ipconfig{int(nic_index)}"] = ip_config
 
         if config_overrides:
-            log.info("pve_runner.applying_config_overrides vmid=%s overrides=%s", new_vmid, config_overrides)
+            log.info(
+                "pve_runner.applying_config_overrides vmid=%s overrides=%s",
+                new_vmid,
+                config_overrides,
+            )
+
             def _config() -> None:
                 self._get_client().nodes(node).qemu(new_vmid).config.post(**config_overrides)
 
@@ -589,9 +657,14 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 )
 
                 def _resize() -> Any:
-                    return self._get_client().nodes(node).qemu(new_vmid).resize.put(
-                        disk=resize_disk,
-                        size=f"+{additional_gb}G",
+                    return (
+                        self._get_client()
+                        .nodes(node)
+                        .qemu(new_vmid)
+                        .resize.put(
+                            disk=resize_disk,
+                            size=f"+{additional_gb}G",
+                        )
                     )
 
                 resize_upid = await self._call(_resize)
@@ -634,7 +707,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         # Final config check
         def _get_final_config() -> dict:
             return self._get_client().nodes(node).qemu(new_vmid).config.get()
-        
+
         final_config = await self._call(_get_final_config)
         log.info(
             "pve_runner.final_config vmid=%s boot=%s scsi0=%s ide2=%s cores=%s memory=%s",
@@ -661,6 +734,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             return
         deadline = asyncio.get_running_loop().time() + timeout_s
         while True:
+
             def _status() -> dict:
                 return self._get_client().nodes(node).tasks(upid).status.get()
 
@@ -668,9 +742,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             if str(status.get("status") or "").lower() == "stopped":
                 exitstatus = str(status.get("exitstatus") or "OK")
                 if exitstatus != "OK":
-                    raise ProxmoxAPIError(
-                        f"PVE {description} failed: {exitstatus}"
-                    )
+                    raise ProxmoxAPIError(f"PVE {description} failed: {exitstatus}")
                 return
             if asyncio.get_running_loop().time() >= deadline:
                 raise ProxmoxAPIError(f"PVE {description} timed out")
@@ -707,7 +779,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
 
     async def start_vm(self, vmid: int, node: str) -> None:
         log.info("pve_runner.starting_vm vmid=%s node=%s", vmid, node)
-        
+
         def _do() -> None:
             self._get_client().nodes(node).qemu(vmid).status.start.post()
 
@@ -744,10 +816,10 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         # command but the VM could fail to boot (e.g., storage issues).
         # Wait briefly and check status.
         await asyncio.sleep(2)
-        
+
         def _check() -> dict:
             return self._get_client().nodes(node).qemu(vmid).status.current.get()
-        
+
         status = await self._call(_check)
         log.info(
             "pve_runner.vm_status_after_start vmid=%s status=%s qmpstatus=%s",
@@ -755,20 +827,20 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             status.get("status"),
             status.get("qmpstatus"),
         )
-        
+
         if status.get("status") != "running":
             raise ProxmoxAPIError(
                 f"VM {vmid} failed to start: status={status.get('status')}, "
                 f"qmpstatus={status.get('qmpstatus')}"
             )
-        
+
         # Wait 5 seconds and check if VM stays running
         log.info("pve_runner.waiting_5s_to_verify vmid=%s", vmid)
         await asyncio.sleep(5)
-        
+
         def _check_again() -> dict:
             return self._get_client().nodes(node).qemu(vmid).status.current.get()
-        
+
         status_after_wait = await self._call(_check_again)
         log.info(
             "pve_runner.vm_status_after_5s vmid=%s status=%s qmpstatus=%s",
@@ -776,7 +848,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             status_after_wait.get("status"),
             status_after_wait.get("qmpstatus"),
         )
-        
+
         if status_after_wait.get("status") != "running":
             log.error(
                 "pve_runner.vm_shutdown_after_start vmid=%s status=%s",
@@ -784,15 +856,11 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 status_after_wait.get("status"),
             )
 
-    async def ensure_vm_running(
-        self, name: str, node: str, timeout_s: float = 90.0
-    ) -> VmState:
+    async def ensure_vm_running(self, name: str, node: str, timeout_s: float = 90.0) -> VmState:
         """Keep permanent infrastructure online before a drill starts."""
         state = await self.find_vm(name)
         if state is None:
-            raise ProxmoxAPIError(
-                f"permanent infrastructure VM {name!r} was not found on PVE"
-            )
+            raise ProxmoxAPIError(f"permanent infrastructure VM {name!r} was not found on PVE")
         if state.node != node:
             raise ProxmoxAPIError(
                 f"permanent infrastructure VM {name!r} is on node {state.node!r}, "
@@ -802,7 +870,10 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         if state.status != "running":
             log.warning(
                 "pve_runner.infrastructure_start name=%s vmid=%s node=%s status=%s",
-                name, state.vmid, state.node, state.status,
+                name,
+                state.vmid,
+                state.node,
+                state.status,
             )
             await self.start_vm(state.vmid, state.node)
 
@@ -813,7 +884,9 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             if last_state.status == "running":
                 log.info(
                     "pve_runner.infrastructure_ready name=%s vmid=%s node=%s",
-                    name, state.vmid, state.node,
+                    name,
+                    state.vmid,
+                    state.node,
                 )
                 return last_state
             await asyncio.sleep(2)
@@ -889,9 +962,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         ]
 
         def _start_query() -> Any:
-            return self._get_client().nodes(node).qemu(vmid).agent("exec").post(
-                command=query
-            )
+            return self._get_client().nodes(node).qemu(vmid).agent("exec").post(command=query)
 
         deadline = asyncio.get_running_loop().time() + max(120, timeout_seconds)
         bypass_attempted = False
@@ -914,14 +985,13 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                     f"Windows OOBE check returned no guest-agent PID for VM {vmid}"
                 )
 
-            query_deadline = min(
-                deadline, asyncio.get_running_loop().time() + 30
-            )
+            query_deadline = min(deadline, asyncio.get_running_loop().time() + 30)
             while True:
+
                 def _status() -> Any:
-                    return self._get_client().nodes(node).qemu(vmid).agent(
-                        "exec-status"
-                    ).get(pid=pid)
+                    return (
+                        self._get_client().nodes(node).qemu(vmid).agent("exec-status").get(pid=pid)
+                    )
 
                 try:
                     status = await self._call(_status)
@@ -942,14 +1012,19 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                         # Windows configuration.
                         bypass_attempted = True
                         bypass = [
-                            "cmd.exe", "/c",
+                            "cmd.exe",
+                            "/c",
                             'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\OOBE" /v SkipMachineOOBE /t REG_DWORD /d 1 /f '
                             '&& reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\OOBE" /v SkipUserOOBE /t REG_DWORD /d 1 /f',
                         ]
                         try:
                             await self._call(
-                                lambda: self._get_client().nodes(node).qemu(vmid).agent("exec").post(
-                                    command=bypass
+                                lambda: (
+                                    self._get_client()
+                                    .nodes(node)
+                                    .qemu(vmid)
+                                    .agent("exec")
+                                    .post(command=bypass)
                                 )
                             )
                             await self._reboot_guest_and_wait(vmid, node)
@@ -957,11 +1032,13 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                         except ProxmoxAPIError as exc:
                             log.warning(
                                 "pve_runner.windows_oobe_bypass_failed vmid=%s err=%s",
-                                vmid, exc,
+                                vmid,
+                                exc,
                             )
                     log.info(
                         "pve_runner.waiting_windows_oobe vmid=%s output=%s",
-                        vmid, output[-200:] or "unknown",
+                        vmid,
+                        output[-200:] or "unknown",
                     )
                     break
                 if asyncio.get_running_loop().time() >= query_deadline:
@@ -969,9 +1046,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 await asyncio.sleep(1)
 
             if asyncio.get_running_loop().time() >= deadline:
-                raise ProxmoxAPIError(
-                    f"Windows OOBE did not complete for VM {vmid}"
-                )
+                raise ProxmoxAPIError(f"Windows OOBE did not complete for VM {vmid}")
             await asyncio.sleep(5)
 
     async def apply_guest_seed(
@@ -1010,14 +1085,19 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 phase_timeout = max(60, int(phase.get("timeout_seconds") or 900))
                 log.info(
                     "pve_runner.windows_phase_start vmid=%s phase=%s timeout_seconds=%s reboot=%s",
-                    vmid, phase_name, phase_timeout, bool(phase.get("reboot")),
+                    vmid,
+                    phase_name,
+                    phase_timeout,
+                    bool(phase.get("reboot")),
                 )
                 phase_seed = SeedSpec(
                     role=seed.role,
                     windows_commands=list(phase.get("commands") or []),
                 )
                 reboot_handled = await self.apply_guest_seed(
-                    vmid, node, phase_seed,
+                    vmid,
+                    node,
+                    phase_seed,
                     phase_name=phase_name,
                     timeout_seconds=phase_timeout,
                     reboot_expected=bool(phase.get("reboot")),
@@ -1026,7 +1106,8 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                     await self._reboot_guest_and_wait(vmid, node)
                 log.info(
                     "pve_runner.windows_phase_complete vmid=%s phase=%s",
-                    vmid, phase_name,
+                    vmid,
+                    phase_name,
                 )
             return False
 
@@ -1049,9 +1130,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             # UTF-16LE is the format required by Windows PowerShell's
             # ``-EncodedCommand`` option.
             input_data = "\n".join(windows_commands)
-            encoded_script = base64.b64encode(
-                input_data.encode("utf-16le")
-            ).decode("ascii")
+            encoded_script = base64.b64encode(input_data.encode("utf-16le")).decode("ascii")
             command = [
                 "powershell.exe",
                 "-NoProfile",
@@ -1070,10 +1149,10 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 script_parts.extend(
                     [
                         f"p=$(printf %s {encoded_path} | base64 -d)",
-                        "mkdir -p \"$(dirname \"$p\")\"",
-                        f"printf %s {encoded} | base64 -d > \"$p\"",
-                        "chown root:root \"$p\"",
-                        "chmod 0600 \"$p\"",
+                        'mkdir -p "$(dirname "$p")"',
+                        f'printf %s {encoded} | base64 -d > "$p"',
+                        'chown root:root "$p"',
+                        'chmod 0600 "$p"',
                     ]
                 )
             script_parts.extend(commands)
@@ -1116,10 +1195,9 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             max(60, int(timeout_seconds or 900)) if windows_commands else 45
         )
         while True:
+
             def _status() -> Any:
-                return self._get_client().nodes(node).qemu(vmid).agent(
-                    "exec-status"
-                ).get(pid=pid)
+                return self._get_client().nodes(node).qemu(vmid).agent("exec-status").get(pid=pid)
 
             try:
                 status = await self._call(_status)
@@ -1202,9 +1280,9 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 f"$expectedIp = '{expected_ip}'",
                 f"$expectedDomain = '{domain}'",
                 "$ips = @(Get-NetIPAddress -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress)",
-                "if ($ips -notcontains $expectedIp) { throw \"expected IP $expectedIp not present\" }",
+                'if ($ips -notcontains $expectedIp) { throw "expected IP $expectedIp not present" }',
                 "$computer = Get-CimInstance Win32_ComputerSystem",
-                "if (-not $computer.PartOfDomain -or $computer.Domain -ne $expectedDomain) { throw \"domain is $($computer.Domain), expected $expectedDomain\" }",
+                'if (-not $computer.PartOfDomain -or $computer.Domain -ne $expectedDomain) { throw "domain is $($computer.Domain), expected $expectedDomain" }',
                 "$ready = $false",
                 "for ($attempt = 0; $attempt -lt 36; $attempt++) {",
                 "  $services = @(Get-Service DNS,NTDS -ErrorAction SilentlyContinue)",
@@ -1229,9 +1307,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         ]
 
         def _start_exec() -> Any:
-            return self._get_client().nodes(node).qemu(vmid).agent("exec").post(
-                command=command
-            )
+            return self._get_client().nodes(node).qemu(vmid).agent("exec").post(command=command)
 
         deadline = asyncio.get_running_loop().time() + 180
         while True:
@@ -1254,9 +1330,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         deadline = asyncio.get_running_loop().time() + 180
         while True:
             status = await self._call(
-                lambda: self._get_client().nodes(node).qemu(vmid).agent(
-                    "exec-status"
-                ).get(pid=pid)
+                lambda: self._get_client().nodes(node).qemu(vmid).agent("exec-status").get(pid=pid)
             )
             if status.get("exited"):
                 if int(status.get("exitcode") or 0) != 0:
@@ -1293,12 +1367,17 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         deadline = asyncio.get_running_loop().time() + 600
         attempts = 0
         while True:
+
             def _probe() -> Any:
                 # A ping only proves that the QGA socket answers. Probe an
                 # actual guest-exec request because the next provisioning
                 # phase depends on command execution, not just connectivity.
-                return self._get_client().nodes(node).qemu(vmid).agent("exec").post(
-                    command=["cmd.exe", "/c", "exit", "0"]
+                return (
+                    self._get_client()
+                    .nodes(node)
+                    .qemu(vmid)
+                    .agent("exec")
+                    .post(command=["cmd.exe", "/c", "exit", "0"])
                 )
 
             try:
@@ -1308,9 +1387,13 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                     probe_deadline = asyncio.get_running_loop().time() + 30
                     while asyncio.get_running_loop().time() < probe_deadline:
                         probe_status = await self._call(
-                            lambda: self._get_client().nodes(node).qemu(vmid).agent(
-                                "exec-status"
-                            ).get(pid=probe_pid)
+                            lambda: (
+                                self._get_client()
+                                .nodes(node)
+                                .qemu(vmid)
+                                .agent("exec-status")
+                                .get(pid=probe_pid)
+                            )
                         )
                         if probe_status.get("exited"):
                             if int(probe_status.get("exitcode") or 0) == 0:
@@ -1353,9 +1436,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         timeout = 0 if force else 60
 
         def _do() -> None:
-            self._get_client().nodes(node).qemu(vmid).status.stop.post(
-                timeout=timeout
-            )
+            self._get_client().nodes(node).qemu(vmid).status.stop.post(timeout=timeout)
 
         try:
             await self._call(_do)
@@ -1374,8 +1455,10 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         # destroy_vm can fail with "VM is running" error.
         for _ in range(30):  # Wait up to 30 seconds
             await asyncio.sleep(1)
+
             def _check() -> dict:
                 return self._get_client().nodes(node).qemu(vmid).status.current.get()
+
             try:
                 status = await self._call(_check)
             except ProxmoxAPIError as exc:
@@ -1395,6 +1478,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         is already gone PVE responds with 404 and we treat that as success
         so callers (runner teardown) can safely re-run.
         """
+
         def _do() -> None:
             try:
                 # Q17: drop ``skiplock=1`` -- PVE 9 reserves it for
@@ -1404,9 +1488,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 # runner always wants on cleanup. Operators running
                 # the DivideDrill role don't race against PVE's
                 # internal VM locks; they own the VM namespace.
-                self._get_client().nodes(node).qemu(vmid).delete(
-                    purge=1
-                )
+                self._get_client().nodes(node).qemu(vmid).delete(purge=1)
             except Exception as exc:  # noqa: BLE001
                 # Be tolerant: PVE returns 404 when the VM is gone
                 # in older versions, but **PVE 9 returns HTTP 500**
@@ -1424,13 +1506,16 @@ class RealProxmoxAdapter(ProxmoxAdapter):
 
     async def list_vm_snapshots(self, vmid: int, node: str) -> list[str]:
         """List named snapshots without treating PVE's `current` row as one."""
+
         def _do() -> list[str]:
             rows = self._get_client().nodes(node).qemu(vmid).snapshot.get()
-            return sorted({
-                str(row["name"])
-                for row in rows or []
-                if row.get("name") and row.get("name") != "current"
-            })
+            return sorted(
+                {
+                    str(row["name"])
+                    for row in rows or []
+                    if row.get("name") and row.get("name") != "current"
+                }
+            )
 
         return await self._call(_do)
 
@@ -1447,10 +1532,15 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             )
 
         def _do() -> Any:
-            return self._get_client().nodes(node).qemu(vmid).snapshot.post(
-                snapname=name,
-                description=description[:255],
-                vmstate=0,
+            return (
+                self._get_client()
+                .nodes(node)
+                .qemu(vmid)
+                .snapshot.post(
+                    snapname=name,
+                    description=description[:255],
+                    vmstate=0,
+                )
             )
 
         upid = await self._call(_do)
@@ -1467,9 +1557,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             )
 
         def _do() -> Any:
-            return self._get_client().nodes(node).qemu(vmid).snapshot(name).rollback.post(
-                start=0
-            )
+            return self._get_client().nodes(node).qemu(vmid).snapshot(name).rollback.post(start=0)
 
         upid = await self._call(_do)
         await self._wait_for_task(node, upid, description=f"restore snapshot for VM {vmid}")
@@ -1501,38 +1589,35 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         template_name: str | None = None,
     ) -> None:
         """Q27: Clean up broken cloud-init drives and ensure proper boot order.
-        
+
         If the template had a cloud-init drive on `local` storage, cloning it creates
         an invalid reference in the clone. We detect any such broken drives and remove
         them. Do not force Windows or non-scsi templates to boot from scsi0.
         """
+
         def _get_config() -> dict:
             return self._get_client().nodes(node).qemu(vmid).config.get()
-        
+
         config = await self._call(_get_config)
-        
+
         # Check for broken cloud-init drives. Linux clones need a valid
         # cloud-init CD-ROM for cicustom snippets; do not remove it just
         # because the volume name contains "cloudinit".
         broken_drives = []
         windows_template = self._looks_like_windows_template(template_name)
         for key, value in config.items():
-            if (
-                key.startswith("ide")
-                and isinstance(value, str)
-                and "cloudinit" in value.lower()
-            ):
+            if key.startswith("ide") and isinstance(value, str) and "cloudinit" in value.lower():
                 storage_id = self._cloud_init_storage_id(value)
                 if windows_template or storage_id == "local" or not storage_id:
                     broken_drives.append(key)
-        
+
         log.info(
             "pve_runner.checking_cloud_init vmid=%s broken_drives=%s boot=%s",
             vmid,
             broken_drives,
             config.get("boot"),
         )
-        
+
         # If no broken drives and a boot order already exists, preserve it.
         current_boot = str(config.get("boot", ""))
         primary_disk = self._primary_disk_key(config)
@@ -1541,9 +1626,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             for key, value in config.items()
         )
         has_cloud_init_drive = any(
-            key.startswith("ide")
-            and isinstance(value, str)
-            and "cloudinit" in value.lower()
+            key.startswith("ide") and isinstance(value, str) and "cloudinit" in value.lower()
             for key, value in config.items()
         )
         needs_cloud_init_drive = (
@@ -1556,7 +1639,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             return
         if not broken_drives and not primary_disk:
             return
-        
+
         def _apply_clean_config() -> None:
             params: dict[str, Any] = {}
             # Windows templates may have their own firmware/device boot
@@ -1571,9 +1654,9 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             if not params:
                 return
             self._get_client().nodes(node).qemu(vmid).config.post(**params)
-        
+
         await self._call(_apply_clean_config)
-        
+
         log.info(
             "pve_runner.cloud_init_cleaned vmid=%s deleted=%s boot=%s",
             vmid,
@@ -1595,6 +1678,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         2. Status payload `ip` field.
         3. Config `ipconfig0` static definition fallback.
         """
+
         def _do() -> dict:
             return self._get_client().nodes(node).qemu(vmid).status.current.get()
 
@@ -1604,9 +1688,16 @@ class RealProxmoxAdapter(ProxmoxAdapter):
 
         # 1. Try QEMU guest agent for live runtime IP addresses
         if current.get("status") == "running":
+
             def _get_agent_ips() -> str | None:
                 try:
-                    res = self._get_client().nodes(node).qemu(vmid).agent("network-get-interfaces").get()
+                    res = (
+                        self._get_client()
+                        .nodes(node)
+                        .qemu(vmid)
+                        .agent("network-get-interfaces")
+                        .get()
+                    )
                     ifaces = res.get("result", []) if isinstance(res, dict) else res
                     for iface in ifaces:
                         if iface.get("name") in ("lo", "loopback"):
@@ -1655,9 +1746,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         """Create a short-lived PVE noVNC ticket for a VM."""
 
         def _do() -> ConsoleTicket:
-            data = self._get_client().nodes(node).qemu(vmid).vncproxy.post(
-                websocket=1
-            )
+            data = self._get_client().nodes(node).qemu(vmid).vncproxy.post(websocket=1)
             return ConsoleTicket(
                 vmid=vmid,
                 node=node,
@@ -1675,13 +1764,13 @@ class RealProxmoxAdapter(ProxmoxAdapter):
 
     # --- F3 multi-VM networks -----------------------------------------
 
-
     async def get_sdn_bridges(self, zone: str = "divide") -> list[str]:
         """Query SDN VNets in the specified zone and return bridge names.
 
         This allows the runner to use bridges that are already configured
         in the SDN zone instead of hardcoding bridge names.
         """
+
         def _do() -> list[str]:
             client = self._get_client()
             vnets = client.cluster.sdn.vnets.get()
@@ -1696,6 +1785,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         tries to use it. Idempotent: if the VNet already exists, this is
         a no-op.
         """
+
         def _do() -> None:
             client = self._get_client()
             # Check if VNet already exists
@@ -1703,7 +1793,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             existing = [v["vnet"] for v in vnets if v.get("zone") == zone]
             if bridge in existing:
                 return  # Already exists, no-op
-            
+
             # Create the VNet
             client.cluster.sdn.vnets.post(
                 vnet=bridge,
@@ -1712,7 +1802,6 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             log.info("pve_runner.sdn_vnet_created bridge=%s zone=%s", bridge, zone)
 
         await self._call(_do)
-
 
     async def create_bridge(self, spec: NetworkSpec) -> None:
         """Create a Linux bridge on every node in the cluster.
@@ -1736,28 +1825,22 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         or ``ifreload`` -- those were the SSH-era remediation steps
         and would mislead the operator today.
         """
+
         def _do() -> None:
             client = self._get_client()
             node_name = self._node
             if not node_name:
-                raise ProxmoxAPIError(
-                    "create_bridge requires a configured target node"
-                )
+                raise ProxmoxAPIError("create_bridge requires a configured target node")
             networks = client.nodes(node_name).network.get()
             matching = [
-                n for n in networks
-                if n.get("iface") == spec.bridge
-                and (n.get("type") or "").lower() == "bridge"
+                n
+                for n in networks
+                if n.get("iface") == spec.bridge and (n.get("type") or "").lower() == "bridge"
             ]
-            active = [
-                n for n in matching
-                if str(n.get("active")) == "1"
-            ]
+            active = [n for n in matching if str(n.get("active")) == "1"]
             if not active:
                 inactive_hint = (
-                    " exists in PVE config but is not active"
-                    if matching
-                    else " is not configured"
+                    " exists in PVE config but is not active" if matching else " is not configured"
                 )
                 raise ProxmoxAPIError(
                     f"bridge {spec.bridge!r}{inactive_hint} on PVE node "
@@ -1807,6 +1890,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
         run ``pvesh delete /cluster/sdn/zones/divide`` to wipe the
         whole zone if needed.
         """
+
         def _do() -> None:
             client = self._get_client()
             try:
@@ -1848,9 +1932,13 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             tag = f",tag={vlan_id}" if vlan_id is not None else ""
             trunk_value = ";".join(str(int(value)) for value in (trunks or []))
             trunk_option = f",trunks={trunk_value}" if trunk_value else ""
-            if existing and f"bridge={bridge}" in existing and (
-                (vlan_id is None or f"tag={vlan_id}" in existing)
-                and (not trunk_value or f"trunks={trunk_value}" in existing)
+            if (
+                existing
+                and f"bridge={bridge}" in existing
+                and (
+                    (vlan_id is None or f"tag={vlan_id}" in existing)
+                    and (not trunk_value or f"trunks={trunk_value}" in existing)
+                )
             ):
                 # Already attached to the desired scenario bridge; skip.
                 return
@@ -1866,7 +1954,9 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 model = nic_option.split("=", 1)[0]
                 if model not in {"e1000", "virtio"} or not nic_option:
                     nic_option = "e1000"
-                client.nodes(node).qemu(vmid).config.post(**{net_name: f"{nic_option},bridge={bridge}{tag}{trunk_option}"})
+                client.nodes(node).qemu(vmid).config.post(
+                    **{net_name: f"{nic_option},bridge={bridge}{tag}{trunk_option}"}
+                )
                 return
             client.nodes(node).qemu(vmid).config.post(
                 **{net_name: f"virtio,bridge={bridge}{tag}{trunk_option}"}

@@ -9,6 +9,7 @@ These tests verify:
 6. duration_sec property on Run.
 7. Unique constraints and FK actions work as declared.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -103,14 +104,25 @@ def test_required_indexes_present() -> None:
 
 def test_run_status_enum_members() -> None:
     assert {s.value for s in RunStatus} == {
-        "pending", "running", "succeeded", "failed", "timeout", "cancelled",
+        "pending",
+        "running",
+        "succeeded",
+        "failed",
+        "timeout",
+        "cancelled",
     }
 
 
 def test_asset_status_enum_members() -> None:
     assert {s.value for s in AssetStatus} == {
-        "planned", "cloning", "booting", "running",
-        "stopping", "stopped", "failed", "orphaned",
+        "planned",
+        "cloning",
+        "booting",
+        "running",
+        "stopping",
+        "stopped",
+        "failed",
+        "orphaned",
     }
 
 
@@ -161,18 +173,26 @@ async def test_full_lifecycle_round_trip(session: AsyncSession) -> None:
     await session.commit()
 
     # Re-query
-    got = (await session.execute(select(Scenario).where(Scenario.name == "phish-to-ransom"))).scalar_one()
+    got = (
+        await session.execute(select(Scenario).where(Scenario.name == "phish-to-ransom"))
+    ).scalar_one()
     assert got.id == scenario.id
     assert got.title == "Test"
     assert got.spec["kind"] == "Scenario"
 
-    runs = (await session.execute(select(Run).where(Run.scenario_id == scenario.id))).scalars().all()
+    runs = (
+        (await session.execute(select(Run).where(Run.scenario_id == scenario.id))).scalars().all()
+    )
     assert len(runs) == 1
     assert runs[0].status == RunStatus.RUNNING
     assert runs[0].started_by == "alice"
     assert runs[0].duration_sec is None  # not ended yet
 
-    assets = (await session.execute(select(Asset).where(Asset.run_id == run.id).order_by(Asset.role))).scalars().all()
+    assets = (
+        (await session.execute(select(Asset).where(Asset.run_id == run.id).order_by(Asset.role)))
+        .scalars()
+        .all()
+    )
     assert len(assets) == 2
     assert [a.role for a in assets] == ["dc_server", "red_attacker"]
     assert assets[0].pve_vmid == 9002  # dc_server's VMID
@@ -275,8 +295,13 @@ async def test_scenario_spec_is_json_blob(session: AsyncSession) -> None:
     spec = {
         "apiVersion": "divide/v1",
         "kind": "Scenario",
-        "metadata": {"name": "x", "title": "y", "version": 1,
-                     "difficulty": "intermediate", "duration_min": 60},
+        "metadata": {
+            "name": "x",
+            "title": "y",
+            "version": 1,
+            "difficulty": "intermediate",
+            "duration_min": 60,
+        },
         "spec": {
             "objectives": {"red": ["do x"], "blue": ["spot x"]},
             "assets": [{"role": "r", "kind": "vm", "template": "t", "networks": ["n"]}],
@@ -316,10 +341,10 @@ async def test_relationship_assets_loaded_via_selectin(session: AsyncSession) ->
     from sqlalchemy.orm import selectinload
 
     got_r = (
-        await session.execute(
-            select(Run).options(selectinload(Run.assets)).order_by(Run.id)
-        )
-    ).scalars().first()
+        (await session.execute(select(Run).options(selectinload(Run.assets)).order_by(Run.id)))
+        .scalars()
+        .first()
+    )
     assert got_r is not None
     assert len(got_r.assets) == 2
     roles = sorted(a.role for a in got_r.assets)

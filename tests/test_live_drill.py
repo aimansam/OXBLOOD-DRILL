@@ -4,6 +4,7 @@ These verify the JSON-shape tolerance without hitting the live API.
 The actual live drill is exercised by `make live-drill` against a real
 PVE with PVEVMAdmin privileges — see README.md §8.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -43,9 +44,7 @@ def test_list_scenarios_tolerates_bare_list():
     from unittest.mock import MagicMock
 
     client = MagicMock()
-    client.get.return_value.json.return_value = [
-        {"name": "y", "id": 2, "archived_at": None}
-    ]
+    client.get.return_value.json.return_value = [{"name": "y", "id": 2, "archived_at": None}]
     client.get.return_value.raise_for_status = lambda: None
 
     out = mod._list_scenarios(client)

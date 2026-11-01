@@ -12,6 +12,7 @@ The runner / flag-capture / asset-spawner also call into the
 router (they don't need HTTP). Only the manual /inject path
 goes through this router.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,11 +50,7 @@ def _serialize_event(e: TelemetryEvent) -> dict[str, Any]:
 
 
 async def _load_run_or_404(session: AsyncSession, run_id: int) -> Run:
-    run = (
-        await session.execute(
-            select(Run).where(Run.id == run_id)
-        )
-    ).scalar_one_or_none()
+    run = (await session.execute(select(Run).where(Run.id == run_id))).scalar_one_or_none()
     if run is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -118,17 +115,12 @@ async def ingest_event(
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"severity must be one of "
-                f"{[s.value for s in TelemetrySeverity]}"
-            ),
+            detail=(f"severity must be one of {[s.value for s in TelemetrySeverity]}"),
         )
     # TS: accept ISO 8601, default to now (UTC).
     if ts_raw:
         try:
-            ts = datetime.fromisoformat(
-                ts_raw.replace("Z", "+00:00")
-            )
+            ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
         except Exception:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -163,9 +155,17 @@ async def ingest_event(
 @router.get(
     "/runs/{run_id}/events",
     summary="List recent telemetry events for a run",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def list_events(
     run_id: int,
@@ -196,9 +196,7 @@ async def list_events(
     )
     if severity:
         try:
-            stmt = stmt.where(
-                TelemetryEvent.severity == TelemetrySeverity(severity)
-            )
+            stmt = stmt.where(TelemetryEvent.severity == TelemetrySeverity(severity))
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -217,9 +215,17 @@ async def list_events(
 @router.get(
     "/runs/{run_id}/events/recent",
     summary="Most recent events from the in-memory ring buffer",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def recent_events(
     run_id: int,
@@ -243,10 +249,7 @@ async def recent_events(
             detail="n must be 1..1024",
         )
     await _load_run_or_404(session, run_id)
-    items = [
-        e for e in bus.recent(n)
-        if e.get("run_id") == run_id
-    ]
+    items = [e for e in bus.recent(n) if e.get("run_id") == run_id]
     if not items:
         # Q24-B5: cold-connect fallback. The buffer is empty
         # (process restart, fresh deploy, or a multi-worker
@@ -256,13 +259,17 @@ async def recent_events(
         from sqlalchemy import select
 
         rows = (
-            await session.execute(
-                select(TelemetryEvent)
-                .where(TelemetryEvent.run_id == run_id)
-                .order_by(TelemetryEvent.ts.desc())
-                .limit(n)
+            (
+                await session.execute(
+                    select(TelemetryEvent)
+                    .where(TelemetryEvent.run_id == run_id)
+                    .order_by(TelemetryEvent.ts.desc())
+                    .limit(n)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         # Reverse to oldest-first so the timeline reads naturally.
         items = [_serialize_event(r) for r in reversed(rows)]
     return {
@@ -278,9 +285,17 @@ async def recent_events(
 @router.get(
     "/runs/{run_id}/events/stream",
     summary="Server-Sent-Events live tail of telemetry events",
-    dependencies=[Depends(require_role(
-        Role.ADMIN, Role.LEAD, Role.OBSERVER, Role.RED, Role.BLUE,
-    ))],
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ADMIN,
+                Role.LEAD,
+                Role.OBSERVER,
+                Role.RED,
+                Role.BLUE,
+            )
+        )
+    ],
 )
 async def stream_events(
     run_id: int,
@@ -311,9 +326,7 @@ async def stream_events(
     async def _generator():
         try:
             # Initial hello.
-            yield _sse_format(
-                "hello", {"run_id": run_id, "ts": _utcnow_iso()}
-            )
+            yield _sse_format("hello", {"run_id": run_id, "ts": _utcnow_iso()})
             # Replay recent events for this run.
             for ev in bus.recent(50):
                 if ev.get("run_id") != run_id:
@@ -330,9 +343,7 @@ async def stream_events(
                     )
                     return
                 try:
-                    event = await asyncio.wait_for(
-                        queue.get(), timeout=10.0
-                    )
+                    event = await asyncio.wait_for(queue.get(), timeout=10.0)
                 except TimeoutError:
                     # Heartbeat. SSE clients use heartbeats to
                     # detect dead connections through proxies.

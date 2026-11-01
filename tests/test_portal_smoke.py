@@ -21,6 +21,7 @@ What this does NOT catch:
   * Wrong method (GET vs POST) -- handled by the existing router tests.
   * Wrong status-code handling -- handled by the integration tests.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -189,4 +190,3 @@ def test_portal_pages_exist_on_disk():
         p = Path(__file__).resolve().parent.parent / relpath
         assert p.exists(), f"{relpath} missing at {p}"
         assert p.stat().st_size > 1000, f"{relpath} suspiciously small"
-

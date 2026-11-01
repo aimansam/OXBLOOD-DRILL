@@ -8,6 +8,7 @@ Revision ID: 0009_wg_peer
 Revises: 0008_telemetry_events
 Create Date: 2026-08-25
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

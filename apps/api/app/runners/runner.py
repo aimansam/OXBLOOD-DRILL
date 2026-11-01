@@ -20,6 +20,7 @@ Failure handling: any exception during clone or start transitions the
 run to FAILED and best-effort tears down what was already created.
 The error is recorded on `Run.error` and in the audit log.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -249,7 +250,8 @@ class Runner:
             networks_spec_from_snapshot = snapshot.get("networks")
             log.info(
                 "runner.template.snapshot_used template_id=%s assets=%s",
-                req.template_id, len(assets_spec),
+                req.template_id,
+                len(assets_spec),
             )
         else:
             snapshot = {}
@@ -267,20 +269,23 @@ class Runner:
             count = max(1, min(int(asset_spec.get("count") or 1), 64))
             base_role = str(asset_spec["role"])
             expected_roles.extend(
-                f"{base_role}_{index + 1}" if count > 1 else base_role
-                for index in range(count)
+                f"{base_role}_{index + 1}" if count > 1 else base_role for index in range(count)
             )
         baseline_by_role: dict[str, models.SnapshotBaseline] = {}
         if req.template_id is None:
             baseline_rows = (
-                await session.execute(
-                    select(models.SnapshotBaseline).where(
-                        models.SnapshotBaseline.scenario_id == scenario.id,
-                        models.SnapshotBaseline.scenario_version == scenario.version,
-                        models.SnapshotBaseline.status == "ready",
+                (
+                    await session.execute(
+                        select(models.SnapshotBaseline).where(
+                            models.SnapshotBaseline.scenario_id == scenario.id,
+                            models.SnapshotBaseline.scenario_version == scenario.version,
+                            models.SnapshotBaseline.status == "ready",
+                        )
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             baseline_by_role = {baseline.role: baseline for baseline in baseline_rows}
         snapshot_mode = bool(baseline_by_role) and all(
             role in baseline_by_role for role in expected_roles
@@ -331,19 +336,14 @@ class Runner:
             for net_name in asset_spec.get("networks") or []:
                 if net_name not in declared_network_names:
                     raise RunnerError(
-                        f"asset {asset_spec.get('role')!r} references unknown "
-                        f"network {net_name!r}"
+                        f"asset {asset_spec.get('role')!r} references unknown network {net_name!r}"
                     )
 
         vlan_mode = bool(networks_spec) and any(
             net_spec.get("vlan_id") is not None for net_spec in networks_spec
         )
-        if vlan_mode and any(
-            net_spec.get("vlan_id") is None for net_spec in networks_spec
-        ):
-            raise RunnerError(
-                "VLAN mode requires vlan_id on every scenario network"
-            )
+        if vlan_mode and any(net_spec.get("vlan_id") is None for net_spec in networks_spec):
+            raise RunnerError("VLAN mode requires vlan_id on every scenario network")
 
         if networks_spec and vlan_mode:
             # vmbr200 is operator-owned shared infrastructure. It is
@@ -354,9 +354,7 @@ class Runner:
                 net_name = str(net_spec.get("name", "")).strip()
                 vlan_id = int(net_spec["vlan_id"])
                 if not 1 <= vlan_id <= 4094:
-                    raise RunnerError(
-                        f"network {net_name!r} has invalid vlan_id {vlan_id}"
-                    )
+                    raise RunnerError(f"network {net_name!r} has invalid vlan_id {vlan_id}")
                 bridges_by_name[net_name] = shared_bridge
                 vlan_by_name[net_name] = vlan_id
         elif networks_spec:
@@ -365,9 +363,7 @@ class Runner:
             except BridgePlanError as exc:
                 raise RunnerError(f"bridge plan invalid: {exc}") from exc
             if bridge_plan.conflicts:
-                raise RunnerError(
-                    "bridge plan conflicts: " + "; ".join(bridge_plan.conflicts)
-                )
+                raise RunnerError("bridge plan conflicts: " + "; ".join(bridge_plan.conflicts))
 
             planned_for_scenario = {
                 bridge.network: bridge
@@ -397,7 +393,9 @@ class Runner:
                 )
                 log.info(
                     "runner.networks.bridge_created name=%s bridge=%s cidr=%s",
-                    net_spec["name"], bridge, net_spec.get("cidr"),
+                    net_spec["name"],
+                    bridge,
+                    net_spec.get("cidr"),
                 )
 
         # 1. Create Run (pending) + Asset (planned) rows.
@@ -409,9 +407,7 @@ class Runner:
             exercise_id=req.exercise_id,
             team=req.team,
             template_id=req.template_id,
-            timeout_min=self._resolve_timeout_min(
-                req.timeout_min, scenario.duration_min
-            ),
+            timeout_min=self._resolve_timeout_min(req.timeout_min, scenario.duration_min),
         )
         session.add(run)
         await session.flush()
@@ -422,9 +418,7 @@ class Runner:
         # can lack the character classes Windows requires for an administrator
         # password, which makes promotion fail with an unhelpful "blank"
         # password diagnostic.
-        self._windows_setup_secrets[run.id] = (
-            f"D1videLab-{secrets.token_urlsafe(18)}!"
-        )
+        self._windows_setup_secrets[run.id] = f"D1videLab-{secrets.token_urlsafe(18)}!"
         # F8: emit run.started event.
         await _record_event(
             session,
@@ -453,14 +447,10 @@ class Runner:
             count = int(asset_spec.get("count") or 1)
             count = max(1, min(count, 64))  # schema already enforces; clamp defensively
             base_role = asset_spec["role"]
-            for instance in (range(count) if count > 1 else [0]):
+            for instance in range(count) if count > 1 else [0]:
                 # Use _N suffix only when count > 1; instance 0 means
                 # "single, use declared role verbatim".
-                role = (
-                    f"{base_role}_{instance + 1}"
-                    if count > 1
-                    else base_role
-                )
+                role = f"{base_role}_{instance + 1}" if count > 1 else base_role
                 session.add(
                     models.Asset(
                         run_id=run.id,
@@ -507,9 +497,7 @@ class Runner:
         cloned_so_far: list[models.Asset] = []
         # Bridges we created during this run; tracked so teardown
         # (best-effort) can ask the adapter to remove them.
-        bridges_created: list[str] = (
-            [] if vlan_mode else list(bridges_by_name.values())
-        )
+        bridges_created: list[str] = [] if vlan_mode else list(bridges_by_name.values())
         # Spawn one clone per generated row. The role of each row
         # is either the declared role (count == 1) or
         # ``<declared>_<N>`` (count > 1, N is 1-indexed). The
@@ -518,12 +506,8 @@ class Runner:
         for asset_spec in assets_spec:
             count = int(asset_spec.get("count") or 1)
             base_role = asset_spec["role"]
-            for instance_idx in (range(count) if count > 1 else [0]):
-                instance_role = (
-                    f"{base_role}_{instance_idx + 1}"
-                    if count > 1
-                    else base_role
-                )
+            for instance_idx in range(count) if count > 1 else [0]:
+                instance_role = f"{base_role}_{instance_idx + 1}" if count > 1 else base_role
                 asset = (
                     await session.execute(
                         select(models.Asset)
@@ -587,9 +571,7 @@ class Runner:
                 except Exception as spawn_exc:
                     run.status = RunStatus.FAILED
                     run.ended_at = datetime.now(UTC)
-                    vmid_text = (
-                        f" vmid={asset.pve_vmid}" if asset.pve_vmid is not None else ""
-                    )
+                    vmid_text = f" vmid={asset.pve_vmid}" if asset.pve_vmid is not None else ""
                     run.error = (
                         f"{type(spawn_exc).__name__} while provisioning "
                         f"{asset.role}{vmid_text}: {spawn_exc}"
@@ -609,13 +591,11 @@ class Runner:
                             await self._adapter.remove_bridge(br)
                         except Exception as bridge_exc:  # noqa: BLE001
                             log.warning(
-                                "runner.networks.remove_bridge_failed "
-                                "bridge=%s err=%s",
-                                br, bridge_exc,
+                                "runner.networks.remove_bridge_failed bridge=%s err=%s",
+                                br,
+                                bridge_exc,
                             )
-                    inc_run_terminal(
-                        outcome="failed", adapter=_adapter_label(self._adapter)
-                    )
+                    inc_run_terminal(outcome="failed", adapter=_adapter_label(self._adapter))
                     await self._audit(
                         session,
                         action=AuditAction.RUN_FAILED,
@@ -669,9 +649,7 @@ class Runner:
                     "side": flag_spec.get("side"),
                     "planted_on_role": planted_role,
                     "base_points": flag_spec.get("base_points"),
-                    "decay_window_seconds": flag_spec.get(
-                        "decay_window_seconds"
-                    ),
+                    "decay_window_seconds": flag_spec.get("decay_window_seconds"),
                     # Do NOT log the value; the API surfaces the
                     # value to authenticated clients only.
                     "value_present": bool(flag_spec.get("value")),
@@ -681,7 +659,9 @@ class Runner:
         if flags_spec:
             log.info(
                 "runner.flags.planted run_id=%s planted=%s declared=%s",
-                run.id, planted_count, len(flags_spec),
+                run.id,
+                planted_count,
+                len(flags_spec),
             )
 
         # 5. All assets up — keep run in RUNNING state.
@@ -812,12 +792,16 @@ class Runner:
             asset.status = AssetStatus.RUNNING
             asset.pve_ip = state.ip
         existing = (
-            await session.execute(
-                select(models.SnapshotBaseline).where(
-                    models.SnapshotBaseline.scenario_id == scenario.id
+            (
+                await session.execute(
+                    select(models.SnapshotBaseline).where(
+                        models.SnapshotBaseline.scenario_id == scenario.id
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         if existing:
             raise RunnerError(
                 f"Scenario {scenario.name!r} already has snapshot baselines. "
@@ -908,10 +892,10 @@ class Runner:
             RunStatus.TIMEOUT,
         )
         assets = (
-            await session.execute(
-                select(models.Asset).where(models.Asset.run_id == run_id)
-            )
-        ).scalars().all()
+            (await session.execute(select(models.Asset).where(models.Asset.run_id == run_id)))
+            .scalars()
+            .all()
+        )
 
         for asset in assets:
             if asset.pve_vmid is not None and asset.pve_node:
@@ -985,15 +969,14 @@ class Runner:
             raise RunnerError(f"run id={run_id} not found")
         if run.status not in (RunStatus.PENDING, RunStatus.RUNNING):
             raise RunnerError(
-                f"run id={run_id} is in terminal state "
-                f"{run.status.value!r}; cannot cancel"
+                f"run id={run_id} is in terminal state {run.status.value!r}; cannot cancel"
             )
 
         assets = (
-            await session.execute(
-                select(models.Asset).where(models.Asset.run_id == run_id)
-            )
-        ).scalars().all()
+            (await session.execute(select(models.Asset).where(models.Asset.run_id == run_id)))
+            .scalars()
+            .all()
+        )
 
         # Best-effort teardown — never raise from here; we want the run
         # row + audit entry to land even if the adapter is half-broken.
@@ -1003,9 +986,7 @@ class Runner:
                     "cancel", run_id=asset.run_id, role=asset.role, vmid=asset.pve_vmid
                 ):
                     try:
-                        await self._adapter.stop_vm(
-                            asset.pve_vmid, asset.pve_node, force=True
-                        )
+                        await self._adapter.stop_vm(asset.pve_vmid, asset.pve_node, force=True)
                     except Exception as exc:  # noqa: BLE001
                         asset.status = AssetStatus.ORPHANED
                         asset.error = f"stop failed during cancel: {exc}"
@@ -1087,7 +1068,12 @@ class Runner:
             try:
                 await self._adapter.set_vm_name(baseline.pve_vmid, baseline.pve_node, short_name)
             except Exception as exc:  # Display name must not block cleanup.
-                log.warning("runner.baseline.rename_failed vmid=%s name=%s error=%s", baseline.pve_vmid, short_name, exc)
+                log.warning(
+                    "runner.baseline.rename_failed vmid=%s name=%s error=%s",
+                    baseline.pve_vmid,
+                    short_name,
+                    exc,
+                )
 
     async def _restore_baseline_asset(
         self,
@@ -1110,9 +1096,16 @@ class Runner:
             short_name = _vm_name(asset_spec, asset.role)
             if short_name:
                 try:
-                    await self._adapter.set_vm_name(baseline.pve_vmid, baseline.pve_node, short_name)
+                    await self._adapter.set_vm_name(
+                        baseline.pve_vmid, baseline.pve_node, short_name
+                    )
                 except Exception as exc:  # Cosmetic name must not prevent range recovery.
-                    log.warning("runner.baseline.rename_failed vmid=%s name=%s error=%s", baseline.pve_vmid, short_name, exc)
+                    log.warning(
+                        "runner.baseline.rename_failed vmid=%s name=%s error=%s",
+                        baseline.pve_vmid,
+                        short_name,
+                        exc,
+                    )
             await self._adapter.start_vm(baseline.pve_vmid, baseline.pve_node)
             restore_commands = asset_spec.get("restore_commands") or []
             if restore_commands:
@@ -1151,17 +1144,16 @@ class Runner:
     ) -> None:
         log.info(
             "runner.spawn_asset_start role=%s template=%s run_id=%s",
-            asset.role, asset.template, asset.run_id,
+            asset.role,
+            asset.template,
+            asset.run_id,
         )
-        
-        async with self._pve_lifecycle_section(
-            "clone", run_id=asset.run_id, role=asset.role
-        ):
+
+        async with self._pve_lifecycle_section("clone", run_id=asset.run_id, role=asset.role):
             template_vmid = await self._adapter.find_template(asset.template)
             if template_vmid is None:
                 raise RunnerError(
-                    f"template {asset.template!r} not found on PVE "
-                    f"(role={asset.role!r})"
+                    f"template {asset.template!r} not found on PVE (role={asset.role!r})"
                 )
             log.info(
                 "runner.template_found role=%s template_vmid=%s",
@@ -1192,7 +1184,9 @@ class Runner:
                 sockets=resources.get("sockets"),
                 ram_mb=resources.get("ram_mb"),
                 disk_gb=resources.get("disk_gb"),
-                ip_configs=_static_ip_configs(asset_spec, getattr(asset, "_divide_scenario_spec", {}) or {}),
+                ip_configs=_static_ip_configs(
+                    asset_spec, getattr(asset, "_divide_scenario_spec", {}) or {}
+                ),
                 full_clone=not linked_clone,
             )
             asset.status = AssetStatus.CLONING
@@ -1262,13 +1256,14 @@ class Runner:
             state = await self._adapter.get_vm_state(result.vmid, result.node)
             log.info(
                 "runner.vm_state role=%s vmid=%s status=%s ip=%s",
-                asset.role, result.vmid, state.status, state.ip,
+                asset.role,
+                result.vmid,
+                state.status,
+                state.ip,
             )
 
             asset.pve_ip = state.ip
-            asset.status = (
-                AssetStatus.RUNNING if state.status == "running" else AssetStatus.STOPPED
-            )
+            asset.status = AssetStatus.RUNNING if state.status == "running" else AssetStatus.STOPPED
             await session.flush()
 
         await self._audit(
@@ -1305,10 +1300,7 @@ class Runner:
             )
             return None
         windows_setup = asset_spec.get("windows_setup") or {}
-        if (
-            "win" in template
-            or "windows" in template
-        ) and not bool(
+        if ("win" in template or "windows" in template) and not bool(
             asset_spec.get("cloudbase_init")
             or asset_spec.get("cloudinit")
             or windows_setup.get("commands")
@@ -1344,7 +1336,9 @@ class Runner:
         matched_flags = []
         for flag in scenario_spec.get("flags") or []:
             planted = str(flag.get("planted_on_role") or "")
-            if planted and (planted == role or planted == base_role or role.startswith(planted + "_")):
+            if planted and (
+                planted == role or planted == base_role or role.startswith(planted + "_")
+            ):
                 matched_flags.append(flag)
 
         for flag in matched_flags:
@@ -1370,7 +1364,9 @@ class Runner:
             "mkdir -p /opt/divide/flags",
             "mkdir -p /opt/divide/evidence",
             "chmod -R 700 /opt/divide",
-            "sysctl --system || true" if base_role == "router_fw" and "opnsense" not in template else "true",
+            "sysctl --system || true"
+            if base_role == "router_fw" and "opnsense" not in template
+            else "true",
         ]
         domain_password = self._windows_setup_secrets.setdefault(
             asset.run_id, f"D1videLab-{secrets.token_urlsafe(18)}!"
@@ -1416,10 +1412,12 @@ class Runner:
         # Compatibility while legacy golden images are replaced. Remove the
         # retired agent on disposable Linux clones without deleting log data.
         if "win" not in template and "windows" not in template:
-            runcmd.insert(0,
+            runcmd.insert(
+                0,
                 "if command -v dpkg-query >/dev/null 2>&1 && "
                 "dpkg-query -W -f='${Status}' wazuh-agent 2>/dev/null | grep -q 'ok installed$'; then "
-                "DEBIAN_FRONTEND=noninteractive dpkg --remove wazuh-agent; fi")
+                "DEBIAN_FRONTEND=noninteractive dpkg --remove wazuh-agent; fi",
+            )
 
         # Intermediate file-breach scenarios use the blue log aggregator as
         # the investigation trail. Forward local syslog over TCP when the
@@ -1442,9 +1440,13 @@ class Runner:
             log_network = scenario_networks.get(str(log_networks[0])) if log_networks else None
             if log_network and log_network.get("cidr"):
                 try:
-                    log_hosts = list(ipaddress.ip_network(str(log_network["cidr"]), strict=False).hosts())
+                    log_hosts = list(
+                        ipaddress.ip_network(str(log_network["cidr"]), strict=False).hosts()
+                    )
                     if len(log_hosts) > 30:
-                        files["/etc/rsyslog.d/30-divide-forward.conf"] = f"*.* @@{log_hosts[30]}:514\n"
+                        files["/etc/rsyslog.d/30-divide-forward.conf"] = (
+                            f"*.* @@{log_hosts[30]}:514\n"
+                        )
                         runcmd.append("systemctl restart rsyslog || true")
                 except (ValueError, TypeError):
                     log.warning("runner.telemetry.invalid_log_network role=%s", role)
@@ -1462,7 +1464,11 @@ class Runner:
             )
             runcmd.append(f"logger -t divide-{base_role} scenario_asset_ready || true")
 
-        if base_role == "router_fw" and "opnsense" not in template and str(asset_spec.get("network_mode") or "").lower() != "trunk":
+        if (
+            base_role == "router_fw"
+            and "opnsense" not in template
+            and str(asset_spec.get("network_mode") or "").lower() != "trunk"
+        ):
             files["/etc/sysctl.d/99-divide-router.conf"] = (
                 "net.ipv4.ip_forward=1\n"
                 "net.ipv4.conf.all.rp_filter=0\n"
@@ -1486,6 +1492,7 @@ class Runner:
                 target = network_interfaces.get(str(rule.get("to")))
                 if not source or not target:
                     continue
+
                 def render_port(port: object) -> str:
                     value = str(port).strip()
                     if "-" in value:
@@ -1497,7 +1504,7 @@ class Runner:
                 if ports:
                     ports_expr = ports if len(rule.get("ports") or []) == 1 else f"{{ {ports} }}"
                     nft_rules.append(
-                        f"    iifname \"{source}\" oifname \"{target}\" "
+                        f'    iifname "{source}" oifname "{target}" '
                         f"{rule.get('protocol')} dport {ports_expr} accept"
                     )
             nft_rules.extend(["  }", "}", ""])
@@ -1563,9 +1570,9 @@ class Runner:
             bridge = bridges_by_name.get(net_name)
             if bridge is None:
                 log.warning(
-                    "runner.networks.unknown_network role=%s network=%s "
-                    "(bridge not found)",
-                    asset.role, net_name,
+                    "runner.networks.unknown_network role=%s network=%s (bridge not found)",
+                    asset.role,
+                    net_name,
                 )
                 continue
             await self._adapter.attach_network(
@@ -1577,7 +1584,10 @@ class Runner:
             )
             log.info(
                 "runner.networks.attached role=%s vmid=%s bridge=%s nic_id=%s",
-                asset.role, asset.pve_vmid, bridge, nic_id,
+                asset.role,
+                asset.pve_vmid,
+                bridge,
+                nic_id,
             )
 
     async def _best_effort_teardown(
@@ -1608,7 +1618,9 @@ class Runner:
                 # error was swallowed with no log + no asset.error).
                 log.warning(
                     "runner.assets.teardown_failed asset_id=%s vmid=%s err=%s",
-                    a.id, a.pve_vmid, exc,
+                    a.id,
+                    a.pve_vmid,
+                    exc,
                 )
                 a.status = AssetStatus.ORPHANED
                 a.error = f"teardown failed: {exc}"
@@ -1664,9 +1676,7 @@ class Runner:
         except RuntimeError:
             # No loop (e.g. synchronous test). Watchdog is a safety net;
             # skip and rely on manual cancel.
-            logging.getLogger(__name__).info(
-                "runner.watchdog.no_loop run_id=%s (skipping)", run_id
-            )
+            logging.getLogger(__name__).info("runner.watchdog.no_loop run_id=%s (skipping)", run_id)
             return
 
         now = datetime.now(UTC)
@@ -1712,7 +1722,7 @@ class Runner:
         timeout_min: int | None = None,
     ) -> int | None:
         """Return remaining seconds until auto-timeout for a run.
-        
+
         If the in-memory deadline is lost (e.g. server restart), reconstructs it
         from started_at and default drill_timeout_min.
         """
@@ -1720,7 +1730,7 @@ class Runner:
         if timeout_min is not None and timeout_min < 0:
             return None
         deadline = cls._active_deadlines.get(run_id)
-        
+
         if deadline is None and started_at is not None:
             timeout_min = cls._resolve_timeout_min(
                 timeout_min, getattr(settings, "drill_timeout_min", 30)
@@ -1743,22 +1753,26 @@ class Runner:
     @classmethod
     async def recover_watchdogs(cls, session: AsyncSession) -> int:
         """Reschedule watchdogs for any RUNNING drills after API restart.
-        
+
         Returns the number of watchdogs rescheduled.
         """
         if not getattr(settings, "drill_timeout_enabled", True):
             return 0
 
         runs = (
-            await session.execute(
-                select(models.Run)
-                .where(models.Run.status == RunStatus.RUNNING)
-                .options(
-                    selectinload(models.Run.assets),
-                    selectinload(models.Run.scenario),
+            (
+                await session.execute(
+                    select(models.Run)
+                    .where(models.Run.status == RunStatus.RUNNING)
+                    .options(
+                        selectinload(models.Run.assets),
+                        selectinload(models.Run.scenario),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         rescheduled = 0
         for run in runs:
@@ -1768,9 +1782,7 @@ class Runner:
                 # V2 drills own their timer; preparation must not consume it.
                 continue
 
-            scenario_timeout_min = run.timeout_min or getattr(
-                run.scenario, "duration_min", None
-            )
+            scenario_timeout_min = run.timeout_min or getattr(run.scenario, "duration_min", None)
             remaining = cls.get_timeout_sec(
                 run.id,
                 run.started_at,
@@ -1839,6 +1851,7 @@ class Runner:
             raise RunnerError("extend_min must be between 1 and 240 minutes")
 
         sm = _sessionmaker()
+
         async def _do(s: AsyncSession) -> dict:
             run = (
                 await s.execute(
@@ -1850,7 +1863,9 @@ class Runner:
             if run is None:
                 raise RunnerError(f"run id={run_id} not found")
             if run.status not in (RunStatus.RUNNING, RunStatus.PENDING):
-                raise RunnerError(f"cannot extend timeout for terminal run (status={run.status.value})")
+                raise RunnerError(
+                    f"cannot extend timeout for terminal run (status={run.status.value})"
+                )
 
             now = datetime.now(UTC)
             current_deadline = self._active_deadlines.get(run_id)
@@ -1925,9 +1940,7 @@ class Runner:
         try:
             async with sm() as session:
                 run = (
-                    await session.execute(
-                        select(models.Run).where(models.Run.id == run_id)
-                    )
+                    await session.execute(select(models.Run).where(models.Run.id == run_id))
                 ).scalar_one_or_none()
                 if run is None:
                     log.info("runner.watchdog.run_gone run_id=%s", run_id)
@@ -1942,17 +1955,19 @@ class Runner:
 
                 # Best-effort adapter teardown.
                 assets = (
-                    await session.execute(
-                        select(models.Asset).where(models.Asset.run_id == run_id)
+                    (
+                        await session.execute(
+                            select(models.Asset).where(models.Asset.run_id == run_id)
+                        )
                     )
-                ).scalars().all()
+                    .scalars()
+                    .all()
+                )
                 for asset in assets:
                     if asset.pve_vmid is None or not asset.pve_node:
                         continue
                     try:
-                        await self._adapter.stop_vm(
-                            asset.pve_vmid, asset.pve_node, force=True
-                        )
+                        await self._adapter.stop_vm(asset.pve_vmid, asset.pve_node, force=True)
                     except Exception as exc:  # noqa: BLE001
                         log.warning(
                             "runner.watchdog.stop_failed vmid=%s err=%s",
@@ -1960,9 +1975,7 @@ class Runner:
                             exc,
                         )
                     try:
-                        await self._adapter.destroy_vm(
-                            asset.pve_vmid, asset.pve_node
-                        )
+                        await self._adapter.destroy_vm(asset.pve_vmid, asset.pve_node)
                     except Exception as exc:  # noqa: BLE001
                         log.warning(
                             "runner.watchdog.destroy_failed vmid=%s err=%s",
@@ -1976,9 +1989,7 @@ class Runner:
                 run.status = RunStatus.TIMEOUT
                 run.ended_at = datetime.now(UTC)
                 run.error = f"auto-timeout after {timeout_min} min"
-                inc_run_terminal(
-                    outcome="timeout", adapter=_adapter_label(self._adapter)
-                )
+                inc_run_terminal(outcome="timeout", adapter=_adapter_label(self._adapter))
                 await self._audit(
                     session,
                     action=AuditAction.RUN_TIMEOUT,
@@ -2032,8 +2043,7 @@ def _default_adapter() -> ProxmoxAdapter:
             return RealProxmoxAdapter.from_overlay(
                 proxmox_svc._DB_OVERLAY,
                 clone_storage=(
-                    proxmox_svc._DB_OVERLAY.get("clone_storage")
-                    or settings.proxmox.clone_storage
+                    proxmox_svc._DB_OVERLAY.get("clone_storage") or settings.proxmox.clone_storage
                 ),
                 seed_snippet_storage=(
                     proxmox_svc._DB_OVERLAY.get("seed_snippet_storage")
@@ -2052,9 +2062,7 @@ def _default_adapter() -> ProxmoxAdapter:
     p = settings.proxmox
     host = (p.host or "").strip()
     token_id = (p.token_id or "").strip()
-    has_secret = p.token_secret is not None and bool(
-        p.token_secret.get_secret_value()
-    )
+    has_secret = p.token_secret is not None and bool(p.token_secret.get_secret_value())
     if host and token_id and has_secret:
         try:
             return RealProxmoxAdapter.from_settings(p)

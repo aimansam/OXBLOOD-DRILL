@@ -4,6 +4,7 @@ See ``app.services.event_bus.__init__`` for the API contract
 (``EventBus`` Protocol) and the factory that selects this
 backend by default.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -64,9 +65,7 @@ class InProcessEventBus:
                 # have a bounded queue so they don't leak memory.
                 pass
 
-    def subscribe(
-        self, maxsize: int = 256
-    ) -> tuple[asyncio.Queue, Callable[[], None]]:
+    def subscribe(self, maxsize: int = 256) -> tuple[asyncio.Queue, Callable[[], None]]:
         """Return ``(queue, unsubscribe)``.
 
         ``queue.get()`` returns the next event. The handler is

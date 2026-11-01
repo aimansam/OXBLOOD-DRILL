@@ -29,9 +29,15 @@ def main():
     wait = WebDriverWait(driver, 30)
 
     def viewport(width, height):
-        driver.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
-            "width": width, "height": height, "deviceScaleFactor": 1, "mobile": False,
-        })
+        driver.execute_cdp_cmd(
+            "Emulation.setDeviceMetricsOverride",
+            {
+                "width": width,
+                "height": height,
+                "deviceScaleFactor": 1,
+                "mobile": False,
+            },
+        )
 
     def settle():
         # Allow the camera and hover transitions to finish before measuring.
@@ -39,7 +45,8 @@ def main():
 
     def check(label, fitted=False):
         settle()
-        errors = driver.execute_script("""
+        errors = driver.execute_script(
+            """
           const svg=document.getElementById('scenario-atlas-links');
           const world=document.getElementById('scenario-atlas-world');
           const origin=document.querySelector('.scenario-atlas-origin').getBoundingClientRect();
@@ -61,7 +68,9 @@ def main():
               errors.push('Clipped or obscured node: '+i);
           });
           return errors;
-        """, fitted)
+        """,
+            fitted,
+        )
         driver.save_screenshot(str(artifacts / (label + ".png")))
         assert not errors, f"{label}: {errors}"
         print(f"PASS {label}", flush=True)
@@ -89,7 +98,9 @@ def main():
         check("zoom-out")
         before = camera()
         canvas = driver.find_element(By.ID, "scenario-atlas-viewport")
-        ActionChains(driver).move_to_element_with_offset(canvas, -550, -100).click_and_hold().move_by_offset(95, 50).release().perform()
+        ActionChains(driver).move_to_element_with_offset(
+            canvas, -550, -100
+        ).click_and_hold().move_by_offset(95, 50).release().perform()
         after = camera()
         assert abs(after["x"] - before["x"] - 95) < 1
         assert abs(after["y"] - before["y"] - 50) < 1
@@ -102,10 +113,16 @@ def main():
         check("selected")
         before = camera()
         box = driver.find_element(By.ID, "scenario-atlas-inspector").rect
-        driver.execute_cdp_cmd("Input.dispatchMouseEvent", {
-            "type": "mouseWheel", "x": box["x"] + box["width"] / 2,
-            "y": box["y"] + box["height"] / 2, "deltaX": 0, "deltaY": 300,
-        })
+        driver.execute_cdp_cmd(
+            "Input.dispatchMouseEvent",
+            {
+                "type": "mouseWheel",
+                "x": box["x"] + box["width"] / 2,
+                "y": box["y"] + box["height"] / 2,
+                "deltaX": 0,
+                "deltaY": 300,
+            },
+        )
         settle()
         assert camera() == before, "Scrolling the briefing moved the map"
         assert driver.execute_script("""
@@ -125,7 +142,9 @@ def main():
         wait.until(lambda d: not d.find_elements(By.CSS_SELECTOR, ".scenario-atlas-node"))
         assert driver.find_element(By.CSS_SELECTOR, ".scenario-atlas-empty").is_displayed()
         search.clear()
-        driver.execute_script("document.getElementById('scenario-atlas-search').dispatchEvent(new Event('input'))")
+        driver.execute_script(
+            "document.getElementById('scenario-atlas-search').dispatchEvent(new Event('input'))"
+        )
         wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, ".scenario-atlas-node")) == count)
         for width, height in [(1920, 1080), (1366, 768), (390, 844)]:
             viewport(width, height)

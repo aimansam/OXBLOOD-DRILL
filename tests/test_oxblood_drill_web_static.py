@@ -15,14 +15,18 @@ def _read(relpath: str) -> str:
 
 
 def _prototype_methods(js: str) -> set[str]:
-    return set(
-        re.findall(r"^\s*(?:async\s+)?(\w+)\s*\([^)]*\)\s*\{", js, flags=re.MULTILINE)
-    )
+    return set(re.findall(r"^\s*(?:async\s+)?(\w+)\s*\([^)]*\)\s*\{", js, flags=re.MULTILINE))
 
 
 def test_drill_inline_handlers_have_loaded_methods() -> None:
     markup = _read("pages/drills.html") + _read("app.js")
-    scripts = _read("app.js") + _read("ui-drills.js") + _read("ui-advanced.js") + _read("ui-utils.js") + _read("threat-map.js")
+    scripts = (
+        _read("app.js")
+        + _read("ui-drills.js")
+        + _read("ui-advanced.js")
+        + _read("ui-utils.js")
+        + _read("threat-map.js")
+    )
     methods = _prototype_methods(scripts)
     handlers = set(re.findall(r"app\.([A-Za-z_]\w*)\(", markup))
 
@@ -71,7 +75,7 @@ def test_drill_polling_stops_when_leaving_drills_page() -> None:
 def test_markdown_links_reject_unsafe_schemes() -> None:
     utils_js = _read("ui-utils.js")
 
-    assert "rel=\"noopener noreferrer\"" in utils_js
+    assert 'rel="noopener noreferrer"' in utils_js
     assert "https?:\\/\\/" in utils_js
     assert "mailto:" in utils_js
 
@@ -299,12 +303,17 @@ def test_participant_drill_workspace_is_focused() -> None:
     drills_js = _read("ui-drills.js")
     styles = _read("styles.css")
 
-    assert "participantHidden = ['scoring', 'access', 'people', 'comms', 'scenario', 'reports']" in app_js
+    assert (
+        "participantHidden = ['scoring', 'access', 'people', 'comms', 'scenario', 'reports']"
+        in app_js
+    )
     assert "activeView.dataset.activeTab = selected" in app_js
     assert "participant-workspace" in drills_js
     assert "#drills-active-view.participant-workspace .ops-rail" in styles
     assert "#drills-active-view.participant-workspace .drill-tabs" in styles
-    assert "#drills-active-view.operator-workspace:not(.drill-tab-active-operate) .ops-rail" in styles
+    assert (
+        "#drills-active-view.operator-workspace:not(.drill-tab-active-operate) .ops-rail" in styles
+    )
 
 
 def test_scenarios_and_topology_page_are_wired() -> None:
@@ -346,7 +355,9 @@ def test_drill_briefing_uses_linked_catalog_scenario() -> None:
 
 def test_drill_polling_does_not_clear_active_timer() -> None:
     drills_js = _read("ui-drills.js")
-    polling = drills_js[drills_js.index("\n  _startDrillPolling"):drills_js.index("async loadDrillStats")]
+    polling = drills_js[
+        drills_js.index("\n  _startDrillPolling") : drills_js.index("async loadDrillStats")
+    ]
 
     assert "clearInterval(this._drillPollInterval)" in polling
     assert "['completed', 'cancelled', 'stopped', 'failed']" in polling

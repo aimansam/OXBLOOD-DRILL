@@ -19,6 +19,7 @@ Covers:
   * GET /auth/users requires admin
   * GET /auth/users returns public fields only (no password_hash)
 """
+
 from __future__ import annotations
 
 # Local async fixtures. We use an in-memory SQLite + Base.metadata.create_all
@@ -119,9 +120,7 @@ def test_hash_password_rejects_empty():
 
 @pytest.mark.asyncio
 async def test_create_user_happy_path(session: AsyncSession):
-    u = await users_service.create_user(
-        session, sub="alice", password="hunter2", role="red"
-    )
+    u = await users_service.create_user(session, sub="alice", password="hunter2", role="red")
     await session.commit()
     assert u.id is not None
     assert u.sub == "alice"
@@ -133,9 +132,7 @@ async def test_create_user_happy_path(session: AsyncSession):
 @pytest.mark.asyncio
 async def test_create_user_rejects_unknown_role(session: AsyncSession):
     with pytest.raises(users_service.UserStoreError):
-        await users_service.create_user(
-            session, sub="alice", password="hunter2", role="admine"
-        )
+        await users_service.create_user(session, sub="alice", password="hunter2", role="admine")
 
 
 @pytest.mark.asyncio
@@ -152,14 +149,10 @@ async def test_create_user_rejects_empty_inputs(session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_create_user_rejects_duplicate_sub(session: AsyncSession):
-    await users_service.create_user(
-        session, sub="alice", password="hunter2", role="red"
-    )
+    await users_service.create_user(session, sub="alice", password="hunter2", role="red")
     await session.commit()
     with pytest.raises(users_service.DuplicateSubError):
-        await users_service.create_user(
-            session, sub="alice", password="different", role="blue"
-        )
+        await users_service.create_user(session, sub="alice", password="different", role="blue")
 
 
 @pytest.mark.asyncio
@@ -178,54 +171,31 @@ async def test_create_user_accepts_all_roles(session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_authenticate_happy_path(session: AsyncSession):
-    await users_service.create_user(
-        session, sub="alice", password="hunter2", role="red"
-    )
+    await users_service.create_user(session, sub="alice", password="hunter2", role="red")
     await session.commit()
-    user = await users_service.authenticate(
-        session, sub="alice", password="hunter2"
-    )
+    user = await users_service.authenticate(session, sub="alice", password="hunter2")
     assert user is not None
     assert user.sub == "alice"
 
 
 @pytest.mark.asyncio
 async def test_authenticate_wrong_password_returns_none(session: AsyncSession):
-    await users_service.create_user(
-        session, sub="alice", password="hunter2", role="red"
-    )
+    await users_service.create_user(session, sub="alice", password="hunter2", role="red")
     await session.commit()
-    assert (
-        await users_service.authenticate(
-            session, sub="alice", password="WRONG"
-        )
-        is None
-    )
+    assert await users_service.authenticate(session, sub="alice", password="WRONG") is None
 
 
 @pytest.mark.asyncio
 async def test_authenticate_unknown_sub_returns_none(session: AsyncSession):
-    assert (
-        await users_service.authenticate(
-            session, sub="ghost", password="anything"
-        )
-        is None
-    )
+    assert await users_service.authenticate(session, sub="ghost", password="anything") is None
 
 
 @pytest.mark.asyncio
 async def test_authenticate_disabled_returns_none(session: AsyncSession):
-    u = await users_service.create_user(
-        session, sub="alice", password="hunter2", role="red"
-    )
+    u = await users_service.create_user(session, sub="alice", password="hunter2", role="red")
     u.disabled = True
     await session.commit()
-    assert (
-        await users_service.authenticate(
-            session, sub="alice", password="hunter2"
-        )
-        is None
-    )
+    assert await users_service.authenticate(session, sub="alice", password="hunter2") is None
 
 
 @pytest.mark.asyncio
@@ -353,9 +323,7 @@ def test_login_rate_limited_after_5_failures(client: TestClient, seeded, fake_re
     assert "rate limit" in detail.lower() or "too many" in detail.lower()
 
 
-def test_login_rate_limit_per_sub_does_not_block_other_subs(
-    client: TestClient, seeded, fake_redis
-):
+def test_login_rate_limit_per_sub_does_not_block_other_subs(client: TestClient, seeded, fake_redis):
     """Failed attempts on sub A don't lock out sub B."""
     for _ in range(5):
         client.post(
@@ -370,9 +338,7 @@ def test_login_rate_limit_per_sub_does_not_block_other_subs(
     assert r.status_code == 200
 
 
-def test_login_successful_does_not_consume_bucket(
-    client: TestClient, seeded, fake_redis
-):
+def test_login_successful_does_not_consume_bucket(client: TestClient, seeded, fake_redis):
     """A successful login does not increment the failure bucket."""
     # 4 failures + 1 success + check that 1 more failure is allowed.
     for i in range(4):

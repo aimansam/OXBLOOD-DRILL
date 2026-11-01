@@ -37,6 +37,7 @@ Why a Protocol (not an ABC)?
   * Adding a third backend (NATS, Kafka, ...) is a new module +
     one new ``elif`` in ``build_event_bus()``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -53,7 +54,7 @@ __all__ = [
     "RedisEventBus",
     "build_event_bus",
     "utcnow_iso",
-    "bus",              # legacy alias -- pre-R1 code imports it
+    "bus",  # legacy alias -- pre-R1 code imports it
     "reset_for_tests",
 ]
 
@@ -85,9 +86,7 @@ class EventBus(Protocol):
         """
         ...
 
-    def subscribe(
-        self, maxsize: int = 256
-    ) -> tuple[Any, Callable[[], None]]:
+    def subscribe(self, maxsize: int = 256) -> tuple[Any, Callable[[], None]]:
         """Return ``(queue, unsubscribe)``.
 
         ``queue.get()`` returns the next event. ``unsubscribe()``

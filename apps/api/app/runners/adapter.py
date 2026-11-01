@@ -11,6 +11,7 @@ Protocol-style interface, we can:
 Real adapter (RealProxmoxAdapter) will land in a later commit, once
 PVE auth is fixed.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -50,10 +51,10 @@ class NetworkSpec:
 class CloneSpec:
     """Inputs to `clone_vm`. All fields are required."""
 
-    source_vmid: int       # VMID of the template on PVE
-    new_vmid: int | None   # None => let PVE auto-assign
-    node: str              # which PVE node (e.g. "pve")
-    name: str              # VM name (must be unique within the node)
+    source_vmid: int  # VMID of the template on PVE
+    new_vmid: int | None  # None => let PVE auto-assign
+    node: str  # which PVE node (e.g. "pve")
+    name: str  # VM name (must be unique within the node)
     template_name: str | None = None
     cores: int | None = None
     sockets: int | None = None
@@ -100,7 +101,7 @@ class VmState:
     vmid: int
     node: str
     name: str
-    status: str           # "stopped" | "running" | "paused"
+    status: str  # "stopped" | "running" | "paused"
     ip: str | None = None  # primary IP, if known
 
 
@@ -131,11 +132,15 @@ class ProxmoxAdapter(ABC):
         checks = []
         for name in sorted({asset["template"] for asset in spec.get("assets", [])}):
             found = await self.find_template(name)
-            checks.append({
-                "id": f"template:{name}", "ready": found is not None,
-                "detail": f"Template {name} is available." if found is not None
-                else f"Template {name} is missing. Import and validate it before preparing the range.",
-            })
+            checks.append(
+                {
+                    "id": f"template:{name}",
+                    "ready": found is not None,
+                    "detail": f"Template {name} is available."
+                    if found is not None
+                    else f"Template {name} is missing. Import and validate it before preparing the range.",
+                }
+            )
         return checks
 
     @abstractmethod
@@ -169,9 +174,7 @@ class ProxmoxAdapter(ABC):
         """Set the PVE display name without changing the VMID or guest hostname."""
 
     @abstractmethod
-    async def ensure_vm_running(
-        self, name: str, node: str, timeout_s: float = 90.0
-    ) -> VmState:
+    async def ensure_vm_running(self, name: str, node: str, timeout_s: float = 90.0) -> VmState:
         """Find and start a permanent VM, returning its running state."""
 
     @abstractmethod

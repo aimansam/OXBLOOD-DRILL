@@ -10,6 +10,7 @@ Exit codes:
     1  one or more files failed
     2  usage / IO error
 """
+
 from __future__ import annotations
 
 import argparse
@@ -66,9 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Scenario YAML files or directories (recursive).",
     )
-    parser.add_argument(
-        "-q", "--quiet", action="store_true", help="Only print on failure."
-    )
+    parser.add_argument("-q", "--quiet", action="store_true", help="Only print on failure.")
     args = parser.parse_args(argv)
 
     files: list[Path] = []

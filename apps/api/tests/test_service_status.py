@@ -11,6 +11,7 @@ suite focuses on:
 We don't run against a real PVE -- admin_svc.probe_pve() is patched
 to return a sentinel dict.
 """
+
 from __future__ import annotations
 
 import pytest

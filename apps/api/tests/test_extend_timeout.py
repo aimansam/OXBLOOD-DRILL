@@ -56,7 +56,7 @@ async def test_runner_extend_timeout_happy_path(session: AsyncSession):
     await session.commit()
 
     runner = Runner(adapter=MockProxmoxAdapter())
-    
+
     # Pre-set deadline
     Runner._active_deadlines[run.id] = datetime.now(UTC) + timedelta(minutes=10)
 
@@ -73,13 +73,17 @@ async def test_runner_extend_timeout_happy_path(session: AsyncSession):
 
     # Check AuditLog
     audits = (
-        await session.execute(
-            select(AuditLog).where(
-                AuditLog.run_id == run.id,
-                AuditLog.action == AuditAction.RUN_EXTENDED,
+        (
+            await session.execute(
+                select(AuditLog).where(
+                    AuditLog.run_id == run.id,
+                    AuditLog.action == AuditAction.RUN_EXTENDED,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(audits) == 1
     assert audits[0].actor == "alice"
     assert audits[0].details["extended_by_min"] == 30

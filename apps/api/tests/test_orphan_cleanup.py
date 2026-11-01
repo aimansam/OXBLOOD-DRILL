@@ -5,6 +5,7 @@ are exercised directly with a mock adapter. HTTP-layer RBAC +
 JSON-shape checks live in ``test_admin_router.py`` and were
 covered by live curl in the Q22 deployment.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -96,9 +97,7 @@ async def test_list_orphans_returns_old_enough(session):
 
 @pytest.mark.asyncio
 async def test_list_orphans_skips_live_runs(session):
-    await _mk_orphan(
-        session, 9003, run_status=models.RunStatus.RUNNING, age_seconds=600
-    )
+    await _mk_orphan(session, 9003, run_status=models.RunStatus.RUNNING, age_seconds=600)
     out = await svc.list_orphans(session, grace_minutes=0)
     vmids = [c.pve_vmid for c in out]
     assert 9003 not in vmids
@@ -169,9 +168,7 @@ async def test_list_orphans_skips_missing_vmid(session):
     leave pve_vmid explicitly None without the vmid-fallback
     filling it in.
     """
-    run = models.Run(
-        scenario_id=1, started_by="q22", status=models.RunStatus.SUCCEEDED
-    )
+    run = models.Run(scenario_id=1, started_by="q22", status=models.RunStatus.SUCCEEDED)
     session.add(run)
     await session.flush()
     a = models.Asset(
@@ -198,9 +195,7 @@ async def test_list_orphans_skips_missing_vmid(session):
 async def test_cleanup_orphans_flips_status_and_audits(session):
     a = await _mk_orphan(session, 9010, age_seconds=600)
     adapter = _fake_adapter()
-    result = await svc.cleanup_orphans(
-        session, adapter, "q22-actor", grace_minutes=0
-    )
+    result = await svc.cleanup_orphans(session, adapter, "q22-actor", grace_minutes=0)
     assert result.scanned == 1
     assert result.destroyed == 1
     assert result.failed == []
@@ -210,11 +205,17 @@ async def test_cleanup_orphans_flips_status_and_audits(session):
     assert a.error is None
     assert a.cleaned_at is not None
 
-    audit = (await session.execute(
-        select(models.AuditLog).where(
-            models.AuditLog.action == models.AuditAction.ASSET_CLEANED
+    audit = (
+        (
+            await session.execute(
+                select(models.AuditLog).where(
+                    models.AuditLog.action == models.AuditAction.ASSET_CLEANED
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(audit) == 1
     row = audit[0]
     assert row.asset_id == a.id
@@ -230,9 +231,7 @@ async def test_cleanup_orphans_records_failure_and_keeps_status(session):
     adapter = MagicMock()
     adapter.stop_vm = AsyncMock(return_value=None)
     adapter.destroy_vm = AsyncMock(side_effect=RuntimeError("PVE down"))
-    result = await svc.cleanup_orphans(
-        session, adapter, "q22", grace_minutes=0
-    )
+    result = await svc.cleanup_orphans(session, adapter, "q22", grace_minutes=0)
     assert result.scanned == 1
     assert result.destroyed == 0
     assert len(result.failed) == 1
@@ -260,13 +259,9 @@ async def test_cleanup_orphans_idempotent(session):
 @pytest.mark.asyncio
 async def test_cleanup_orphans_skips_running_run(session):
     """Orphan whose run is still RUNNING is skipped, not destroyed."""
-    a = await _mk_orphan(
-        session, 9013, run_status=models.RunStatus.RUNNING, age_seconds=600
-    )
+    a = await _mk_orphan(session, 9013, run_status=models.RunStatus.RUNNING, age_seconds=600)
     adapter = _fake_adapter()
-    result = await svc.cleanup_orphans(
-        session, adapter, "q22", grace_minutes=0
-    )
+    result = await svc.cleanup_orphans(session, adapter, "q22", grace_minutes=0)
     assert result.scanned == 0  # list_orphans filtered it out
     assert result.destroyed == 0
     adapter.destroy_vm.assert_not_called()
@@ -280,9 +275,7 @@ async def test_cleanup_orphans_respects_asset_ids_filter(session):
     a1 = await _mk_orphan(session, 9100, age_seconds=600)
     a2 = await _mk_orphan(session, 9101, age_seconds=600)
     adapter = _fake_adapter()
-    result = await svc.cleanup_orphans(
-        session, adapter, "q22", grace_minutes=0, asset_ids=[a2.id]
-    )
+    result = await svc.cleanup_orphans(session, adapter, "q22", grace_minutes=0, asset_ids=[a2.id])
     assert result.scanned == 1
     assert result.destroyed == 1
     await session.refresh(a1)

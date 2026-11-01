@@ -4,6 +4,7 @@ Positive: every shipped example validates.
 Negative: each negative case asserts a SPECIFIC error substring so the
 test fails loudly if the schema is loosened accidentally.
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -102,7 +103,8 @@ def test_short_vm_names_are_unique_per_scenario(example_files) -> None:
 def test_cli_exits_zero(example_files) -> None:
     result = subprocess.run(
         ["python3", str(VALIDATOR_CLI), *map(str, example_files)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, f"CLI failed:\n{result.stderr}"
 
@@ -136,7 +138,10 @@ def _minimal_valid() -> dict:
             "telemetry": {"sinks": [{"type": "stdout"}]},
             "scoring": {
                 "blue": {"rules": [{"id": "detection_speed", "weight": 100}], "pass_threshold": 70},
-                "red": {"rules": [{"id": "objective_completion", "weight": 100}], "pass_threshold": 50},
+                "red": {
+                    "rules": [{"id": "objective_completion", "weight": 100}],
+                    "pass_threshold": 50,
+                },
             },
             "win_conditions": {"red": ["Compromise the box."], "blue": ["Detect the box."]},
             "artifacts": {"sink_to": "minio", "retention_days": 7},
@@ -148,9 +153,7 @@ def _assert_one_error(validator, data: dict, needle: str) -> None:
     errors = list(validator.iter_errors(data))
     assert errors, "expected validation error, got none"
     msgs = " | ".join(e.message for e in errors)
-    assert needle in msgs, (
-        f"expected error containing {needle!r}, got: {msgs}"
-    )
+    assert needle in msgs, f"expected error containing {needle!r}, got: {msgs}"
 
 
 # --- negative ----------------------------------------------------------------
@@ -212,12 +215,14 @@ def test_unknown_nested_field(validator) -> None:
 
 def test_duplicate_asset_roles(validator) -> None:
     bad = _minimal_valid()
-    bad["spec"]["assets"].append({
-        "role": "red_attacker",  # duplicate
-        "kind": "vm",
-        "template": "tpl-kali",
-        "networks": ["corp_vlan"],
-    })
+    bad["spec"]["assets"].append(
+        {
+            "role": "red_attacker",  # duplicate
+            "kind": "vm",
+            "template": "tpl-kali",
+            "networks": ["corp_vlan"],
+        }
+    )
     _assert_one_error(validator, bad, "has non-unique elements")
 
 

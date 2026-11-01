@@ -3,6 +3,7 @@
 These tests use a fake ProxmoxAPI client object to avoid network I/O.
 Live PVE connectivity is verified manually via the running container.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -48,7 +49,16 @@ class FakeResourcesAPI:
 class FakeClient:
     """Minimal stand-in for proxmoxer.ProxmoxAPI for read-only calls."""
 
-    def __init__(self, *, version=None, nodes=None, storage=None, qemu_per_node=None, resources=None, fail_nodes=False):
+    def __init__(
+        self,
+        *,
+        version=None,
+        nodes=None,
+        storage=None,
+        qemu_per_node=None,
+        resources=None,
+        fail_nodes=False,
+    ):
         self._version = version
         self._nodes = nodes or []
         self._storage = storage or []
@@ -161,15 +171,35 @@ def test_list_nodes_wraps_errors():
 
 
 def test_list_virtual_machines_returns_live_guests_and_excludes_templates():
-    client = FakeClient(resources=[
-        {"vmid": 101, "name": "divide-red", "node": "pve", "status": "running", "type": "qemu", "cpu": .25, "maxcpu": 4, "mem": 1024, "maxmem": 4096, "template": 0},
-        {"vmid": 9000, "name": "tpl-win", "node": "pve", "status": "stopped", "type": "qemu", "template": 1},
-    ])
+    client = FakeClient(
+        resources=[
+            {
+                "vmid": 101,
+                "name": "divide-red",
+                "node": "pve",
+                "status": "running",
+                "type": "qemu",
+                "cpu": 0.25,
+                "maxcpu": 4,
+                "mem": 1024,
+                "maxmem": 4096,
+                "template": 0,
+            },
+            {
+                "vmid": 9000,
+                "name": "tpl-win",
+                "node": "pve",
+                "status": "stopped",
+                "type": "qemu",
+                "template": 1,
+            },
+        ]
+    )
     with patch("app.services.proxmox.get_proxmox_client", return_value=client):
         guests = list_virtual_machines()
     assert len(guests) == 1
     assert guests[0]["vmid"] == 101
-    assert guests[0]["cpu_pct"] == .25
+    assert guests[0]["cpu_pct"] == 0.25
     assert guests[0]["max_memory_bytes"] == 4096
 
 
@@ -248,6 +278,7 @@ def test_not_configured_propagates():
 # Router-level tests (mocked helpers)
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_settings_and_cache():
     """Reset lru_caches before each test so env-var changes take effect."""
@@ -286,7 +317,10 @@ class TestRouterSuccess:
     def test_health_returns_200(self, client, monkeypatch):
         _configure_pve_overlay()
         from app.routers import proxmox as r
-        with patch.object(r, "get_version", return_value={"version": "8.2.4", "release": "5.15", "repoid": "abc"}):
+
+        with patch.object(
+            r, "get_version", return_value={"version": "8.2.4", "release": "5.15", "repoid": "abc"}
+        ):
             r_proxmox = client.get("/api/v1/proxmox/health")
         assert r_proxmox.status_code == 200
         body = r_proxmox.json()
@@ -296,7 +330,10 @@ class TestRouterSuccess:
     def test_nodes_returns_200_with_items(self, client, monkeypatch):
         _configure_pve_overlay()
         from app.routers import proxmox as r
-        with patch.object(r, "list_nodes", return_value=[{"node": "pve", "status": "online", "level": "c"}]):
+
+        with patch.object(
+            r, "list_nodes", return_value=[{"node": "pve", "status": "online", "level": "c"}]
+        ):
             r_proxmox = client.get("/api/v1/proxmox/nodes")
         assert r_proxmox.status_code == 200
         body = r_proxmox.json()
@@ -306,7 +343,12 @@ class TestRouterSuccess:
     def test_storage_returns_200(self, client, monkeypatch):
         _configure_pve_overlay()
         from app.routers import proxmox as r
-        with patch.object(r, "list_storage", return_value=[{"storage": "local-lvm", "type": "lvmthin", "free_bytes": 1}]):
+
+        with patch.object(
+            r,
+            "list_storage",
+            return_value=[{"storage": "local-lvm", "type": "lvmthin", "free_bytes": 1}],
+        ):
             r_proxmox = client.get("/api/v1/proxmox/storage")
         assert r_proxmox.status_code == 200
         assert r_proxmox.json()["total"] == 1
@@ -314,7 +356,10 @@ class TestRouterSuccess:
     def test_templates_filters_by_node(self, client, monkeypatch):
         _configure_pve_overlay()
         from app.routers import proxmox as r
-        with patch.object(r, "list_templates", return_value=[{"vmid": 9000, "name": "tpl-kali", "node": "pve"}]) as mck:
+
+        with patch.object(
+            r, "list_templates", return_value=[{"vmid": 9000, "name": "tpl-kali", "node": "pve"}]
+        ) as mck:
             r_proxmox = client.get("/api/v1/proxmox/templates?node=pve")
         assert r_proxmox.status_code == 200
         assert mck.call_args.kwargs == {"node": "pve"}
@@ -322,6 +367,7 @@ class TestRouterSuccess:
     def test_health_returns_502_on_api_error(self, client, monkeypatch):
         _configure_pve_overlay()
         from app.routers import proxmox as r
+
         with patch.object(r, "get_version", side_effect=r.ProxmoxAPIError("Connection refused")):
             r_proxmox = client.get("/api/v1/proxmox/health")
         assert r_proxmox.status_code == 502

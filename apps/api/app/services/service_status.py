@@ -60,9 +60,7 @@ def _probe_wg_easy() -> dict[str, Any]:
         target = "127.0.0.1"
 
     try:
-        with socket.create_connection(
-            (target, _WG_PORT), timeout=_WG_PROBE_TIMEOUT_S
-        ):
+        with socket.create_connection((target, _WG_PORT), timeout=_WG_PROBE_TIMEOUT_S):
             return {"state": "up", "target": f"{target}:{_WG_PORT}/tcp"}
     except OSError as e:
         return {
@@ -90,9 +88,9 @@ def _disk_summary(path: str = "/app") -> dict[str, Any]:
         u = shutil.disk_usage(path)
         return {
             "path": path,
-            "total_gb": round(u.total / (1024 ** 3), 2),
-            "used_gb": round(u.used / (1024 ** 3), 2),
-            "free_gb": round(u.free / (1024 ** 3), 2),
+            "total_gb": round(u.total / (1024**3), 2),
+            "used_gb": round(u.used / (1024**3), 2),
+            "free_gb": round(u.free / (1024**3), 2),
             "percent_used": round(100 * u.used / u.total, 1) if u.total else 0,
         }
     except OSError as e:
@@ -104,20 +102,12 @@ async def _audit_recency(db: AsyncSession) -> dict[str, Any]:
     'silent' deployments (no runs, no admin actions, no PVE calls).
     """
     try:
-        row = (
-            await db.execute(
-                select(func.max(AuditLog.at))
-            )
-        ).scalar_one_or_none()
+        row = (await db.execute(select(func.max(AuditLog.at)))).scalar_one_or_none()
         if row is None:
             return {"latest": None, "state": "empty"}
         now = datetime.now(UTC)
         age = now - row
-        state = (
-            "fresh"
-            if age < timedelta(hours=24)
-            else "stale"
-        )
+        state = "fresh" if age < timedelta(hours=24) else "stale"
         return {
             "latest": row.isoformat(),
             "age_hours": round(age.total_seconds() / 3600, 1),

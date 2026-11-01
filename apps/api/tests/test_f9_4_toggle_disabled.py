@@ -12,6 +12,7 @@ These tests pin the contract:
 We seed one admin + one red user per test (per-test DB cleanup
 autouse fixture, mirroring the F10 / F11 pattern).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -105,6 +106,7 @@ async def _seed_user_disabled(sub: str, role: str, *, disabled: bool) -> None:
 
 # --- happy paths -------------------------------------------------------
 
+
 def test_admin_toggles_enabled_user_to_disabled(client):
     """A fresh user starts enabled. The toggle flips to disabled."""
     _run_async(_seed_user("admin-1", role="admin"))
@@ -150,6 +152,7 @@ def test_admin_toggles_returns_no_password_hash(client):
 
 
 # --- failure paths ------------------------------------------------------
+
 
 def test_toggle_unknown_user_returns_404(client):
     _run_async(_seed_user("admin-1", role="admin"))
@@ -199,6 +202,7 @@ def test_toggle_lead_cannot_returns_403(client):
 
 
 # --- end-to-end: toggle + login flow ----------------------------------
+
 
 def test_disabled_user_cannot_login_after_toggle(client):
     """End-to-end: admin disables a user -> login fails (401)."""

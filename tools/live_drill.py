@@ -25,6 +25,7 @@ spin up real VMs. Run inside the API container:
         exec api python /workdir/tools/live_drill.py \\
             --scenario phish-to-ransom --timeout 600
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,9 +66,7 @@ def _start_drill(client: httpx.Client, scenario_id: int) -> dict:
             body = r.json()
         except Exception:  # noqa: BLE001
             body = r.text
-        raise RuntimeError(
-            f"POST /api/v1/drills failed ({r.status_code}): {body}"
-        )
+        raise RuntimeError(f"POST /api/v1/drills failed ({r.status_code}): {body}")
     return r.json()
 
 

@@ -18,6 +18,7 @@ We reuse the seed helper from ``test_reports.py`` (terminal run +
 audit + asset). On top of that we add flag_submissions +
 telemetry_events rows so the rendered markdown has data to show.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -88,9 +89,7 @@ def _clean_db_after():
         loop.close()
 
 
-async def _seed_terminal_run_with_events(
-    *, started_by: str = "alice"
-) -> tuple[int, int]:
+async def _seed_terminal_run_with_events(*, started_by: str = "alice") -> tuple[int, int]:
     """Seed a terminal run with assets + flag submissions +
     telemetry events. Returns (run_id, scenario_id)."""
     sm = get_sessionmaker()
@@ -179,6 +178,7 @@ async def _seed_terminal_run_with_events(
 
 
 # --- happy path ---------------------------------------------------------
+
 
 def test_get_debrief_returns_markdown(client):
     """Terminal run → 200 with markdown body."""
@@ -300,6 +300,7 @@ def test_get_debrief_content_disposition_inline(client):
 
 # --- failure paths ------------------------------------------------------
 
+
 def test_get_debrief_unknown_run_returns_404(client):
     r = client.get(
         "/api/v1/drills/9999999/debrief.md",
@@ -315,15 +316,21 @@ def test_get_debrief_anonymous_returns_401(client):
 
 def test_get_debrief_non_terminal_returns_409(client):
     """A pending/running run can't be debriefed."""
+
     async def _seed_running():
         sm = get_sessionmaker()
         name = _now_name("f11-running")
         async with sm() as session:
             s = db_models.Scenario(
-                name=name, title="running", version=1, difficulty="smoke",
-                duration_min=5, tags=[],
+                name=name,
+                title="running",
+                version=1,
+                difficulty="smoke",
+                duration_min=5,
+                tags=[],
                 spec={
-                    "apiVersion": "divide/v1", "kind": "Scenario",
+                    "apiVersion": "divide/v1",
+                    "kind": "Scenario",
                     "metadata": {"name": name, "title": "running", "version": 1},
                     "spec": {
                         "objectives": {"red": ["x"], "blue": ["y"]},
@@ -341,6 +348,7 @@ def test_get_debrief_non_terminal_returns_409(client):
             session.add(run)
             await session.commit()
             return run.id
+
     run_id = _run_async(_seed_running())
     r = client.get(
         f"/api/v1/drills/{run_id}/debrief.md",
@@ -356,15 +364,21 @@ def test_get_debrief_red_cannot_see_another_team_run(client):
     Mirror the existing ``test_report_403_red_cannot_see_anothers_run``
     semantics from ``test_reports.py``.
     """
+
     async def _seed_other_run():
         sm = get_sessionmaker()
         name = _now_name("f11-other")
         async with sm() as session:
             s = db_models.Scenario(
-                name=name, title="other", version=1, difficulty="smoke",
-                duration_min=5, tags=[],
+                name=name,
+                title="other",
+                version=1,
+                difficulty="smoke",
+                duration_min=5,
+                tags=[],
                 spec={
-                    "apiVersion": "divide/v1", "kind": "Scenario",
+                    "apiVersion": "divide/v1",
+                    "kind": "Scenario",
                     "metadata": {"name": name, "title": "other", "version": 1},
                     "spec": {
                         "objectives": {"red": ["x"], "blue": ["y"]},
@@ -382,6 +396,7 @@ def test_get_debrief_red_cannot_see_another_team_run(client):
             session.add(run)
             await session.commit()
             return run.id
+
     run_id = _run_async(_seed_other_run())
     r = client.get(
         f"/api/v1/drills/{run_id}/debrief.md",

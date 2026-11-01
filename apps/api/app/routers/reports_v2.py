@@ -2,6 +2,7 @@
 
 Provides endpoints for report management, findings, evidence, and benchmarks.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -36,6 +37,7 @@ router = APIRouter(prefix="/api/v2", tags=["Reports & Benchmarks v2"])
 # ============================================================================
 # Pydantic Models
 # ============================================================================
+
 
 class ReportCreate(BaseModel):
     title: str
@@ -98,6 +100,7 @@ class EvidenceCreate(BaseModel):
 # Helper Functions
 # ============================================================================
 
+
 def report_to_dict(report) -> dict:
     """Convert report to dict."""
     return {
@@ -130,7 +133,9 @@ def finding_to_dict(finding) -> dict:
         "report_id": finding.report_id,
         "title": finding.title,
         "description": finding.description,
-        "severity": finding.severity.value if hasattr(finding.severity, "value") else finding.severity,
+        "severity": finding.severity.value
+        if hasattr(finding.severity, "value")
+        else finding.severity,
         "category": finding.category,
         "evidence": finding.evidence,
         "impact": finding.impact,
@@ -147,7 +152,9 @@ def evidence_to_dict(evidence) -> dict:
     return {
         "id": evidence.id,
         "finding_id": evidence.finding_id,
-        "evidence_type": evidence.evidence_type.value if hasattr(evidence.evidence_type, "value") else evidence.evidence_type,
+        "evidence_type": evidence.evidence_type.value
+        if hasattr(evidence.evidence_type, "value")
+        else evidence.evidence_type,
         "file_path": evidence.file_path,
         "file_size": evidence.file_size,
         "mime_type": evidence.mime_type,
@@ -175,7 +182,9 @@ def benchmark_to_dict(benchmark) -> dict:
         "total_drills_completed": benchmark.total_drills_completed,
         "total_flags_captured": benchmark.total_flags_captured,
         "average_completion_time_seconds": benchmark.average_completion_time_seconds,
-        "last_calculated_at": benchmark.last_calculated_at.isoformat() if benchmark.last_calculated_at else None,
+        "last_calculated_at": benchmark.last_calculated_at.isoformat()
+        if benchmark.last_calculated_at
+        else None,
     }
 
 
@@ -202,6 +211,7 @@ def benchmark_history_to_dict(history) -> dict:
 # ============================================================================
 # Reports Endpoints
 # ============================================================================
+
 
 @router.post("/reports")
 async def post_report(
@@ -248,7 +258,7 @@ async def get_report_details(
     report = await get_report(session, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-    
+
     findings = await list_findings(session, report_id)
     result = report_to_dict(report)
     result["findings"] = [finding_to_dict(f) for f in findings]
@@ -284,7 +294,10 @@ async def post_report_submit(
     report = await submit_report(session, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-    return {"message": "Report submitted for review", "status": report.status.value if hasattr(report.status, "value") else report.status}
+    return {
+        "message": "Report submitted for review",
+        "status": report.status.value if hasattr(report.status, "value") else report.status,
+    }
 
 
 @router.post("/reports/{report_id}/grade")
@@ -314,6 +327,7 @@ async def post_report_grade(
 # ============================================================================
 # Findings Endpoints
 # ============================================================================
+
 
 @router.get("/reports/{report_id}/findings")
 async def get_findings(
@@ -400,6 +414,7 @@ async def delete_finding_endpoint(
 # Evidence Endpoints
 # ============================================================================
 
+
 @router.get("/reports/findings/{finding_id}/evidence")
 async def get_finding_evidence(
     finding_id: int,
@@ -447,6 +462,7 @@ async def delete_evidence_endpoint(
 # ============================================================================
 # Benchmarks Endpoints
 # ============================================================================
+
 
 @router.get("/users/{user_id}/benchmarks")
 async def get_user_benchmark_endpoint(

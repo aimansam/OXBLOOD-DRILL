@@ -18,6 +18,7 @@ The actual HTTP route lives in ``routers/drills.py``. We keep
 the parsing + scoring + persistence here so each piece is
 testable in isolation.
 """
+
 from __future__ import annotations
 
 import hmac
@@ -50,21 +51,14 @@ class FlagError(Exception):
         )
 
     @classmethod
-    def wrong_team(
-        cls, team: str, flag_side: str, runner_role: str
-    ) -> FlagError:
+    def wrong_team(cls, team: str, flag_side: str, runner_role: str) -> FlagError:
         return cls(
             "wrong_team",
-            (
-                f"role {runner_role!r} cannot capture a {flag_side!r}-side "
-                f"flag with team={team!r}"
-            ),
+            (f"role {runner_role!r} cannot capture a {flag_side!r}-side flag with team={team!r}"),
         )
 
     @classmethod
-    def duplicate(
-        cls, team: str, flag_id: str
-    ) -> FlagError:
+    def duplicate(cls, team: str, flag_id: str) -> FlagError:
         return cls(
             "duplicate",
             f"team {team!r} already captured flag {flag_id!r}",
@@ -81,7 +75,7 @@ class FlagSpec:
     """
 
     flag_id: str
-    side: str            # "red" hunts | "blue" hunts | "self"
+    side: str  # "red" hunts | "blue" hunts | "self"
     value: str
     planted_on_role: str
     window_seconds: int

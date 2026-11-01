@@ -15,6 +15,7 @@ Exit codes:
     1  one or more YAMLs were skipped (validation error)
     2  usage / IO error
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,7 +53,10 @@ def _ensure_schema() -> None:
         cwd=ROOT,
     )
     if r.returncode != 0:
-        print(f"alembic upgrade head failed (exit={r.returncode}):\n--- stdout ---\n{r.stdout}\n--- stderr ---\n{r.stderr}", file=sys.stderr)
+        print(
+            f"alembic upgrade head failed (exit={r.returncode}):\n--- stdout ---\n{r.stdout}\n--- stderr ---\n{r.stderr}",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
 
@@ -98,12 +102,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {p} does not exist", file=sys.stderr)
             return 2
 
-    report = asyncio.run(
-        _run(paths, archive_missing=not args.no_archive)
-    )
+    report = asyncio.run(_run(paths, archive_missing=not args.no_archive))
 
     if args.json:
         import json
+
         json.dump(report.as_dict(), sys.stdout, indent=2, default=str)
         sys.stdout.write("\n")
     else:

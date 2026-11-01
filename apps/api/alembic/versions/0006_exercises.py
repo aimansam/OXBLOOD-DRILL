@@ -19,6 +19,7 @@ Revision ID: 0006_exercises
 Revises: 0005_flag_submissions
 Create Date: 2026-08-25
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -57,9 +58,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
         ),
-        sa.ForeignKeyConstraint(
-            ["scenario_id"], ["scenarios.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["scenario_id"], ["scenarios.id"], ondelete="RESTRICT"),
         sa.UniqueConstraint("name", name="uq_exercises_name"),
     )
     op.create_index("ix_exercises_status", "exercises", ["status"])
@@ -75,9 +74,7 @@ def upgrade() -> None:
                 nullable=True,
             )
         )
-        batch_op.add_column(
-            sa.Column("team", sa.String(length=16), nullable=True)
-        )
+        batch_op.add_column(sa.Column("team", sa.String(length=16), nullable=True))
 
     # teams
     op.create_table(
@@ -99,12 +96,8 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
         ),
-        sa.ForeignKeyConstraint(
-            ["exercise_id"], ["exercises.id"], ondelete="CASCADE"
-        ),
-        sa.UniqueConstraint(
-            "exercise_id", "name", name="uq_teams_exercise_name"
-        ),
+        sa.ForeignKeyConstraint(["exercise_id"], ["exercises.id"], ondelete="CASCADE"),
+        sa.UniqueConstraint("exercise_id", "name", name="uq_teams_exercise_name"),
     )
 
     # team_memberships
@@ -127,14 +120,11 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
         ),
-        sa.ForeignKeyConstraint(
-            ["exercise_id"], ["exercises.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["team_id"], ["teams.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["exercise_id"], ["exercises.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["team_id"], ["teams.id"], ondelete="CASCADE"),
         sa.UniqueConstraint(
-            "sub", "exercise_id",
+            "sub",
+            "exercise_id",
             name="uq_team_membership_user_exercise",
         ),
     )

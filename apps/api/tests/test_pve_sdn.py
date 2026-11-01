@@ -24,6 +24,7 @@ Coverage:
 The tests inject a fake httpx transport via ``httpx.MockTransport``
 so no real network calls happen.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -107,11 +108,7 @@ def _make_handler(
             return httpx.Response(200, json={"data": zones or []})
         if method == "GET" and path == "/api2/json/cluster/sdn/vnets":
             return httpx.Response(200, json={"data": vnets or []})
-        if (
-            method == "GET"
-            and path.startswith("/api2/json/nodes/")
-            and path.endswith("/network")
-        ):
+        if method == "GET" and path.startswith("/api2/json/nodes/") and path.endswith("/network"):
             return httpx.Response(200, json={"data": node_ifaces or []})
         if method == "POST" and path == "/api2/json/cluster/sdn/zones":
             if on_zone_create is not None:
@@ -126,9 +123,7 @@ def _make_handler(
     return httpx.MockTransport(handler), requests
 
 
-def _patch_httpx(
-    monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTransport
-) -> None:
+def _patch_httpx(monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTransport) -> None:
     """Replace httpx.AsyncClient inside the sdn module."""
 
     class _PatchedClient(httpx.AsyncClient):
@@ -145,13 +140,9 @@ def _patch_httpx(
 class TestApplySdnPlan:
     """Happy-path applier tests. All network calls are mocked."""
 
-    def test_creates_zone_and_three_vnets(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_creates_zone_and_three_vnets(self, monkeypatch: pytest.MonkeyPatch) -> None:
         iface_names = ["vmbr100", "vmbr101", "vmbr102"]
-        node_ifaces = [
-            {"iface": n, "type": "bridge"} for n in iface_names
-        ]
+        node_ifaces = [{"iface": n, "type": "bridge"} for n in iface_names]
         transport, requests = _make_handler(
             zones=[],
             vnets=[],
@@ -170,8 +161,7 @@ class TestApplySdnPlan:
 
         # Zone POST body
         zone_posts = [
-            r for r in requests
-            if r.method == "POST" and r.url.path.endswith("/cluster/sdn/zones")
+            r for r in requests if r.method == "POST" and r.url.path.endswith("/cluster/sdn/zones")
         ]
         assert len(zone_posts) == 1
         body = json.loads(zone_posts[0].content.decode())
@@ -180,18 +170,13 @@ class TestApplySdnPlan:
 
         # VNet POST bodies
         vnet_posts = [
-            r for r in requests
-            if r.method == "POST" and r.url.path.endswith("/cluster/sdn/vnets")
+            r for r in requests if r.method == "POST" and r.url.path.endswith("/cluster/sdn/vnets")
         ]
-        vnet_names = [
-            json.loads(r.content.decode())["vnet"] for r in vnet_posts
-        ]
+        vnet_names = [json.loads(r.content.decode())["vnet"] for r in vnet_posts]
         assert sorted(vnet_names) == ["vmbr100", "vmbr101", "vmbr102"]
 
         assert result.zone_created is True
-        assert sorted(result.vnets_created) == [
-            "vmbr100", "vmbr101", "vmbr102"
-        ]
+        assert sorted(result.vnets_created) == ["vmbr100", "vmbr101", "vmbr102"]
         assert result.vnets_already_present == []
         assert result.propagate_ok is True
 
@@ -204,9 +189,7 @@ class TestApplySdnPlan:
             {"vnet": "vmbr101", "zone": DEFAULT_ZONE},
             {"vnet": "vmbr102", "zone": DEFAULT_ZONE},
         ]
-        node_ifaces = [
-            {"iface": n, "type": "bridge"} for n in ["vmbr100", "vmbr101", "vmbr102"]
-        ]
+        node_ifaces = [{"iface": n, "type": "bridge"} for n in ["vmbr100", "vmbr101", "vmbr102"]]
         transport, requests = _make_handler(
             zones=existing_zones,
             vnets=existing_vnets,
@@ -224,9 +207,7 @@ class TestApplySdnPlan:
 
         assert result.zone_created is False
         assert result.vnets_created == []
-        assert sorted(result.vnets_already_present) == [
-            "vmbr100", "vmbr101", "vmbr102"
-        ]
+        assert sorted(result.vnets_already_present) == ["vmbr100", "vmbr101", "vmbr102"]
         assert result.propagate_ok is True
 
     def test_propagation_timeout_sets_propagate_ok_false(
@@ -241,6 +222,7 @@ class TestApplySdnPlan:
 
         # Shrink the timeout so the test runs in <1s
         from app.services import pve_sdn
+
         monkeypatch.setattr(pve_sdn, "PROPAGATE_TIMEOUT_S", 0.5)
         monkeypatch.setattr(pve_sdn, "PROBE_INTERVAL_S", 0.1)
 
@@ -253,9 +235,7 @@ class TestApplySdnPlan:
         assert result.propagate_ok is False
         assert result.propagation_wait_s >= 0.5
 
-    def test_dry_run_does_not_call_pve(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_dry_run_does_not_call_pve(self, monkeypatch: pytest.MonkeyPatch) -> None:
         transport, requests = _make_handler()
         _patch_httpx(monkeypatch, transport)
 
@@ -269,14 +249,10 @@ class TestApplySdnPlan:
         assert result.vnets_created == []
         # In dry-run, the would-be bridges are listed in
         # already_present -- lets the wizard render "would create N".
-        assert sorted(result.vnets_already_present) == [
-            "vmbr100", "vmbr101", "vmbr102"
-        ]
+        assert sorted(result.vnets_already_present) == ["vmbr100", "vmbr101", "vmbr102"]
         assert "would_create_vnets" in result.raw_responses[0]
 
-    def test_refuses_on_plan_conflicts(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_refuses_on_plan_conflicts(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from app.services.pve_bridges import BridgePlanError
 
         transport, requests = _make_handler()
@@ -285,10 +261,7 @@ class TestApplySdnPlan:
         auth = _make_auth()
         plan = BridgePlan(
             bridges=[],
-            conflicts=[
-                "bridge vmbr100: scenario 'a' declares CIDR X, "
-                "but 'b' already uses Y"
-            ],
+            conflicts=["bridge vmbr100: scenario 'a' declares CIDR X, but 'b' already uses Y"],
         )
 
         with pytest.raises(BridgePlanError):
@@ -319,9 +292,7 @@ class TestApplySdnPlan:
 class TestPermissionErrors:
     """PVE returns 401/403 with a permission name in the message body."""
 
-    def test_zone_create_403_raises_permission_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_zone_create_403_raises_permission_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def on_zone_create(req: httpx.Request) -> httpx.Response:
             return httpx.Response(
                 403,
@@ -350,9 +321,7 @@ class TestPermissionErrors:
         assert "pveum aclmod" in ei.value.pveum_hint
         assert "divide@pve" in ei.value.pveum_hint
 
-    def test_vnet_create_403_raises_permission_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_vnet_create_403_raises_permission_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def on_vnet_create(req: httpx.Request) -> httpx.Response:
             return httpx.Response(
                 403,
@@ -379,9 +348,7 @@ class TestPermissionErrors:
         assert "SDN.Allocate" in str(ei.value)
         assert ei.value.required_role == "SDN.Allocate"
 
-    def test_500_zone_already_exists_is_idempotent(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_500_zone_already_exists_is_idempotent(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """PVE returns 500 with 'already exists' on duplicate zone POSTs.
 
         We treat that as a no-op so apply_sdn_plan is safely re-runnable.
@@ -389,10 +356,7 @@ class TestPermissionErrors:
         transport, _ = _make_handler(
             zones=[],
             vnets=[],
-            node_ifaces=[
-                {"iface": n, "type": "bridge"}
-                for n in ["vmbr100", "vmbr101", "vmbr102"]
-            ],
+            node_ifaces=[{"iface": n, "type": "bridge"} for n in ["vmbr100", "vmbr101", "vmbr102"]],
         )
         _patch_httpx(monkeypatch, transport)
 
@@ -406,9 +370,7 @@ class TestPermissionErrors:
 class TestReadSdnState:
     """The wizard's pre-flight probe."""
 
-    def test_reachable_returns_zone_and_vnets(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_reachable_returns_zone_and_vnets(self, monkeypatch: pytest.MonkeyPatch) -> None:
         transport, _ = _make_handler(
             zones=[{"zone": DEFAULT_ZONE}],
             vnets=[{"vnet": "vmbr100", "zone": DEFAULT_ZONE}],
@@ -416,9 +378,7 @@ class TestReadSdnState:
         _patch_httpx(monkeypatch, transport)
 
         auth = _make_auth()
-        readiness = asyncio.run(
-            read_sdn_state(auth=auth, expected_vnets=["vmbr100", "vmbr101"])
-        )
+        readiness = asyncio.run(read_sdn_state(auth=auth, expected_vnets=["vmbr100", "vmbr101"]))
 
         assert readiness.reachable is True
         assert readiness.zone_present is True
@@ -427,9 +387,7 @@ class TestReadSdnState:
         assert readiness.vnets_present == ["vmbr100"]
         assert readiness.vnets_missing == ["vmbr101"]
 
-    def test_permission_error_returns_hint(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_permission_error_returns_hint(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             if request.method == "GET":
                 return httpx.Response(
@@ -445,9 +403,7 @@ class TestReadSdnState:
         _patch_httpx(monkeypatch, transport)
 
         auth = _make_auth()
-        readiness = asyncio.run(
-            read_sdn_state(auth=auth, expected_vnets=["vmbr100"])
-        )
+        readiness = asyncio.run(read_sdn_state(auth=auth, expected_vnets=["vmbr100"]))
 
         assert readiness.reachable is True
         assert readiness.error is not None
@@ -460,20 +416,22 @@ class TestReadSdnState:
 class TestGetActiveAuth:
     """DB overlay > env-var fallback for SDN auth."""
 
-    def test_uses_overlay_when_present(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_uses_overlay_when_present(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from app.services import proxmox
 
-        monkeypatch.setattr(proxmox, "_DB_OVERLAY", {
-            "host": "https://10.0.0.5",
-            "port": 8006,
-            "user": "alice@pve",
-            "token_id": "alice@pve!tk",
-            "token_secret": "s3cret",
-            "verify_ssl": True,
-            "node": "node-7",
-        })
+        monkeypatch.setattr(
+            proxmox,
+            "_DB_OVERLAY",
+            {
+                "host": "https://10.0.0.5",
+                "port": 8006,
+                "user": "alice@pve",
+                "token_id": "alice@pve!tk",
+                "token_secret": "s3cret",
+                "verify_ssl": True,
+                "node": "node-7",
+            },
+        )
         auth = get_active_auth()
         assert auth.base_url == "https://10.0.0.5:8006"
         assert auth.user == "alice@pve"
@@ -482,9 +440,7 @@ class TestGetActiveAuth:
         assert auth.verify_ssl is True
         assert auth.node == "node-7"
 
-    def test_falls_back_to_env(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_falls_back_to_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from app.services import proxmox
 
         monkeypatch.setattr(proxmox, "_DB_OVERLAY", None)
@@ -496,6 +452,7 @@ class TestGetActiveAuth:
         monkeypatch.setenv("PROXMOX_VERIFY_SSL", "false")
         monkeypatch.setenv("PROXMOX_NODE", "pve-node-2")
         from app.core.config import get_settings
+
         get_settings.cache_clear()
         try:
             auth = get_active_auth()
@@ -506,9 +463,7 @@ class TestGetActiveAuth:
         finally:
             get_settings.cache_clear()
 
-    def test_missing_host_raises_sdn_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_missing_host_raises_sdn_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from app.services import proxmox
 
         monkeypatch.setattr(proxmox, "_DB_OVERLAY", None)
@@ -516,6 +471,7 @@ class TestGetActiveAuth:
         monkeypatch.setenv("PROXMOX_TOKEN_ID", "x!y")
         monkeypatch.setenv("PROXMOX_TOKEN_SECRET", "z")
         from app.core.config import get_settings
+
         get_settings.cache_clear()
         try:
             with pytest.raises(SdnError) as ei:
@@ -544,12 +500,8 @@ class TestListEndpoints:
         vnets = asyncio.run(list_vnets(auth))
         assert vnets == [{"vnet": "vmbr100"}]
 
-    def test_list_node_ifaces(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        transport, _ = _make_handler(
-            node_ifaces=[{"iface": "vmbr0", "type": "bridge"}]
-        )
+    def test_list_node_ifaces(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        transport, _ = _make_handler(node_ifaces=[{"iface": "vmbr0", "type": "bridge"}])
         _patch_httpx(monkeypatch, transport)
 
         auth = _make_auth()
@@ -589,13 +541,9 @@ class TestPve9Compatibility:
         # Zone missing -> create; vnets all "already present" so we
         # don't accidentally test vnet creation in this case.
         existing_vnets = [
-            {"vnet": b.name, "zone": DEFAULT_ZONE}
-            for b in _three_bridge_plan().bridges
+            {"vnet": b.name, "zone": DEFAULT_ZONE} for b in _three_bridge_plan().bridges
         ]
-        node_ifaces = [
-            {"iface": b.name, "type": "bridge"}
-            for b in _three_bridge_plan().bridges
-        ]
+        node_ifaces = [{"iface": b.name, "type": "bridge"} for b in _three_bridge_plan().bridges]
         transport, _ = _make_handler(
             zones=[],
             vnets=existing_vnets,
@@ -611,22 +559,16 @@ class TestPve9Compatibility:
         assert len(captured) == 1
         body = captured[0]
         # Must NOT contain the legacy bridge field
-        assert "bridge" not in body, (
-            f"PVE 9 rejects the 'bridge' field; body was {body}"
-        )
+        assert "bridge" not in body, f"PVE 9 rejects the 'bridge' field; body was {body}"
         # Must NOT contain the legacy dhcp=none field (PVE 9 only
         # enumerates 'dnsmasq', so 'no DHCP' = omit the field).
-        assert "dhcp" not in body, (
-            f"PVE 9 rejects dhcp='none'; body was {body}"
-        )
+        assert "dhcp" not in body, f"PVE 9 rejects dhcp='none'; body was {body}"
         # Must contain the required fields
         assert body["zone"] == DEFAULT_ZONE
         assert body["type"] == "simple"
         assert body["mtu"] == 1500
 
-    def test_create_vnet_sends_no_tag(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_create_vnet_sends_no_tag(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """PVE 9 rejects both ``tag: -1`` and ``tag: N`` for Simple
         zones. We must omit the field entirely.
         """
@@ -639,10 +581,7 @@ class TestPve9Compatibility:
         transport, _ = _make_handler(
             zones=[{"zone": DEFAULT_ZONE}],
             vnets=[],
-            node_ifaces=[
-                {"iface": b.name, "type": "bridge"}
-                for b in _three_bridge_plan().bridges
-            ],
+            node_ifaces=[{"iface": b.name, "type": "bridge"} for b in _three_bridge_plan().bridges],
             on_vnet_create=on_vnet_create,
         )
         _patch_httpx(monkeypatch, transport)
@@ -654,8 +593,7 @@ class TestPve9Compatibility:
         assert len(captured) == 3
         for body in captured:
             assert "tag" not in body, (
-                f"PVE 9 rejects the 'tag' field on Simple-zone vnets; "
-                f"body was {body}"
+                f"PVE 9 rejects the 'tag' field on Simple-zone vnets; body was {body}"
             )
             assert "vnet" in body
             assert "zone" in body
@@ -676,9 +614,7 @@ class TestPve9Compatibility:
                 json={
                     "data": None,
                     "message": "Parameter verification failed.\n",
-                    "errors": {
-                        "bridge": "unexpected property 'bridge'"
-                    },
+                    "errors": {"bridge": "unexpected property 'bridge'"},
                 },
             )
 
@@ -702,9 +638,7 @@ class TestPve9Compatibility:
         assert "bridge" in msg
         assert "unexpected property" in msg
 
-    def test_pve_errors_dict_with_multiple_fields(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_pve_errors_dict_with_multiple_fields(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Multiple field-level errors should all be surfaced."""
 
         def on_zone_create(req: httpx.Request) -> httpx.Response:

@@ -17,6 +17,7 @@ What we assert:
 We exercise the preflight (``OPTIONS``) path because that is where the
 browser fails first.
 """
+
 from __future__ import annotations
 
 import importlib

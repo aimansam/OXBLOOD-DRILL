@@ -7,6 +7,7 @@ The report endpoint is a read-only composite view of a run:
   * the audit-log timeline,
   * a Prometheus-derived metrics_summary.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -57,9 +58,7 @@ async def _seed_terminal_run(
                 },
                 "spec": {
                     "objectives": {"red": ["x"], "blue": ["y"]},
-                    "assets": [
-                        {"role": "drill_vm", "kind": "vm", "template": "tpl-x"}
-                    ],
+                    "assets": [{"role": "drill_vm", "kind": "vm", "template": "tpl-x"}],
                 },
             },
         )

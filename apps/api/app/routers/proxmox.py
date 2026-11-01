@@ -31,6 +31,7 @@ Until M5 lands, treat this whole module as LAN-public. The
 disclosure is limited to: PVE version, node names, storage pool
 inventory, ACL table. None of that constitutes a credential leak.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -137,7 +138,9 @@ async def list_proxmox_storage() -> dict[str, Any]:
 
 @router.get("/templates", summary="List VM templates (optionally by node)")
 async def list_proxmox_templates(
-    node: str | None = Query(default=None, description="Restrict to this node (default: all nodes)"),
+    node: str | None = Query(
+        default=None, description="Restrict to this node (default: all nodes)"
+    ),
 ) -> dict[str, Any]:
     if not _is_configured():
         raise HTTPException(status_code=503, detail="Proxmox not configured")
@@ -211,8 +214,6 @@ async def get_proxmox_permissions() -> dict[str, Any]:
     except ProxmoxAPIError as exc:
         raise HTTPException(status_code=502, detail=f"Proxmox unreachable: {exc}") from exc
     write_paths = sorted(
-        path
-        for path, privs in items.items()
-        if any(p.startswith("VM.") for p in privs)
+        path for path, privs in items.items() if any(p.startswith("VM.") for p in privs)
     )
     return {"items": items, "total_paths": len(items), "write_paths": write_paths}

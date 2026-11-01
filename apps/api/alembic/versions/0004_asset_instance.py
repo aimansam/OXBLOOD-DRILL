@@ -28,6 +28,7 @@ Revision ID: 0004_asset_instance
 Revises: 0003_users
 Create Date: 2026-08-24
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -50,22 +51,15 @@ def upgrade() -> None:
     """
     bind = op.get_bind()
     inspector = sa.inspect(bind)
-    existing_uqs = {
-        uq["name"]
-        for uq in inspector.get_unique_constraints("assets")
-    }
+    existing_uqs = {uq["name"] for uq in inspector.get_unique_constraints("assets")}
 
     if "uq_assets_run_role" in existing_uqs:
         # SQLite has no DROP CONSTRAINT; we have to batch-recreate.
         if bind.dialect.name == "sqlite":
             with op.batch_alter_table("assets") as batch_op:
-                batch_op.drop_constraint(
-                    "uq_assets_run_role", type_="unique"
-                )
+                batch_op.drop_constraint("uq_assets_run_role", type_="unique")
         else:
-            op.drop_constraint(
-                "uq_assets_run_role", "assets", type_="unique"
-            )
+            op.drop_constraint("uq_assets_run_role", "assets", type_="unique")
 
 
 def downgrade() -> None:
@@ -80,10 +74,6 @@ def downgrade() -> None:
     bind = op.get_bind()
     if bind.dialect.name == "sqlite":
         with op.batch_alter_table("assets") as batch_op:
-            batch_op.create_unique_constraint(
-                "uq_assets_run_role", ["run_id", "role"]
-            )
+            batch_op.create_unique_constraint("uq_assets_run_role", ["run_id", "role"])
     else:
-        op.create_unique_constraint(
-            "uq_assets_run_role", "assets", ["run_id", "role"]
-        )
+        op.create_unique_constraint("uq_assets_run_role", "assets", ["run_id", "role"])
