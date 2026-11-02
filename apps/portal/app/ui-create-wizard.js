@@ -503,7 +503,7 @@ Object.assign(UI.prototype, {
       description: '',
       type: 'individual',
       duration: '60',
-      maxParticipants: '50',
+      maxParticipants: '10',
       createdDrillId: null,
       provisionStatus: 'idle',
       provisionStartedAt: null,
