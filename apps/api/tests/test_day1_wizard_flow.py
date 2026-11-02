@@ -179,7 +179,8 @@ def pve_token(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], Any]:
         return {}
 
     monkeypatch.setattr(proxmox_svc, "list_storage", _fake_list_storage)
-    monkeypatch.setattr("app.routers.admin.list_storage", _fake_list_storage)
+    monkeypatch.setattr("app.routers.admin.wizard.list_storage", _fake_list_storage)
+    monkeypatch.setattr("app.routers.admin.pve_config.list_storage", _fake_list_storage)
     monkeypatch.setattr(proxmox_svc, "list_templates", _fake_list_templates)
     monkeypatch.setattr(proxmox_svc, "list_acl", _fake_list_acl)
     monkeypatch.setattr(proxmox_svc, "list_permissions", _fake_list_permissions)

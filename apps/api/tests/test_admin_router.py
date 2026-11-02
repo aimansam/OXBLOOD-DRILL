@@ -105,7 +105,7 @@ def test_probe_endpoint_returns_snapshot(client, admin_headers):
 
 def test_pve_guest_inventory_requires_admin_and_returns_live_guest_data(client, admin_headers):
     with patch(
-        "app.routers.admin.list_virtual_machines",
+        "app.routers.admin.wizard.list_virtual_machines",
         return_value=[
             {"vmid": 109, "name": "dc01", "node": "pve", "status": "running"},
         ],
@@ -177,7 +177,7 @@ async def test_pve_guest_inventory_drill_scope_uses_registered_vms(client, admin
         {"vmid": 987604, "status": "running"},
     ]
     try:
-        with patch("app.routers.admin.list_virtual_machines", return_value=guests):
+        with patch("app.routers.admin.wizard.list_virtual_machines", return_value=guests):
             scoped = client.get("/api/v1/admin/pve-guests?drill_only=true", headers=admin_headers)
             full = client.get("/api/v1/admin/pve-guests", headers=admin_headers)
         assert scoped.status_code == 200

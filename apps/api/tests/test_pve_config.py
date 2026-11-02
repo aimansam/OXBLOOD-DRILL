@@ -393,7 +393,9 @@ class TestPveConfigEndpoints:
         def fake_get_version():
             raise ProxmoxAPIError("401 Unauthorized")
 
-        monkeypatch.setattr("app.routers.admin.get_version", fake_get_version, raising=False)
+        monkeypatch.setattr(
+            "app.routers.admin.pve_config.get_version", fake_get_version, raising=False
+        )
         tok = _bootstrap_admin_and_token(client)
         r = client.post(
             "/api/v1/admin/pve-config",
@@ -427,7 +429,9 @@ class TestPveConfigEndpoints:
         # The monkeypatch path: app.routers.admin imports get_version lazily.
         # We need to patch the symbol that the route will resolve.
         monkeypatch.setattr("app.services.proxmox.get_version", fake_get_version, raising=False)
-        monkeypatch.setattr("app.routers.admin.list_storage", _storage_rows, raising=False)
+        monkeypatch.setattr(
+            "app.routers.admin.pve_config.list_storage", _storage_rows, raising=False
+        )
         tok = _bootstrap_admin_and_token(client)
         r = client.post(
             "/api/v1/admin/pve-config",
@@ -475,7 +479,9 @@ class TestPveConfigEndpoints:
             lambda: {"version": "x", "release": "y", "repoid": "z"},
             raising=False,
         )
-        monkeypatch.setattr("app.routers.admin.list_storage", _storage_rows, raising=False)
+        monkeypatch.setattr(
+            "app.routers.admin.pve_config.list_storage", _storage_rows, raising=False
+        )
         tok = _bootstrap_admin_and_token(client)
         r = client.post(
             "/api/v1/admin/pve-config",
@@ -500,7 +506,9 @@ class TestPveConfigEndpoints:
             lambda: {"version": "x", "release": "y", "repoid": "z"},
             raising=False,
         )
-        monkeypatch.setattr("app.routers.admin.list_storage", _storage_rows, raising=False)
+        monkeypatch.setattr(
+            "app.routers.admin.pve_config.list_storage", _storage_rows, raising=False
+        )
         tok = _bootstrap_admin_and_token(client)
         client.post(
             "/api/v1/admin/pve-config",
@@ -527,7 +535,9 @@ class TestPveConfigEndpoints:
             lambda: {"version": "x", "release": "y", "repoid": "z"},
             raising=False,
         )
-        monkeypatch.setattr("app.routers.admin.list_storage", _storage_rows, raising=False)
+        monkeypatch.setattr(
+            "app.routers.admin.pve_config.list_storage", _storage_rows, raising=False
+        )
         tok = _bootstrap_admin_and_token(client)
         # Post then delete
         rpost = client.post(
