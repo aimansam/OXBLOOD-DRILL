@@ -228,6 +228,22 @@ services:
       timeout: 5s
       retries: 5
 
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: divide-alertmanager
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    networks: [divide-net]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   grafana:
     image: grafana/grafana:11.3.0
     container_name: divide-grafana
@@ -262,6 +278,7 @@ volumes:
   minio-data:
   traefik-letsencrypt:
   prometheus-data:
+  alertmanager-data:
   grafana-data:
 
 networks:

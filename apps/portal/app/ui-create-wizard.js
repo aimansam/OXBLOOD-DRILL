@@ -446,12 +446,8 @@ Object.assign(UI.prototype, {
       const templatesReady = templateRows.every((row) => row.ready);
       const networksReady = networkRows.length ? networkRows.every((row) => row.ready) && bridgeStatus.reachable !== false : true;
       const snippetStorageName = (pve && (pve.seed_snippet_storage || (pve.config && pve.config.seed_snippet_storage))) || 'local';
-      const storageItems = storageStatus.items || [];
-      const snippetStorage = storageItems.find((item) => item && item.storage === snippetStorageName);
-      const snippetContent = (snippetStorage && snippetStorage.content) || [];
-      const snippetsReady = Array.isArray(snippetContent) && snippetContent.includes('snippets');
       const storageReachable = !storageStatus.error;
-      const startable = preflight.ready && templatesReady && networksReady && snippetsReady && storageReachable && !(bridgePlan.conflicts || []).length;
+      const startable = preflight.ready && templatesReady && networksReady && storageReachable && !(bridgePlan.conflicts || []).length;
       this._createDrillScenarioReady = { startable, scenarioId };
       this._renderCreateWizardFooter();
 
@@ -481,7 +477,7 @@ Object.assign(UI.prototype, {
         + checksOpen
         + row('PVE node', this.sanitizeHTML(node))
         + row('Clone storage', this.sanitizeHTML((pve && (pve.clone_storage || (pve.config && pve.config.clone_storage))) || 'local-lvm'))
-        + row('Seed snippet storage', this.sanitizeHTML(snippetStorageName) + ' ' + this._readinessPill(snippetsReady))
+        + row('Seed snippet storage', this.sanitizeHTML(snippetStorageName) + ' <span class="muted">(not required: seeding uses the guest agent)</span>')
         + preflight.checks.map((check) => row(check.detail, this._readinessPill(check.ready))).join('')
         + '<div style="border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px;">' + templateHtml + '</div>'
         + '<div style="border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px;">' + networkHtml + '</div>'
@@ -490,7 +486,6 @@ Object.assign(UI.prototype, {
         + (!infraDown && pveTemplates.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(pveTemplates.error) + '</div>' : '')
         + (!infraDown && bridgeStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(bridgeStatus.error) + '</div>' : '')
         + (!infraDown && storageStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(storageStatus.error) + '</div>' : '')
-        + (!infraDown && !snippetsReady && !storageStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">Storage ' + this.sanitizeHTML(snippetStorageName) + ' must allow snippets before scenario seed files can be injected.</div>' : '')
         + checksClose
         + '</div>';
     } catch (e) {

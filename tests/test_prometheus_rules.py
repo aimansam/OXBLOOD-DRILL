@@ -26,3 +26,14 @@ def test_rules_are_loaded_by_prometheus_and_mounted_in_compose() -> None:
     compose = yaml.safe_load((DEPLOY / "docker-compose.yml").read_text())
     volumes = compose["services"]["prometheus"]["volumes"]
     assert any(v.startswith("./prometheus/alerts.yml:/etc/prometheus/alerts.yml") for v in volumes)
+
+
+def test_alertmanager_is_wired_into_prometheus_and_compose() -> None:
+    config = yaml.safe_load((DEPLOY / "prometheus" / "prometheus.yml").read_text())
+    targets = config["alerting"]["alertmanagers"][0]["static_configs"][0]["targets"]
+    assert "alertmanager:9093" in targets
+    compose = yaml.safe_load((DEPLOY / "docker-compose.yml").read_text())
+    assert "alertmanager" in compose["services"]
+    assert "alertmanager-data" in compose["volumes"]
+    am = yaml.safe_load((DEPLOY / "alertmanager" / "alertmanager.yml").read_text())
+    assert am["route"]["receiver"] in {r["name"] for r in am["receivers"]}
