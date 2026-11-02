@@ -12,7 +12,6 @@ dependencies = [
   "asyncpg>=0.30.0",
   "alembic>=1.13.3",
   "redis[hiredis]>=5.2.0",
-  "rq>=2.0.0",
   "httpx>=0.27.2",
   "proxmoxer>=2.2.0",
   "requests>=2.32.3",
