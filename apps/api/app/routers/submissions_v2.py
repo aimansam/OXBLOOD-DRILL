@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import current_token
-from app.db.models_oxblood import DrillFlag, EvidenceType
+from app.db.models_drill import DrillFlag, EvidenceType
 from app.db.session import get_session
 from app.services.drill_service import record_drill_event
 from app.services.submission_service import (
@@ -372,7 +372,7 @@ async def get_drill_submissions(
     """List all submissions for a drill."""
     from sqlalchemy import select
 
-    from app.db.models_oxblood import Submission
+    from app.db.models_drill import Submission
 
     query = select(Submission).where(Submission.drill_id == drill_id)
     query = query.order_by(Submission.submitted_at.desc()).offset(skip).limit(limit)

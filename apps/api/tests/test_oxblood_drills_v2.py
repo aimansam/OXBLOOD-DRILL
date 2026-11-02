@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from app.core.auth import sign_token
 from app.db import models as auth_models
-from app.db import models_oxblood as m
+from app.db import models_drill as m
 from app.db.session import get_session
 from app.runners.adapter import ConsoleTicket, VmState
 from app.services.drill_service import (

@@ -123,7 +123,7 @@ async def test_pve_guest_inventory_drill_scope_uses_registered_vms(client, admin
     from uuid import uuid4
 
     from app.db import models as catalog
-    from app.db.models_oxblood import Drill, DrillStatus
+    from app.db.models_drill import Drill, DrillStatus
     from app.db.session import get_sessionmaker
     from app.services.db import get_engine
     from sqlalchemy import delete

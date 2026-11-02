@@ -11,15 +11,15 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models_oxblood import (
+from app.db.models_drill import (
     Drill,
     DrillFlag,
+    DrillFlagSubmission,
     DrillObjective,
     DrillParticipant,
     EvidenceSubmission,
     EvidenceType,
     FirstBlood,
-    FlagSubmission,
     Score,
     ScoreHistory,
     Submission,
@@ -84,12 +84,14 @@ async def submit_flag(
 
     # Get attempt number
     attempt_result = await db.execute(
-        select(func.count(FlagSubmission.id)).where(FlagSubmission.lab_flag_id == lab_flag_id)
+        select(func.count(DrillFlagSubmission.id)).where(
+            DrillFlagSubmission.lab_flag_id == lab_flag_id
+        )
     )
     attempt_number = attempt_result.scalar() + 1
 
     # Create flag submission record
-    flag_submission = FlagSubmission(
+    flag_submission = DrillFlagSubmission(
         submission_id=submission.id,
         lab_flag_id=lab_flag_id,
         flag_value=flag_value,
@@ -217,10 +219,10 @@ async def get_submission(db: AsyncSession, submission_id: int) -> Submission | N
     return result.scalar_one_or_none()
 
 
-async def get_flag_submission(db: AsyncSession, submission_id: int) -> FlagSubmission | None:
+async def get_flag_submission(db: AsyncSession, submission_id: int) -> DrillFlagSubmission | None:
     """Get flag submission details."""
     result = await db.execute(
-        select(FlagSubmission).where(FlagSubmission.submission_id == submission_id)
+        select(DrillFlagSubmission).where(DrillFlagSubmission.submission_id == submission_id)
     )
     return result.scalar_one_or_none()
 

@@ -258,7 +258,7 @@ async def lifespan(app: FastAPI):
     if oxblood_timeout_interval_sec > 0:
 
         async def _oxblood_timeout_loop() -> None:
-            from app.db.models_oxblood import DrillEvent
+            from app.db.models_drill import DrillEvent
             from app.db.session import get_sessionmaker
             from app.runners.runner import RunnerError, build_runner
             from app.services.drill_service import timeout_overdue_drills

@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models_oxblood import Drill, DrillEnvironmentLock, DrillStatus
+from app.db.models_drill import Drill, DrillEnvironmentLock, DrillStatus
 
 LOCK_KEY = "default"
 ACTIVE_LOCK_STATUSES = {

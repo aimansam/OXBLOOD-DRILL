@@ -49,7 +49,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Role, TokenData, current_token, require_role
 from app.db import models as db_models
-from app.db.models_oxblood import Drill, DrillStatus
+from app.db.models_drill import Drill, DrillStatus
 from app.db.session import get_session
 from app.runners.runner import RunnerError, build_runner
 from app.services import admin as admin_svc

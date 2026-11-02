@@ -12,7 +12,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import models as catalog_models
-from app.db.models_oxblood import (
+from app.db.models_drill import (
     Drill,
     DrillAnnouncement,
     DrillEvent,

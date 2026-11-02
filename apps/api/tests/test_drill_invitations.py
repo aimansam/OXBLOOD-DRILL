@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from app.core.auth import sign_token
 from app.db.models import User
-from app.db.models_oxblood import Drill, DrillEvent, DrillInvitation, DrillParticipant
+from app.db.models_drill import Drill, DrillEvent, DrillInvitation, DrillParticipant
 from app.db.session import get_session
 from app.routers.invitations import router
 from fastapi import FastAPI

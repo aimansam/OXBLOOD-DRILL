@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models_oxblood import EvidenceType, ReportStatus, SeverityLevel
+from app.db.models_drill import EvidenceType, ReportStatus, SeverityLevel
 from app.db.session import get_session
 from app.services.report_service import (
     add_evidence,

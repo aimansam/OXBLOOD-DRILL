@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import Role, TokenData, current_token, require_role
 from app.db import models as catalog_models
 from app.db.models import AssetStatus, AuditAction, RunStatus, User
-from app.db.models_oxblood import (
+from app.db.models_drill import (
     Drill,
     DrillEvent,
     DrillFlag,

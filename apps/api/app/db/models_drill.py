@@ -1,8 +1,8 @@
 """Drill ORM models — Drill product only (Learn lives in its own repo/DB).
 
-Tables: users (token-sub identity), drills, drill_scenarios, drill_participants,
+Tables: drills, drill_scenarios, drill_participants, drill_invitations,
 drill_events (unified exercise timeline), drill_objectives (with status),
-drill_flags, drill_announcements, submissions, flag_submissions,
+drill_flags, drill_announcements, submissions, drill_flag_submissions,
 evidence_submissions, report_submissions, submission_attempts, scores, score_history,
 first_bloods, benchmarks, benchmark_history, reports, report_findings, evidence.
 lab_id / team_id columns are plain-integer history refs (Learn tables removed).
@@ -27,42 +27,14 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
-    text,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class Base(DeclarativeBase):
-    """Base class for all ORM models."""
-
-    pass
-
+from app.db.base import Base
 
 # ============================================================================
 # ENUM TYPES
 # ============================================================================
-
-
-class UserRole(str, enum.Enum):
-    STUDENT = "student"
-    INSTRUCTOR = "instructor"
-    TEAM_LEADER = "team_leader"
-    ADMINISTRATOR = "administrator"
-    OBSERVER = "observer"
-
-
-class LabStatus(str, enum.Enum):
-    DRAFT = "draft"
-    PUBLISHED = "published"
-    ARCHIVED = "archived"
-
-
-class LabDifficulty(str, enum.Enum):
-    BEGINNER = "beginner"
-    EASY = "easy"
-    MEDIUM = "medium"
-    HARD = "hard"
-    EXPERT = "expert"
 
 
 class DrillStatus(str, enum.Enum):
@@ -104,88 +76,6 @@ class EvidenceType(str, enum.Enum):
     NETWORK_CAPTURE = "network_capture"
     FILE = "file"
     OTHER = "other"
-
-
-class AuditAction(str, enum.Enum):
-    USER_CREATED = "user.created"
-    USER_UPDATED = "user.updated"
-    USER_DELETED = "user.deleted"
-    USER_LOGIN = "user.login"
-    USER_LOGOUT = "user.logout"
-    LAB_CREATED = "lab.created"
-    LAB_UPDATED = "lab.updated"
-    LAB_PUBLISHED = "lab.published"
-    LAB_ARCHIVED = "lab.archived"
-    DRILL_CREATED = "drill.created"
-    DRILL_STARTED = "drill.started"
-    DRILL_COMPLETED = "drill.completed"
-    FLAG_SUBMITTED = "flag.submitted"
-    FLAG_CORRECT = "flag.correct"
-    FLAG_INCORRECT = "flag.incorrect"
-    REPORT_CREATED = "report.created"
-    REPORT_SUBMITTED = "report.submitted"
-    REPORT_GRADED = "report.graded"
-    TEAM_CREATED = "team.created"
-    TEAM_UPDATED = "team.updated"
-    TEAM_MEMBER_ADDED = "team.member_added"
-    TEAM_MEMBER_REMOVED = "team.member_removed"
-    SCORE_UPDATED = "score.updated"
-    BENCHMARK_CALCULATED = "benchmark.calculated"
-    ADMIN_ACTION = "admin.action"
-
-
-class NotificationType(str, enum.Enum):
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
-    SUCCESS = "success"
-    ACHIEVEMENT = "achievement"
-    DEADLINE = "deadline"
-
-
-class LearningPathStatus(str, enum.Enum):
-    NOT_STARTED = "not_started"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-
-
-# ============================================================================
-# MODULE 1: USER MANAGEMENT
-# ============================================================================
-
-
-class User(Base):
-    """Main user accounts table."""
-
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    sub: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    password_hash: Mapped[str | None] = mapped_column(String(255))
-    role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role", values_callable=lambda x: [e.value for e in x]),
-        nullable=False,
-        default=UserRole.STUDENT,
-    )
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
-    )
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    __table_args__ = (
-        Index("idx_users_username", "username"),
-        Index("idx_users_email", "email"),
-        Index("idx_users_role", "role"),
-        Index("idx_users_active", "is_active", postgresql_where=text("deleted_at IS NULL")),
-    )
 
 
 class Drill(Base):
@@ -476,7 +366,7 @@ class Submission(Base):
     review_notes: Mapped[str | None] = mapped_column(Text)
 
 
-class FlagSubmission(Base):
+class DrillFlagSubmission(Base):
     """Flag capture attempts (Drill v2; v1 runs use models.flag_submissions)."""
 
     __tablename__ = "drill_flag_submissions"

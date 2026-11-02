@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models_oxblood import (
+from app.db.models_drill import (
     Benchmark,
     BenchmarkHistory,
     Evidence,
@@ -269,7 +269,7 @@ async def calculate_and_update_benchmark(
     user_id: int,
 ) -> Benchmark:
     """Calculate and update user's benchmark based on their performance."""
-    from app.db.models_oxblood import Score
+    from app.db.models_drill import Score
 
     # Get user's scores
     score_result = await db.execute(
