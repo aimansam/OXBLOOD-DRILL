@@ -13,12 +13,14 @@ Contract:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 # Re-use the in-memory SQLite session fixture already established
 # by the test suite (conftest.py provides `session` and `client`).
 
 
+@pytest.mark.usefixtures("empty_users_table")
 class TestSetupProbeEmpty:
     """Probe when the users table is empty."""
 
@@ -41,6 +43,7 @@ class TestSetupProbeEmpty:
         assert resp.json()["needs_setup"] is True
 
 
+@pytest.mark.usefixtures("empty_users_table")
 class TestSetupProbeWithAdmin:
     """Probe after at least one user has been created."""
 

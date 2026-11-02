@@ -162,3 +162,34 @@ def client() -> TestClient:
     from app.main import app
 
     return TestClient(app)
+
+
+@pytest.fixture
+def empty_users_table():
+    """Start (and finish) a test with no users.
+
+    ``/auth/setup`` and the setup probe only behave as documented on an empty
+    users table, but the test database is shared across the whole session.
+    """
+    import asyncio
+
+    from app.db import models as db_models
+    from app.db.session import get_sessionmaker
+    from sqlalchemy import delete
+
+    async def _truncate() -> None:
+        async with get_sessionmaker()() as s:
+            await s.execute(delete(db_models.TeamMembership))
+            await s.execute(delete(db_models.User))
+            await s.commit()
+
+    def _run() -> None:
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(_truncate())
+        finally:
+            loop.close()
+
+    _run()
+    yield
+    _run()
