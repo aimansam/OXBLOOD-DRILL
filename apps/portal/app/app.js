@@ -71,7 +71,10 @@ class UI {
     if (avatar) {
       avatar.textContent = this.user.sub.substring(0, 2).toUpperCase();
       avatar.title = this.user.sub;
+      // Operators see their account in the sidebar; avoid showing it twice.
+      if (this._isOperator()) avatar.style.display = 'none';
     }
+    this._startZuluClock();
 
     const welcomeTitle = document.querySelector('#dashboard .page-title');
     if (welcomeTitle) {
@@ -88,6 +91,16 @@ class UI {
     if (accountName) accountName.textContent = this.user.sub;
     if (accountRole) accountRole.textContent = this.user.role;
     if (accountAvatar) accountAvatar.textContent = this.user.sub.substring(0, 2).toUpperCase();
+  }
+
+  _startZuluClock() {
+    const clock = document.getElementById('zulu-clock');
+    if (!clock || this._zuluTimer) return;
+    const tick = () => {
+      clock.textContent = new Date().toISOString().substring(11, 19) + 'Z';
+    };
+    tick();
+    this._zuluTimer = setInterval(tick, 1000);
   }
 
   _role() {

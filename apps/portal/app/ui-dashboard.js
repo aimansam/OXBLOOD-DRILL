@@ -48,7 +48,7 @@ Object.assign(UI.prototype, {
       const drill = active[0];
       hero.innerHTML = drill
         ? '<div class="dashboard-focus" role="status"><div><span class="dashboard-focus-label">Live exercise</span><strong>' + this.sanitizeHTML(drill.title || 'Untitled drill') + '</strong></div><span class="timer timer-live">' + this.sanitizeHTML(this._lifecycleLabel(drill)) + '</span><button class="btn btn-primary btn-sm" onclick="app.loadPage(\'drills\').then(() => app.playDrill(' + Number(drill.id) + '))">Open exercise</button></div>'
-        : '<div class="dashboard-focus"><div><span class="dashboard-focus-label">Next exercise</span><strong>' + (scheduled[0] ? this.sanitizeHTML(scheduled[0].title || 'Scheduled exercise') : 'Nothing scheduled') + '</strong></div><button class="btn btn-secondary btn-sm" onclick="app.loadPage(\'drills\')">View exercises</button></div>';
+        : '<div class="dashboard-focus"><div><span class="dashboard-focus-label">Next exercise</span><strong>' + (scheduled[0] ? this.sanitizeHTML(scheduled[0].title || 'Scheduled exercise') : 'Nothing scheduled') + '</strong>' + (scheduled[0] ? '' : '<small class="muted">Pick an organization and schedule an exercise to get started.</small>') + '</div>' + (scheduled[0] ? '<button class="btn btn-secondary btn-sm" onclick="app.loadPage(\'drills\')">View exercises</button>' : '<button class="btn btn-primary btn-sm" onclick="app.showCreateDrillModal()">New exercise</button>') + '</div>';
     }
     const rails = document.getElementById('dashboard-rails');
     if (rails) rails.innerHTML = '';

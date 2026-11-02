@@ -41,7 +41,12 @@ Object.assign(UI.prototype, {
   _scenarioImageSlot(scenario = null) {
     const meta = (scenario && (scenario.metadata || scenario.meta)) || {};
     const image = scenario && (scenario.image || scenario.image_url || scenario.media || meta.image || meta.image_url);
-    if (!image) return '<span class="scenario-media-slot" aria-hidden="true"></span>';
+    if (!image) {
+      // No artwork authored for this scenario: show the organization's initials instead of an empty box.
+      const initials = String(this._scenarioOrganization(scenario) || '')
+        .split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join('');
+      return '<span class="scenario-media-slot" aria-hidden="true">' + this.sanitizeHTML(initials) + '</span>';
+    }
     return '<span class="scenario-media-slot scenario-media-filled"><img src="' + this.sanitizeHTML(String(image)) + '" alt=""></span>';
   },
 
@@ -459,9 +464,21 @@ Object.assign(UI.prototype, {
         return row(detail, this._readinessPill(n.ready));
       }).join('') : '<div class="small muted">No networks in this scenario.</div>';
 
+      // When Proxmox itself is unreachable or unconfigured, every check fails for the
+      // same reason. Say that once instead of repeating the raw error per check.
+      const infraErrors = [templateStatus.error, pveTemplates.error, bridgeStatus.error, storageStatus.error].filter(Boolean);
+      const infraDown = infraErrors.length >= 2 && infraErrors.every((msg) => /not configured|not set|503|unavailable|unreachable|timed out/i.test(String(msg)));
+      const infraBanner = infraDown
+        ? '<div class="card-error" style="margin: var(--space-sm) 0;"><strong>Proxmox is not connected.</strong> Add the PVE host and API token in Setup, then re-check. '
+          + '<button type="button" class="btn btn-secondary btn-sm" style="margin-left: 8px;" onclick="app.hideCreateDrillModal(); app.loadPage(\'setup\')">Open Setup</button></div>'
+        : '';
+      const checksOpen = infraDown ? '<details style="margin-top: var(--space-sm);"><summary class="small muted" style="cursor: pointer;">Show individual checks</summary>' : '<div>';
+      const checksClose = infraDown ? '</details>' : '</div>';
       div.innerHTML = ''
         + '<div style="border: 1px solid var(--border); border-radius: 4px; padding: var(--space-sm); background: var(--bg-primary);">'
         + '<div class="row-between" style="padding-bottom: 4px;"><span class="value small">' + this.sanitizeHTML(scenario.title || scenario.name || 'Scenario') + '</span><span>' + pill + '</span></div>'
+        + infraBanner
+        + checksOpen
         + row('PVE node', this.sanitizeHTML(node))
         + row('Clone storage', this.sanitizeHTML((pve && (pve.clone_storage || (pve.config && pve.config.clone_storage))) || 'local-lvm'))
         + row('Seed snippet storage', this.sanitizeHTML(snippetStorageName) + ' ' + this._readinessPill(snippetsReady))
@@ -469,11 +486,12 @@ Object.assign(UI.prototype, {
         + '<div style="border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px;">' + templateHtml + '</div>'
         + '<div style="border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px;">' + networkHtml + '</div>'
         + (bridgePlan.conflicts && bridgePlan.conflicts.length ? '<div class="card-error" style="margin-top: var(--space-sm);">Bridge plan conflicts: ' + this.sanitizeHTML(bridgePlan.conflicts.join(', ')) + '</div>' : '')
-        + (templateStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(templateStatus.error) + '</div>' : '')
-        + (pveTemplates.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(pveTemplates.error) + '</div>' : '')
-        + (bridgeStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(bridgeStatus.error) + '</div>' : '')
-        + (storageStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(storageStatus.error) + '</div>' : '')
-        + (!snippetsReady && !storageStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">Storage ' + this.sanitizeHTML(snippetStorageName) + ' must allow snippets before scenario seed files can be injected.</div>' : '')
+        + (!infraDown && templateStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(templateStatus.error) + '</div>' : '')
+        + (!infraDown && pveTemplates.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(pveTemplates.error) + '</div>' : '')
+        + (!infraDown && bridgeStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(bridgeStatus.error) + '</div>' : '')
+        + (!infraDown && storageStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">' + this.sanitizeHTML(storageStatus.error) + '</div>' : '')
+        + (!infraDown && !snippetsReady && !storageStatus.error ? '<div class="card-error" style="margin-top: var(--space-sm);">Storage ' + this.sanitizeHTML(snippetStorageName) + ' must allow snippets before scenario seed files can be injected.</div>' : '')
+        + checksClose
         + '</div>';
     } catch (e) {
       div.innerHTML = '<span style="color: var(--signal);">' + this.sanitizeHTML(String(e.message || e)) + '</span>';

@@ -66,7 +66,7 @@ Object.assign(UI.prototype, {
       shell.classList.add('threat-map-command-shell', 'threat-command-shell');
       shell.dataset.mapContext = 'active-drill';
       const svg = shell.querySelector('.topology-svg');
-      if (svg) svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+      if (svg) svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
       this.bindThreatMapZoom(shell);
       this._bindThreatMapIntro(shell);
     }

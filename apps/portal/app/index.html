@@ -24,20 +24,19 @@
       <aside class="workspace-sidebar operator-only" id="workspace-sidebar" aria-label="Workspace navigation">
         <div class="workspace-sidebar-top">
           <button class="workspace-sidebar-toggle" type="button" onclick="app.toggleWorkspaceSidebar()" aria-label="Collapse navigation" title="Collapse navigation">☰</button>
-          <span class="workspace-sidebar-brand">OxBlood</span>
         </div>
         <nav class="workspace-nav" aria-label="Primary">
-          <button data-workspace-page="dashboard" onclick="app.loadPage('dashboard')" title="View Overview"><span class="workspace-nav-icon">▦</span><span class="workspace-nav-label">View Overview</span></button>
-          <button data-workspace-page="range-hub" onclick="app.loadPage('range-hub')" title="Open Mission Control"><span class="workspace-nav-icon">◎</span><span class="workspace-nav-label">Open Mission Control</span></button>
-          <button data-workspace-page="drills" onclick="app.loadPage('drills')" title="Run Exercises"><span class="workspace-nav-icon">◉</span><span class="workspace-nav-label">Run Exercises</span></button>
-          <button data-workspace-page="scenarios" onclick="app.loadPage('scenarios')" title="Browse Organizations"><span class="workspace-nav-icon">▤</span><span class="workspace-nav-label">Browse Organizations</span></button>
-          <button data-workspace-page="teams" onclick="app.openWorkspaceTeams()" title="Assign Teams"><span class="workspace-nav-icon">♧</span><span class="workspace-nav-label">Assign Teams</span></button>
-          <button class="admin-only" data-workspace-page="infrastructure" onclick="app.loadPage('infrastructure')" title="Check Infrastructure"><span class="workspace-nav-icon">▥</span><span class="workspace-nav-label">Check Infrastructure</span></button>
-          <button data-workspace-page="scoreboard" onclick="app.openWorkspaceScoreboard()" title="View Scoreboard"><span class="workspace-nav-icon">◫</span><span class="workspace-nav-label">View Scoreboard</span></button>
-          <button data-workspace-page="reports" onclick="app.loadPage('reports')" title="Review Reports"><span class="workspace-nav-icon">▧</span><span class="workspace-nav-label">Review Reports</span></button>
+          <button data-workspace-page="dashboard" onclick="app.loadPage('dashboard')" title="View Overview"><span class="workspace-nav-icon">▦</span><span class="workspace-nav-label">Overview</span></button>
+          <button data-workspace-page="range-hub" onclick="app.loadPage('range-hub')" title="Open Mission Control"><span class="workspace-nav-icon">◎</span><span class="workspace-nav-label">Mission Control</span></button>
+          <button data-workspace-page="drills" onclick="app.loadPage('drills')" title="Run Exercises"><span class="workspace-nav-icon">◉</span><span class="workspace-nav-label">Exercises</span></button>
+          <button data-workspace-page="scenarios" onclick="app.loadPage('scenarios')" title="Browse Organizations"><span class="workspace-nav-icon">▤</span><span class="workspace-nav-label">Organizations</span></button>
+          <button data-workspace-page="teams" onclick="app.openWorkspaceTeams()" title="Assign Teams"><span class="workspace-nav-icon">♧</span><span class="workspace-nav-label">Teams</span></button>
+          <button class="admin-only" data-workspace-page="infrastructure" onclick="app.loadPage('infrastructure')" title="Check Infrastructure"><span class="workspace-nav-icon">▥</span><span class="workspace-nav-label">Infrastructure</span></button>
+          <button data-workspace-page="scoreboard" onclick="app.openWorkspaceScoreboard()" title="View Scoreboard"><span class="workspace-nav-icon">◫</span><span class="workspace-nav-label">Scoreboard</span></button>
+          <button data-workspace-page="reports" onclick="app.loadPage('reports')" title="Review Reports"><span class="workspace-nav-icon">▧</span><span class="workspace-nav-label">Reports</span></button>
         </nav>
         <div class="workspace-sidebar-bottom">
-          <button data-workspace-page="settings" onclick="app.loadPage('settings')" title="Edit Settings"><span class="workspace-nav-icon">⚙</span><span class="workspace-nav-label">Edit Settings</span></button>
+          <button data-workspace-page="settings" onclick="app.loadPage('settings')" title="Edit Settings"><span class="workspace-nav-icon">⚙</span><span class="workspace-nav-label">Settings</span></button>
           <div class="workspace-account"><span class="workspace-account-avatar">?</span><span class="workspace-account-copy"><strong id="workspace-account-name">Operator</strong><small id="workspace-account-role">Operator</small></span></div>
         </div>
       </aside>

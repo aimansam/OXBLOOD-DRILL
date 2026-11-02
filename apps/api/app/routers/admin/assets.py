@@ -115,11 +115,18 @@ async def list_orphan_assets(
                 detail=f"asset_ids must be comma-separated ints: {exc}",
             ) from exc
     candidates = await orphan_svc.list_orphans(db, grace_minutes=grace_minutes, asset_ids=ids)
-    pve_candidates = (
-        []
-        if ids is not None
-        else await orphan_svc.list_pve_unused_vms(db, grace_minutes=grace_minutes)
-    )
+    try:
+        pve_candidates = (
+            []
+            if ids is not None
+            else await orphan_svc.list_pve_unused_vms(db, grace_minutes=grace_minutes)
+        )
+    except ProxmoxAPIError as exc:
+        # Same mapping as the cleanup endpoint: PVE down is a 502, not a crash.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"PVE unreachable: {exc}",
+        ) from exc
     return OrphanListResponse(
         items=[
             OrphanCandidate(

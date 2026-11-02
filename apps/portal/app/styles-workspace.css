@@ -589,3 +589,16 @@ body.my-mission-mode .my-mission-guide li { padding-left: 3px; }
 /* Keep document-style pages scrollable inside the fixed workspace shell. */
 body[data-portal-page="reports"] #content,
 body.my-mission-mode #content { overflow-x: hidden; overflow-y: auto; }
+
+/* Scenario image slot: show organization initials when no artwork is authored. */
+.scenario-media-slot:not(.scenario-media-filled) { display: grid; place-items: center; color: var(--text-tertiary); font: 700 18px var(--font-mono, monospace); letter-spacing: .04em; }
+
+/* Narrow screens: let long metric values (e.g. "Unavailable") shrink instead of truncating. */
+@media (max-width: 520px) {
+  body.range-hub-mode .mc-metrics { grid-template-columns: 1fr; gap: 8px; }
+  body.range-hub-mode .mc-metric { grid-template-columns: 1fr auto; align-items: center; min-height: 56px; padding: 10px 16px; }
+  body.range-hub-mode .mc-metric strong { overflow: visible; font-size: 20px; text-overflow: clip; }
+}
+
+/* Participant waiting screen: keep the orbit clear of the kicker label. */
+body.my-mission-mode .my-mission-orbit { margin-bottom: 28px; }

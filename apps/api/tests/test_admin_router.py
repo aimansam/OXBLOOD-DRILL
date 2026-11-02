@@ -371,3 +371,15 @@ def test_admin_routes_all_return_401_when_no_token(client, path, method):
     else:
         r = client.post(path)
     assert r.status_code == 401, f"{method} {path} should be 401, got {r.status_code}"
+
+
+def test_orphan_preview_returns_502_when_pve_is_unreachable(client, admin_headers):
+    from app.services.proxmox import ProxmoxAPIError
+
+    async def _boom(*args, **kwargs):
+        raise ProxmoxAPIError("ProxmoxNotConfiguredError: PROXMOX_HOST is not set")
+
+    with patch("app.routers.admin.assets.orphan_svc.list_pve_unused_vms", _boom):
+        r = client.get("/api/v1/admin/assets/orphans", headers=admin_headers)
+    assert r.status_code == 502
+    assert "PVE unreachable" in r.json()["detail"]
