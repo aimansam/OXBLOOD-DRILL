@@ -950,6 +950,16 @@ class Runner:
             run_id=run.id,
             details={"reason": reason},
         )
+        # A started drill stays RUNNING, so the SOC feed's terminal event
+        # is emitted here, when the operator (or watchdog) ends it.
+        await _record_event(
+            session,
+            run_id=run.id,
+            kind="run.completed",
+            source="runner",
+            severity=TelemetrySeverity.INFO,
+            payload={"reason": reason, "stopped_by": actor, "outcome": "succeeded"},
+        )
         await session.commit()
         await session.refresh(run, attribute_names=["assets"])
         self._windows_setup_secrets.pop(run.id, None)

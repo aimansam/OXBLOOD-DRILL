@@ -471,8 +471,8 @@ def test_post_drill_emits_asset_running_event():
     assert "asset.running" in kinds
 
 
-def test_post_drill_emits_run_completed_event():
-    """On successful drill, run.completed event is emitted."""
+def test_stopping_drill_emits_run_completed_event():
+    """A started drill stays running; stopping it emits run.completed."""
     import uuid
 
     sm = get_sessionmaker()
@@ -519,8 +519,11 @@ def test_post_drill_emits_run_completed_event():
     r = admin.post("/api/v1/drills", json={"scenario_id": scenario_id})
     run_id = r.json()["run_id"]
 
-    body = admin.get(f"/api/v1/runs/{run_id}/events").json()
-    kinds = [e["kind"] for e in body["items"]]
+    kinds = [e["kind"] for e in admin.get(f"/api/v1/runs/{run_id}/events").json()["items"]]
+    assert "run.completed" not in kinds
+
+    assert admin.post(f"/api/v1/drills/{run_id}/stop").status_code == 200
+    kinds = [e["kind"] for e in admin.get(f"/api/v1/runs/{run_id}/events").json()["items"]]
     assert "run.completed" in kinds
 
 

@@ -451,7 +451,12 @@ def test_post_drill_with_template_id_spawns_run_with_template_id():
                 title="F7 Test Template",
                 from_run_id=run.id,
                 scenario_id=scen.id,
-                snapshot={"scenario_id": scen.id, "assets": []},
+                snapshot={
+                    "scenario_id": scen.id,
+                    "assets": [
+                        {"role": "victim", "kind": "vm", "template": "tpl-x", "networks": []}
+                    ],
+                },
                 created_by="alice",
             )
             session.add(template)

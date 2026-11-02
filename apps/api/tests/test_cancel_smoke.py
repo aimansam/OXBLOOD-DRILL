@@ -75,7 +75,10 @@ def _scenario(name: str = "cancel-smoke", assets=("vm_a",)) -> models.Scenario:
         spec={
             "apiVersion": "divide/v1",
             "kind": "Scenario",
-            "spec": {"assets": asset_specs},
+            "spec": {
+                "assets": asset_specs,
+                "networks": [{"name": "n", "cidr": "10.99.0.0/24"}],
+            },
         },
     )
 
@@ -502,6 +505,10 @@ async def test_cancel_already_succeeded_run_raises_409(session: AsyncSession) ->
     run = (
         await session.execute(select(models.Run).where(models.Run.scenario_id == sc.id))
     ).scalar_one()
+    # A started drill stays RUNNING until stopped; the operator's stop marks it done.
+    assert run.status == RunStatus.RUNNING
+    await runner.stop_run(run.id, session=session)
+    await session.refresh(run)
     assert run.status == RunStatus.SUCCEEDED
 
     with pytest.raises(RunnerError) as ei:

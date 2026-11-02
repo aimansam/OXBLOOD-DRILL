@@ -919,7 +919,8 @@ def test_flag_capture_bumps_team_score():
         },
     ).json()
 
-    assert run["status"] == "succeeded"
+    # A started drill stays RUNNING until the operator stops it.
+    assert run["status"] == "running"
 
     # Capture the flag from blue's perspective (red-side flag is
     # hunted by blue). Use a Started_at 30s in the past so the
