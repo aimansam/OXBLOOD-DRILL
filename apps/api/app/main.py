@@ -618,10 +618,10 @@ def create_app() -> FastAPI:
 
     # v2 API endpoints (Drill schema). Learn endpoints (labs_v2,
     # learning_paths_v2, user_profiles_v2) live in the Learn product.
-    app.include_router(drills_v2.router, tags=["drills_v2"])
+    app.include_router(drills_v2.router)
     app.include_router(invitations.router)
-    app.include_router(submissions_v2.router, tags=["submissions_v2"])
-    app.include_router(reports_v2.router, tags=["reports_v2"])
+    app.include_router(submissions_v2.router)
+    app.include_router(reports_v2.router)
 
     # Frontend is now served by Flask portal (separate service on port 80)
     # which proxies /api/* requests to this FastAPI backend.
