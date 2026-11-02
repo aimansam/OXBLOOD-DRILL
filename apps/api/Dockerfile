@@ -11,27 +11,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY apps/api/pyproject.toml ./
-RUN pip install --upgrade pip hatchling && \
-    pip wheel --wheel-dir=/wheels \
-    "fastapi>=0.115.0" \
-    "uvicorn[standard]>=0.32.0" \
-    "pydantic>=2.9.0" \
-    "pydantic-settings>=2.6.0" \
-    "sqlalchemy[asyncio]>=2.0.36" \
-    "asyncpg>=0.30.0" \
-    "alembic>=1.13.3" \
-    "redis[hiredis]>=5.2.0" \
-    "httpx>=0.27.2" \
-    "proxmoxer>=2.2.0" \
-    "requests>=2.32.3" \
-    "pyyaml>=6.0.2" \
-    "jsonschema>=4.18,<5" \
-    "python-multipart>=0.0.12" \
-    "structlog>=24.4.0" \
-    "tenacity>=9.0.0" \
-    "prometheus-client>=0.21.0" \
-    "argon2-cffi>=23.1.0" \
-    "psycopg2-binary>=2.9.9"
+# Dependencies come from pyproject.toml (single source of truth); psycopg2 is
+# added for the sync Alembic driver used by prestart.py.
+RUN python - <<'PY' > /build/requirements.txt
+import tomllib
+deps = tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]
+print("\n".join([*deps, "psycopg2-binary>=2.9.9", "argon2-cffi-bindings"]))
+PY
+RUN pip install --upgrade pip && \
+    pip wheel --wheel-dir=/wheels -r /build/requirements.txt && \
+    cp /build/requirements.txt /wheels/requirements.txt
 
 # --- runtime stage ---
 FROM python:3.12-slim-bookworm
@@ -47,11 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --create-home --uid 1000 divide
 
 COPY --from=builder /wheels /wheels
-RUN pip install --no-index --find-links=/wheels \
-    fastapi uvicorn pydantic pydantic-settings \
-    "sqlalchemy[asyncio]" asyncpg alembic redis httpx proxmoxer requests pyyaml \
-    jsonschema python-multipart structlog tenacity prometheus-client psycopg2-binary \
-  argon2-cffi argon2-cffi-bindings \
+RUN pip install --no-index --find-links=/wheels -r /wheels/requirements.txt \
     && rm -rf /wheels /root/.cache
 
 COPY apps/api/app ./app
