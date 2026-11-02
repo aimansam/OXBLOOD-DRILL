@@ -11,6 +11,7 @@ from fastapi import APIRouter
 
 from . import (
     access,
+    competition,
     content,
     crud,
     health,
@@ -27,6 +28,7 @@ from .provisioning import _PROVISION_JOBS, ProvisionJob, _stop_drill_provision_r
 # Modules that hold patchable module-level names (see tests).
 SUBMODULES = (
     access,
+    competition,
     content,
     crud,
     health,
@@ -38,7 +40,7 @@ SUBMODULES = (
 )
 
 router = APIRouter()
-for _module in (crud, lifecycle, participants, content, timeline):
+for _module in (crud, lifecycle, participants, competition, content, timeline):
     router.include_router(_module.router, prefix="/api/v2/drills", tags=["Drills v2"])
 
 __all__ = [

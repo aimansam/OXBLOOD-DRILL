@@ -194,8 +194,95 @@ class DrillParticipant(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Competition team (drill_teams). ``team_id`` above is a legacy history reference.
+    drill_team_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("drill_teams.id", ondelete="SET NULL")
+    )
 
     __table_args__ = (UniqueConstraint("drill_id", "user_id", name="uq_drill_participants"),)
+
+
+class DrillTeam(Base):
+    """A named team inside one drill. Its side is decided per round (drill_rounds)."""
+
+    __tablename__ = "drill_teams"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    drill_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    color: Mapped[str | None] = mapped_column(String(16))
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("drill_id", "name", name="uq_drill_teams_name"),
+        UniqueConstraint("drill_id", "position", name="uq_drill_teams_position"),
+    )
+
+
+class DrillRound(Base):
+    """One round of a competitive drill. ``assignments`` maps team id -> {"side": "red"|"blue"}."""
+
+    __tablename__ = "drill_rounds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    drill_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False
+    )
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    assignments: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # After this moment the public scoreboard stops showing new points; referees still see them.
+    freeze_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (UniqueConstraint("drill_id", "number", name="uq_drill_rounds_number"),)
+
+
+class DrillScoreEvent(Base):
+    """Append-only points ledger. Team and player scores are sums over these rows.
+
+    Keeping every change (flag, first blood, referee award or penalty) with a reason makes
+    results auditable, which a competition needs when a result is disputed.
+    """
+
+    __tablename__ = "drill_score_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    drill_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False
+    )
+    round_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("drill_rounds.id", ondelete="SET NULL")
+    )
+    team_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("drill_teams.id", ondelete="SET NULL")
+    )
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    points: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    flag_id: Mapped[int | None] = mapped_column(Integer)
+    created_by: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_drill_score_events_drill_round", "drill_id", "round_id"),
+        Index("ix_drill_score_events_team", "drill_id", "team_id"),
+    )
 
 
 class DrillInvitation(Base):
@@ -219,6 +306,10 @@ class DrillInvitation(Base):
         Integer, ForeignKey("users.id", ondelete="SET NULL")
     )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Optional: redeeming this link also places the player in this team.
+    drill_team_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("drill_teams.id", ondelete="SET NULL")
+    )
 
     __table_args__ = (Index("ix_drill_invitations_drill_id", "drill_id"),)
 

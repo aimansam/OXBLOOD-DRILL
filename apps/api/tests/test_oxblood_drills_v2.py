@@ -276,6 +276,9 @@ def sessionmaker():
                 m.DrillObjective.__table__,
                 m.DrillFlag.__table__,
                 m.DrillEnvironmentLock.__table__,
+                m.DrillTeam.__table__,
+                m.DrillRound.__table__,
+                m.DrillScoreEvent.__table__,
             ]:
                 await conn.run_sync(table.create)
         return engine, async_sessionmaker(bind=engine, expire_on_commit=False)

@@ -178,3 +178,43 @@ def test_duplicate_username_does_not_consume_link(invite_app):
         client.post("/api/v2/invitations/preview", json={"token": second["token"]}).status_code
         == 200
     )
+
+
+def test_a_team_link_places_the_player_in_that_team_and_rejects_foreign_teams(invite_app):
+    client, maker = invite_app
+    from app.db.models_drill import DrillTeam
+
+    async def seed():
+        async with maker() as db:
+            await db.run_sync(lambda s: DrillTeam.__table__.create(s.get_bind(), checkfirst=True))
+            db.add(DrillTeam(drill_id=1, name="Alpha", position=1))
+            db.add(DrillTeam(drill_id=2, name="Elsewhere", position=1))
+            await db.commit()
+
+    run(seed())
+    assert (
+        client.post(
+            "/api/v2/drills/1/invitations", json={"side": "red", "team_id": 2}, headers=auth()
+        ).status_code
+        == 404
+    )
+    invite = client.post(
+        "/api/v2/drills/1/invitations", json={"side": "red", "team_id": 1}, headers=auth()
+    )
+    assert invite.status_code == 201 and invite.json()["team_id"] == 1
+    joined = client.post(
+        "/api/v2/invitations/redeem",
+        json={
+            "token": invite.json()["token"],
+            "username": "teamplayer",
+            "password": "Sup3rSecret!",
+        },
+    )
+    assert joined.status_code == 201
+
+    async def team_of_player():
+        async with maker() as db:
+            rows = (await db.execute(select(DrillParticipant))).scalars().all()
+            return [(p.user_id, p.drill_team_id) for p in rows if p.drill_team_id is not None]
+
+    assert [team for _, team in run(team_of_player())] == [1]

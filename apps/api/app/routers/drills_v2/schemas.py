@@ -234,3 +234,108 @@ class EnvironmentLockOut(BaseModel):
     owner_role: str | None = None
     acquired_at: str | None = None
     released_at: str | None = None
+
+
+# ============================================================================
+# Competition: teams, rounds, scoreboard
+# ============================================================================
+
+
+class TeamMemberOut(BaseModel):
+    user_id: int
+    sub: str | None = None
+
+
+class TeamOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    name: str
+    color: str | None = None
+    position: int
+    members: list[TeamMemberOut] = []
+    member_count: int = 0
+
+
+class TeamListOut(BaseModel):
+    teams: list[TeamOut]
+
+
+class RoundOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    number: int
+    name: str
+    status: str
+    assignments: dict[str, Any] = {}
+    started_at: str | None = None
+    ended_at: str | None = None
+    freeze_at: str | None = None
+
+
+class RoundListOut(BaseModel):
+    rounds: list[RoundOut]
+
+
+class ScoreboardTeamOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    team_id: int
+    name: str
+    color: str | None = None
+    rank: int
+    total: int
+    members: int = 0
+    by_round: dict[str, int] = {}
+    last_scored_at: str | None = None
+
+
+class ScoreboardPlayerOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    user_id: int
+    name: str | None = None
+    team_id: int | None = None
+    total: int
+
+
+class ScoreboardOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    frozen: bool
+    rounds: list[dict[str, Any]] = []
+    teams: list[ScoreboardTeamOut]
+    players: list[ScoreboardPlayerOut] = []
+
+
+class MyTeamOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    team: TeamOut | None = None
+    round: RoundOut | None = None
+    side: str | None = None
+
+
+class TeamCreate(BaseModel):
+    count: int = 4
+
+
+class TeamUpdate(BaseModel):
+    name: str | None = None
+    color: str | None = None
+
+
+class RoundPlan(BaseModel):
+    rounds: int = 2
+
+
+class FreezeUpdate(BaseModel):
+    freeze_at: datetime | None = None
+
+
+class ScoreEventCreate(BaseModel):
+    team_id: int
+    points: int
+    reason: str
+    kind: str = "award"

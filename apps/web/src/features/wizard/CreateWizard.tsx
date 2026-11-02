@@ -14,7 +14,7 @@ import { Field, Select, Textarea } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { defaultDrillTitle, initials, organization, scenarioName, summary, summaryStats } from '../scenarios/helpers';
-import { validateDetails } from './readiness';
+import { MAX_PARTICIPANTS, validateDetails } from './readiness';
 import { provisionPhase } from './provision';
 import { useReadiness } from './useReadiness';
 
@@ -318,8 +318,8 @@ function DetailsStep({
         <Field label="Duration (minutes)" error={errors.duration}>
           <Input type="number" min={1} value={fields.duration} onChange={(e) => onChange('duration', e.target.value)} />
         </Field>
-        <Field label="Max participants" error={errors.maxParticipants} hint="1 to 10">
-          <Input type="number" min={1} max={10} value={fields.maxParticipants} onChange={(e) => onChange('maxParticipants', e.target.value)} />
+        <Field label="Max participants" error={errors.maxParticipants} hint={`1 to ${MAX_PARTICIPANTS}`}>
+          <Input type="number" min={1} max={MAX_PARTICIPANTS} value={fields.maxParticipants} onChange={(e) => onChange('maxParticipants', e.target.value)} />
         </Field>
         <Field label="Description" className="sm:col-span-2">
           <Textarea value={fields.description} onChange={(e) => onChange('description', e.target.value)} />

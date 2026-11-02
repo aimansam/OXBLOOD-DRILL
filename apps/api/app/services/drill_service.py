@@ -28,6 +28,10 @@ from app.db.models_drill import (
 # ============================================================================
 
 
+# Largest roster a drill accepts. Raise it together with the node's RAM and CPU budget.
+MAX_PARTICIPANTS = 20
+
+
 def _sanitize_text(text: str) -> str:
     """Remove potentially dangerous HTML/script tags from text."""
     if not text:
@@ -102,8 +106,8 @@ async def create_drill(
     if duration_limit_minutes is not None and duration_limit_minutes <= 0:
         raise ValueError("Duration limit must be positive")
     max_participants = 10 if max_participants is None else max_participants
-    if not 1 <= max_participants <= 10:
-        raise ValueError("Max participants must be between 1 and 10 for the MVP")
+    if not 1 <= max_participants <= MAX_PARTICIPANTS:
+        raise ValueError(f"Max participants must be between 1 and {MAX_PARTICIPANTS}")
     catalog_row = None
     if scenario_id is not None:
         catalog_row = (
@@ -166,8 +170,11 @@ async def update_drill(db: AsyncSession, drill_id: int, **kwargs) -> Drill | Non
         kwargs["description"] = _sanitize_text(str(kwargs["description"]))
     if kwargs.get("duration_limit_minutes") is not None and kwargs["duration_limit_minutes"] <= 0:
         raise ValueError("Duration limit must be positive")
-    if kwargs.get("max_participants") is not None and not 1 <= kwargs["max_participants"] <= 10:
-        raise ValueError("Max participants must be between 1 and 10 for the MVP")
+    if (
+        kwargs.get("max_participants") is not None
+        and not 1 <= kwargs["max_participants"] <= MAX_PARTICIPANTS
+    ):
+        raise ValueError(f"Max participants must be between 1 and {MAX_PARTICIPANTS}")
     if kwargs.get("drill_type") is not None and kwargs["drill_type"] not in {"individual", "team"}:
         raise ValueError("Invalid drill type")
     for key, value in kwargs.items():

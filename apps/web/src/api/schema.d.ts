@@ -2063,6 +2063,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/drills/{drill_id}/my-team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Team
+         * @description The caller's team and the side it plays in the running round.
+         */
+        get: operations["my_team_api_v2_drills__drill_id__my_team_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/drills/{drill_id}/objectives": {
         parameters: {
             query?: never;
@@ -2251,6 +2271,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/drills/{drill_id}/rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Rounds */
+        get: operations["get_rounds_api_v2_drills__drill_id__rounds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/drills/{drill_id}/rounds/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Plan Rounds */
+        post: operations["plan_rounds_api_v2_drills__drill_id__rounds_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/drills/{drill_id}/rounds/{number}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish Round */
+        post: operations["finish_round_api_v2_drills__drill_id__rounds__number__finish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/drills/{drill_id}/rounds/{number}/freeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Freeze Round */
+        put: operations["freeze_round_api_v2_drills__drill_id__rounds__number__freeze_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/drills/{drill_id}/rounds/{number}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Round */
+        post: operations["start_round_api_v2_drills__drill_id__rounds__number__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/drills/{drill_id}/scenarios": {
         parameters: {
             query?: never;
@@ -2269,6 +2374,47 @@ export interface paths {
          * @description Link a lab scenario to a drill.
          */
         post: operations["post_scenario_api_v2_drills__drill_id__scenarios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/drills/{drill_id}/score-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Score Events */
+        get: operations["get_score_events_api_v2_drills__drill_id__score_events_get"];
+        put?: never;
+        /**
+         * Post Score Event
+         * @description A referee adds or removes points. A written reason is mandatory and kept in the ledger.
+         */
+        post: operations["post_score_event_api_v2_drills__drill_id__score_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/drills/{drill_id}/scoreboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Scoreboard
+         * @description Team standings. Players see the frozen view during a freeze; referees see everything.
+         */
+        get: operations["get_scoreboard_api_v2_drills__drill_id__scoreboard_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2390,6 +2536,59 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/drills/{drill_id}/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Teams */
+        get: operations["get_teams_api_v2_drills__drill_id__teams_get"];
+        put?: never;
+        /** Create Teams */
+        post: operations["create_teams_api_v2_drills__drill_id__teams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/drills/{drill_id}/teams/{team_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Team */
+        put: operations["update_team_api_v2_drills__drill_id__teams__team_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/drills/{drill_id}/teams/{team_id}/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Team Member */
+        put: operations["put_team_member_api_v2_drills__drill_id__teams__team_id__members__user_id__put"];
+        post?: never;
+        /** Delete Team Member */
+        delete: operations["delete_team_member_api_v2_drills__drill_id__teams__team_id__members__user_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3467,6 +3666,11 @@ export interface components {
              */
             ok: boolean;
         };
+        /** FreezeUpdate */
+        FreezeUpdate: {
+            /** Freeze At */
+            freeze_at?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -3498,11 +3702,15 @@ export interface components {
             side: string;
             /** Status */
             status: string;
+            /** Team Id */
+            team_id?: number | null;
         };
         /** IssueRequest */
         IssueRequest: {
             /** Side */
             side: string;
+            /** Team Id */
+            team_id?: number | null;
         };
         /**
          * IssueResetLinkResponse
@@ -3589,6 +3797,15 @@ export interface components {
             detail?: string | null;
             /** Milestone */
             milestone: string;
+        };
+        /** MyTeamOut */
+        MyTeamOut: {
+            round?: components["schemas"]["RoundOut"] | null;
+            /** Side */
+            side?: string | null;
+            team?: components["schemas"]["TeamOut"] | null;
+        } & {
+            [key: string]: unknown;
         };
         /** ObjectiveCreate */
         ObjectiveCreate: {
@@ -4004,6 +4221,45 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** RoundListOut */
+        RoundListOut: {
+            /** Rounds */
+            rounds: components["schemas"]["RoundOut"][];
+        };
+        /** RoundOut */
+        RoundOut: {
+            /**
+             * Assignments
+             * @default {}
+             */
+            assignments: {
+                [key: string]: unknown;
+            };
+            /** Ended At */
+            ended_at?: string | null;
+            /** Freeze At */
+            freeze_at?: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Number */
+            number: number;
+            /** Started At */
+            started_at?: string | null;
+            /** Status */
+            status: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** RoundPlan */
+        RoundPlan: {
+            /**
+             * Rounds
+             * @default 2
+             */
+            rounds: number;
+        };
         /** ScenarioLink */
         ScenarioLink: {
             /** Lab Id */
@@ -4094,6 +4350,83 @@ export interface components {
             /** Scenario Id */
             scenario_id: number;
         };
+        /** ScoreEventCreate */
+        ScoreEventCreate: {
+            /**
+             * Kind
+             * @default award
+             */
+            kind: string;
+            /** Points */
+            points: number;
+            /** Reason */
+            reason: string;
+            /** Team Id */
+            team_id: number;
+        };
+        /** ScoreboardOut */
+        ScoreboardOut: {
+            /** Frozen */
+            frozen: boolean;
+            /**
+             * Players
+             * @default []
+             */
+            players: components["schemas"]["ScoreboardPlayerOut"][];
+            /**
+             * Rounds
+             * @default []
+             */
+            rounds: {
+                [key: string]: unknown;
+            }[];
+            /** Teams */
+            teams: components["schemas"]["ScoreboardTeamOut"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** ScoreboardPlayerOut */
+        ScoreboardPlayerOut: {
+            /** Name */
+            name?: string | null;
+            /** Team Id */
+            team_id?: number | null;
+            /** Total */
+            total: number;
+            /** User Id */
+            user_id: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** ScoreboardTeamOut */
+        ScoreboardTeamOut: {
+            /**
+             * By Round
+             * @default {}
+             */
+            by_round: {
+                [key: string]: number;
+            };
+            /** Color */
+            color?: string | null;
+            /** Last Scored At */
+            last_scored_at?: string | null;
+            /**
+             * Members
+             * @default 0
+             */
+            members: number;
+            /** Name */
+            name: string;
+            /** Rank */
+            rank: number;
+            /** Team Id */
+            team_id: number;
+            /** Total */
+            total: number;
+        } & {
+            [key: string]: unknown;
+        };
         /** SecretRequest */
         SecretRequest: {
             /** Token */
@@ -4152,6 +4485,56 @@ export interface components {
              * @default 300
              */
             timeout_s: number;
+        };
+        /** TeamCreate */
+        TeamCreate: {
+            /**
+             * Count
+             * @default 4
+             */
+            count: number;
+        };
+        /** TeamListOut */
+        TeamListOut: {
+            /** Teams */
+            teams: components["schemas"]["TeamOut"][];
+        };
+        /** TeamMemberOut */
+        TeamMemberOut: {
+            /** Sub */
+            sub?: string | null;
+            /** User Id */
+            user_id: number;
+        };
+        /** TeamOut */
+        TeamOut: {
+            /** Color */
+            color?: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Member Count
+             * @default 0
+             */
+            member_count: number;
+            /**
+             * Members
+             * @default []
+             */
+            members: components["schemas"]["TeamMemberOut"][];
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** TeamUpdate */
+        TeamUpdate: {
+            /** Color */
+            color?: string | null;
+            /** Name */
+            name?: string | null;
         };
         /** TimelineNote */
         TimelineNote: {
@@ -7594,6 +7977,39 @@ export interface operations {
             };
         };
     };
+    my_team_api_v2_drills__drill_id__my_team_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTeamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_objectives_api_v2_drills__drill_id__objectives_get: {
         parameters: {
             query?: never;
@@ -7967,6 +8383,182 @@ export interface operations {
             };
         };
     };
+    get_rounds_api_v2_drills__drill_id__rounds_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoundListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_rounds_api_v2_drills__drill_id__rounds_plan_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoundPlan"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoundListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finish_round_api_v2_drills__drill_id__rounds__number__finish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    freeze_round_api_v2_drills__drill_id__rounds__number__freeze_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreezeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_round_api_v2_drills__drill_id__rounds__number__start_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_scenarios_api_v2_drills__drill_id__scenarios_get: {
         parameters: {
             query?: never;
@@ -8020,6 +8612,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_score_events_api_v2_drills__drill_id__score_events_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_score_event_api_v2_drills__drill_id__score_events_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoreEventCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_scoreboard_api_v2_drills__drill_id__scoreboard_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoreboardOut"];
                 };
             };
             /** @description Validation Error */
@@ -8205,6 +8900,184 @@ export interface operations {
             header?: never;
             path: {
                 drill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_teams_api_v2_drills__drill_id__teams_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_teams_api_v2_drills__drill_id__teams_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_team_api_v2_drills__drill_id__teams__team_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+                team_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_team_member_api_v2_drills__drill_id__teams__team_id__members__user_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+                team_id: number;
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_team_member_api_v2_drills__drill_id__teams__team_id__members__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+                team_id: number;
+                user_id: number;
             };
             cookie?: never;
         };

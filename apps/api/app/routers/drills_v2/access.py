@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 
 from fastapi import HTTPException
@@ -15,6 +16,7 @@ from app.db.models_drill import (
     DrillStatus,
 )
 from app.runners.runner import build_runner
+from app.services import teams as team_service
 
 log = logging.getLogger("app.routers.drills_v2")
 
@@ -57,6 +59,24 @@ def _asset_credentials(role: str, asset_spec: dict | None = None) -> dict | None
             "password": str(spec_access.get("password") or "divide"),
         }
     return None
+
+
+async def _competitor_token(
+    db: AsyncSession, drill_id: int, token: TokenData | None
+) -> TokenData | None:
+    """In a running competition round a player's team side replaces their account role.
+
+    Accounts are created as red or blue, but teams swap sides between rounds. Everything that
+    asks "which machines may this player see" therefore uses the side of the round in progress.
+    Outside a round (or for players without a team) the token is returned unchanged.
+    """
+    if token is None or str(token.role or "").lower() not in {"red", "blue"}:
+        return token
+    user = (await db.execute(select(User).where(User.sub == token.sub))).scalar_one_or_none()
+    if user is None:
+        return token
+    side = await team_service.effective_side(db, drill_id, user.id)
+    return dataclasses.replace(token, role=side) if side else token
 
 
 def _can_view_asset(side: str, token: TokenData | None) -> bool:
@@ -112,6 +132,9 @@ async def _participant_can_access(
     participant = next((item for item in roster if item.user_id == user.id), None)
     if participant is None or str(participant.status or "").lower() in {"removed", "left"}:
         return False
+    competing = await team_service.effective_side(db, drill_id, user.id)
+    if competing is not None:
+        return competing == side  # the team's side in the running round decides
     assigned_role = str(participant.role or "").lower()
     return assigned_role not in {"red", "blue"} or assigned_role == side
 

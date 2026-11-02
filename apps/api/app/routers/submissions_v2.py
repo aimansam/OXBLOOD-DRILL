@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import current_token
 from app.db.models_drill import DrillFlag, EvidenceType
 from app.db.session import get_session
+from app.services import competition_flags as comp_flags
 from app.services.drill_service import record_drill_event
 from app.services.submission_service import (
     get_drill_first_bloods,
@@ -194,6 +195,15 @@ async def post_submission(
                 session.add(user)
                 await session.flush()
             user_id = user.id
+        if data.drill_id:
+            try:
+                ctx = await comp_flags.team_context(session, data.drill_id, user_id)
+                if ctx is not None:
+                    return await comp_flags.submit_team_flag(
+                        session, ctx, flag_value=data.flag_value, hints_used=data.hints_used
+                    )
+            except comp_flags.CompetitionError as exc:
+                raise HTTPException(status_code=exc.status, detail=exc.detail) from exc
         lab_flag_id = data.lab_flag_id
         drill_flag = None
         if not lab_flag_id and data.drill_id:
@@ -202,11 +212,14 @@ async def post_submission(
                 select(DrillFlag)
                 .where(DrillFlag.drill_id == data.drill_id)
                 .order_by(DrillFlag.sort_order, DrillFlag.id)
-                .limit(1)
             )
-            drill_flag = r.scalars().first()
-            if drill_flag is None:
+            all_flags = list(r.scalars().all())
+            if not all_flags:
                 raise ValueError("Drill has no flags yet — add one via POST /drills/{id}/flags")
+            # The player does not say which flag it is: match the value against all of them,
+            # and record a wrong guess against the first flag.
+            submitted = data.flag_value.strip()
+            drill_flag = next((f for f in all_flags if f.value.strip() == submitted), all_flags[0])
             lab_flag_id = drill_flag.id
         elif lab_flag_id and data.drill_id:
             drill_flag = await session.get(DrillFlag, lab_flag_id)

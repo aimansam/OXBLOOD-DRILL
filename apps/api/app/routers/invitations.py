@@ -13,7 +13,14 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Role, TokenData, require_role, sign_token
-from app.db.models_drill import Drill, DrillEvent, DrillInvitation, DrillParticipant, DrillStatus
+from app.db.models_drill import (
+    Drill,
+    DrillEvent,
+    DrillInvitation,
+    DrillParticipant,
+    DrillStatus,
+    DrillTeam,
+)
 from app.db.session import get_session
 from app.services.users import DuplicateSubError, create_user
 
@@ -33,6 +40,7 @@ def _digest(secret: str) -> str:
 class InvitationOut(BaseModel):
     id: int
     side: str
+    team_id: int | None = None
     status: str
     expires_at: str
     created_at: str
@@ -56,6 +64,7 @@ def _public(invite: DrillInvitation) -> dict:
     return {
         "id": invite.id,
         "side": invite.side,
+        "team_id": invite.drill_team_id,
         "status": state,
         "expires_at": invite.expires_at.isoformat(),
         "created_at": invite.created_at.isoformat(),
@@ -88,6 +97,8 @@ async def _find(db: AsyncSession, secret: str) -> tuple[DrillInvitation | None, 
 
 class IssueRequest(BaseModel):
     side: str = Field(pattern="^(red|blue)$")
+    # Optional: the player is placed in this team when they redeem the link.
+    team_id: int | None = None
 
 
 class SecretRequest(BaseModel):
@@ -155,10 +166,15 @@ async def issue_invitation(
     )
     if len(pending) >= 20:
         raise HTTPException(409, "Revoke an unused link before creating another.")
+    if body.team_id is not None:
+        team = await db.get(DrillTeam, body.team_id)
+        if team is None or team.drill_id != drill_id:
+            raise HTTPException(404, "Team not found in this drill.")
     secret = secrets.token_urlsafe(32)
     invite = DrillInvitation(
         drill_id=drill_id,
         side=body.side,
+        drill_team_id=body.team_id,
         token_hash=_digest(secret),
         created_by=actor.sub,
         expires_at=datetime.now(UTC) + _LIFETIME,
@@ -237,7 +253,13 @@ async def redeem_invitation(body: RedeemRequest, db: AsyncSession = Depends(get_
     except DuplicateSubError as exc:
         raise HTTPException(409, "That username is taken. Choose another.") from exc
     db.add(
-        DrillParticipant(drill_id=drill.id, user_id=user.id, role=invite.side, status="registered")
+        DrillParticipant(
+            drill_id=drill.id,
+            user_id=user.id,
+            role=invite.side,
+            status="registered",
+            drill_team_id=invite.drill_team_id,
+        )
     )
     db.add(
         DrillEvent(

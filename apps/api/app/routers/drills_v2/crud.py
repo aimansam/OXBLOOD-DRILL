@@ -51,6 +51,7 @@ from .access import (
     _asset_side,
     _can_view_asset,
     _can_view_credentials,
+    _competitor_token,
     _get_runner,
     _participant_can_access,
     _participant_is_enrolled,
@@ -303,6 +304,7 @@ async def get_drill_access(
         (scenario.spec if scenario else None) or {}
     )
     scenario_access = scenario_spec.get("access") or {}
+    viewer = await _competitor_token(db, drill_id, token)
     assets_spec = scenario_spec.get("assets") or []
     specs_by_role = {
         str(spec.get("role")): spec
@@ -329,7 +331,7 @@ async def get_drill_access(
         base_role = role_parts[0] if len(role_parts) == 2 and role_parts[1].isdigit() else role_text
         asset_spec = specs_by_role.get(asset.role) or specs_by_role.get(base_role) or {}
         side = _asset_side(asset.role, scenario_access)
-        if not _can_view_asset(side, token):
+        if not _can_view_asset(side, viewer):
             continue
         if not await _participant_can_access(db, drill_id, token, side):
             continue
@@ -353,7 +355,7 @@ async def get_drill_access(
                 "seed_status": "Seeded"
                 if env.get("provision_status") == "started"
                 else "Pending seed",
-                "credentials": credentials if _can_view_credentials(side, token) else None,
+                "credentials": credentials if _can_view_credentials(side, viewer) else None,
                 "console_available": bool(
                     asset.pve_vmid and asset.pve_node and status_value == "running"
                 ),
@@ -486,7 +488,7 @@ async def create_drill_console(
         (scenario.spec if scenario else None) or {}
     )
     side = _asset_side(asset.role, scenario_spec.get("access") or {})
-    if not _can_view_asset(side, token):
+    if not _can_view_asset(side, await _competitor_token(db, drill_id, token)):
         raise HTTPException(status_code=403, detail="Asset is not visible to your role")
     if not await _participant_can_access(db, drill_id, token, side):
         raise HTTPException(status_code=403, detail="You are not assigned to this drill")

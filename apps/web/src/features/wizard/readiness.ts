@@ -93,12 +93,15 @@ export function computeReadiness(i: ReadinessInputs): Readiness {
   };
 }
 
-/** Wizard field rules. The API allows 1-10 participants for the MVP. */
+/** Largest roster the API accepts (apps/api drill_service.MAX_PARTICIPANTS). */
+export const MAX_PARTICIPANTS = 20;
+
+/** Wizard field rules. */
 export function validateDetails(fields: { title: string; maxParticipants: string; duration: string }): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!fields.title.trim()) errors.title = 'Title is required';
   const max = Number(fields.maxParticipants);
-  if (fields.maxParticipants && (!Number.isInteger(max) || max < 1 || max > 10)) errors.maxParticipants = 'Enter 1 to 10 participants';
+  if (fields.maxParticipants && (!Number.isInteger(max) || max < 1 || max > MAX_PARTICIPANTS)) errors.maxParticipants = `Enter 1 to ${MAX_PARTICIPANTS} participants`;
   const duration = Number(fields.duration);
   if (fields.duration && (!Number.isInteger(duration) || duration < 1)) errors.duration = 'Enter a duration in minutes';
   return errors;

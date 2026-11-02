@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, Select, Textarea } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { validateDetails } from '../wizard/readiness';
+import { MAX_PARTICIPANTS, validateDetails } from '../wizard/readiness';
 
 export function EditDrillDialog({ drill, open, onOpenChange }: { drill: Drill; open: boolean; onOpenChange: (o: boolean) => void }) {
   const queryClient = useQueryClient();
@@ -69,8 +69,8 @@ export function EditDrillDialog({ drill, open, onOpenChange }: { drill: Drill; o
             <Field label="Duration (minutes)" error={errors.duration}>
               <Input type="number" min={1} value={f.duration} onChange={(e) => set('duration', e.target.value)} />
             </Field>
-            <Field label="Max participants" error={errors.maxParticipants} hint="1 to 10">
-              <Input type="number" min={1} max={10} value={f.maxParticipants} onChange={(e) => set('maxParticipants', e.target.value)} />
+            <Field label="Max participants" error={errors.maxParticipants} hint={`1 to ${MAX_PARTICIPANTS}`}>
+              <Input type="number" min={1} max={MAX_PARTICIPANTS} value={f.maxParticipants} onChange={(e) => set('maxParticipants', e.target.value)} />
             </Field>
           </div>
           <Field label="Description">

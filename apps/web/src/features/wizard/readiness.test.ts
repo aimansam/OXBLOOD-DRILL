@@ -74,9 +74,10 @@ describe('computeReadiness', () => {
 });
 
 describe('validateDetails', () => {
-  it('requires a title and caps participants at 10', () => {
+  it('requires a title and caps participants at 20', () => {
     expect(validateDetails({ title: ' ', maxParticipants: '10', duration: '60' })).toEqual({ title: 'Title is required' });
-    expect(validateDetails({ title: 'x', maxParticipants: '50', duration: '60' }).maxParticipants).toMatch(/1 to 10/);
-    expect(validateDetails({ title: 'x', maxParticipants: '10', duration: '60' })).toEqual({});
+    expect(validateDetails({ title: 'x', maxParticipants: '50', duration: '60' }).maxParticipants).toMatch(/1 to 20/);
+    expect(validateDetails({ title: 'x', maxParticipants: '21', duration: '60' }).maxParticipants).toBeTruthy();
+    expect(validateDetails({ title: 'x', maxParticipants: '20', duration: '60' })).toEqual({});
   });
 });

@@ -22,14 +22,14 @@ test('create an exercise from an organization through the wizard', async ({ page
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
 });
 
-test('the wizard rejects more than 10 participants', async ({ page }) => {
+test('the wizard rejects more than 20 participants', async ({ page }) => {
   await signInAsAdmin(page);
   await page.getByRole('button', { name: 'New exercise' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('option').first().click();
   await dialog.getByRole('button', { name: 'Next' }).click();
   await dialog.getByLabel('Max participants').fill('50');
-  await expect(dialog.getByText('Enter 1 to 10 participants')).toBeVisible();
+  await expect(dialog.getByText('Enter 1 to 20 participants')).toBeVisible();
   await dialog.getByRole('button', { name: 'Next' }).click();
   await expect(dialog.getByRole('listitem', { name: 'Setup' })).toHaveCount(0); // stayed on Details
   await expect(dialog.getByLabel('Max participants')).toBeVisible();
