@@ -88,6 +88,25 @@ def _three_bridge_plan() -> BridgePlan:
     )
 
 
+def _live_ifaces(names: list[str] | None = None) -> list[dict]:
+    """Interfaces as PVE reports them once the bridges are applied.
+
+    A bridge only counts as propagated when it is active and carries the
+    scenario gateway address, so bare ``{"iface", "type"}`` dicts don't do.
+    """
+    return [
+        {
+            "iface": b.name,
+            "type": "bridge",
+            "active": 1,
+            "address": b.gateway_ip,
+            "cidr": f"{b.gateway_ip}/24",
+        }
+        for b in _three_bridge_plan().bridges
+        if names is None or b.name in names
+    ]
+
+
 def _make_handler(
     *,
     zones: list[dict] | None = None,
@@ -142,7 +161,7 @@ class TestApplySdnPlan:
 
     def test_creates_zone_and_three_vnets(self, monkeypatch: pytest.MonkeyPatch) -> None:
         iface_names = ["vmbr100", "vmbr101", "vmbr102"]
-        node_ifaces = [{"iface": n, "type": "bridge"} for n in iface_names]
+        node_ifaces = _live_ifaces(iface_names)
         transport, requests = _make_handler(
             zones=[],
             vnets=[],
@@ -189,7 +208,7 @@ class TestApplySdnPlan:
             {"vnet": "vmbr101", "zone": DEFAULT_ZONE},
             {"vnet": "vmbr102", "zone": DEFAULT_ZONE},
         ]
-        node_ifaces = [{"iface": n, "type": "bridge"} for n in ["vmbr100", "vmbr101", "vmbr102"]]
+        node_ifaces = _live_ifaces()
         transport, requests = _make_handler(
             zones=existing_zones,
             vnets=existing_vnets,
@@ -356,7 +375,7 @@ class TestPermissionErrors:
         transport, _ = _make_handler(
             zones=[],
             vnets=[],
-            node_ifaces=[{"iface": n, "type": "bridge"} for n in ["vmbr100", "vmbr101", "vmbr102"]],
+            node_ifaces=_live_ifaces(),
         )
         _patch_httpx(monkeypatch, transport)
 
@@ -543,7 +562,7 @@ class TestPve9Compatibility:
         existing_vnets = [
             {"vnet": b.name, "zone": DEFAULT_ZONE} for b in _three_bridge_plan().bridges
         ]
-        node_ifaces = [{"iface": b.name, "type": "bridge"} for b in _three_bridge_plan().bridges]
+        node_ifaces = _live_ifaces()
         transport, _ = _make_handler(
             zones=[],
             vnets=existing_vnets,
@@ -581,7 +600,7 @@ class TestPve9Compatibility:
         transport, _ = _make_handler(
             zones=[{"zone": DEFAULT_ZONE}],
             vnets=[],
-            node_ifaces=[{"iface": b.name, "type": "bridge"} for b in _three_bridge_plan().bridges],
+            node_ifaces=_live_ifaces(),
             on_vnet_create=on_vnet_create,
         )
         _patch_httpx(monkeypatch, transport)

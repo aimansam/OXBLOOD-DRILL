@@ -86,6 +86,20 @@ def _three_bridge_plan() -> BridgePlan:
     )
 
 
+def _live_ifaces() -> list[dict]:
+    """Interfaces as PVE reports them once the bridges are applied (active, with gateway)."""
+    return [
+        {
+            "iface": b.name,
+            "type": "bridge",
+            "active": 1,
+            "address": b.gateway_ip,
+            "cidr": f"{b.gateway_ip}/24",
+        }
+        for b in _three_bridge_plan().bridges
+    ]
+
+
 def _patch_httpx(monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTransport) -> None:
     """Replace httpx.AsyncClient inside the sdn module."""
 
@@ -129,13 +143,7 @@ class TestApplyDirectPlan:
                 # Propagation re-check: bridges appeared.
                 return httpx.Response(
                     200,
-                    json={
-                        "data": [
-                            {"iface": "vmbr100", "type": "bridge"},
-                            {"iface": "vmbr101", "type": "bridge"},
-                            {"iface": "vmbr102", "type": "bridge"},
-                        ]
-                    },
+                    json={"data": _live_ifaces()},
                 )
             if method == "POST" and path.startswith("/api2/json/nodes/"):
                 body = json.loads(request.content) if request.content else {}
@@ -169,11 +177,7 @@ class TestDirectPlanIdempotent:
     """Re-running apply when bridges already exist is a no-op."""
 
     def test_skips_existing_bridges(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        existing = [
-            {"iface": "vmbr100", "type": "bridge"},
-            {"iface": "vmbr101", "type": "bridge"},
-            {"iface": "vmbr102", "type": "bridge"},
-        ]
+        existing = _live_ifaces()
         posted_bodies: list[dict[str, Any]] = []
 
         def handler(request: httpx.Request) -> httpx.Response:

@@ -225,7 +225,57 @@ class TestAdminBridgeEndpoints:
         if r.status_code == 502:
             assert "PVE" in r.json()["detail"] or "host" in r.json()["detail"]
 
-    def test_pve_setup_bridges_dry_run(self, client: TestClient) -> None:
+    def test_pve_setup_bridges_dry_run(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import asyncio
+        from types import SimpleNamespace
+
+        # A dry run needs PVE credentials to name the node, but never calls PVE.
+        monkeypatch.setattr(
+            "app.services.pve_sdn.get_active_auth",
+            lambda node=None: SimpleNamespace(node=node or "pve", base_url="https://pve.test:8006"),
+        )
+
+        from app.db import models as db_models
+        from app.db.session import get_sessionmaker
+        from sqlalchemy import delete
+
+        # Seed a scenario that needs a bridge; the dry run plans from the DB.
+        async def _seed(add: bool) -> None:
+            async with get_sessionmaker()() as s:
+                await s.execute(
+                    delete(db_models.Scenario).where(db_models.Scenario.name == "bridge-dry-run")
+                )
+                if add:
+                    s.add(
+                        db_models.Scenario(
+                            name="bridge-dry-run",
+                            title="Bridge dry run",
+                            version=1,
+                            difficulty="easy",
+                            duration_min=30,
+                            tags=[],
+                            authors=[],
+                            spec={"networks": [{"name": "lab", "cidr": "10.77.0.0/24"}]},
+                        )
+                    )
+                await s.commit()
+
+        def _run(add: bool) -> None:
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(_seed(add))
+            finally:
+                loop.close()
+
+        _run(True)
+        try:
+            self._dry_run_reports_planned_bridges(client)
+        finally:
+            _run(False)
+
+    def _dry_run_reports_planned_bridges(self, client: TestClient) -> None:
         client.post(
             "/api/v1/auth/setup",
             json={"sub": "admin", "password": "adminpass1"},
