@@ -201,7 +201,7 @@ async def test_pve_guest_inventory_drill_scope_uses_registered_vms(client, admin
 
 
 def test_drill_template_status_when_ready(client, admin_headers):
-    """drill-template-status returns ready=True when PVE lists the template."""
+    """drill-template-status is ready once PVE lists any template for the catalog."""
     with patch("app.services.proxmox.list_templates") as lt:
         lt.return_value = [
             {"name": "tpl-debian-cloudinit", "vmid": 9000, "template": 1},
@@ -210,17 +210,18 @@ def test_drill_template_status_when_ready(client, admin_headers):
         assert r.status_code == 200
         body = r.json()
         assert body["ready"] is True
-        assert body["vmid"] == 9000
+        assert body["available"] == ["tpl-debian-cloudinit"]
+        assert body["error"] is None
 
 
 def test_drill_template_status_when_missing(client, admin_headers):
-    """drill-template-status returns ready=False + error when template absent."""
+    """drill-template-status returns ready=False + error when PVE has no templates."""
     with patch("app.services.proxmox.list_templates") as lt:
-        lt.return_value = [{"name": "some-other-template", "vmid": 8000}]
+        lt.return_value = []
         r = client.get("/api/v1/admin/drill-template-status", headers=admin_headers)
         body = r.json()
         assert body["ready"] is False
-        assert "not found" in body["error"]
+        assert "no PVE templates" in body["error"]
 
 
 def test_set_template_endpoint(client, admin_headers):
