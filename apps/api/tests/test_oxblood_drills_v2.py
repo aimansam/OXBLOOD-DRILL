@@ -31,6 +31,18 @@ def _run(coro):
         loop.close()
 
 
+def _patch(monkeypatch, name, value):
+    """Patch ``name`` in every drills_v2 submodule that looks it up."""
+    from app.routers import drills_v2
+
+    patched = False
+    for module in drills_v2.SUBMODULES:
+        if hasattr(module, name):
+            monkeypatch.setattr(module, name, value)
+            patched = True
+    assert patched, f"no drills_v2 submodule defines {name}"
+
+
 def test_team_enrollment_does_not_fail_vm_preparation():
     from app.routers.drills_v2 import _provision_checks_ready
 
@@ -84,7 +96,7 @@ def test_prepare_is_idempotent_and_does_not_start_exercise(sessionmaker, monkeyp
     from fastapi import BackgroundTasks, HTTPException
 
     queued = []
-    monkeypatch.setattr(drills_v2, "_queue_drill_provision", lambda *args: queued.append(args))
+    _patch(monkeypatch, "_queue_drill_provision", lambda *args: queued.append(args))
 
     async def case():
         async with sessionmaker() as db:
@@ -126,9 +138,7 @@ def test_start_requires_fresh_readiness(sessionmaker, monkeypatch, ready):
     from app.routers import drills_v2
     from fastapi import HTTPException
 
-    monkeypatch.setattr(
-        drills_v2, "_refresh_drill_provision_state", AsyncMock(return_value={"errors": []})
-    )
+    _patch(monkeypatch, "_refresh_drill_provision_state", AsyncMock(return_value={"errors": []}))
     probe = AsyncMock(
         return_value={
             "mood": "ready" if ready else "needs_attention",
@@ -136,7 +146,7 @@ def test_start_requires_fresh_readiness(sessionmaker, monkeypatch, ready):
             "checked_at": "now",
         }
     )
-    monkeypatch.setattr(drills_v2, "_range_health", probe)
+    _patch(monkeypatch, "_range_health", probe)
 
     async def case():
         async with sessionmaker() as db:
@@ -180,7 +190,7 @@ def test_readiness_requires_every_address_and_completed_setup(sessionmaker, monk
 
     from app.routers import drills_v2
 
-    monkeypatch.setattr(drills_v2, "_tcp_connect_ok", AsyncMock(return_value=(True, "reachable")))
+    _patch(monkeypatch, "_tcp_connect_ok", AsyncMock(return_value=(True, "reachable")))
 
     async def case():
         async with sessionmaker() as db:
@@ -585,11 +595,10 @@ def test_v2_prepare_provisions_without_starting_scenario_backed_drill(sessionmak
     drill_id, scenario_id = _run(_seed())
 
     from app.main import app
-    from app.routers import drills_v2
 
     app.dependency_overrides[get_session] = _override_session
-    monkeypatch.setattr(drills_v2, "_get_runner", lambda: fake_runner)
-    monkeypatch.setattr(drills_v2, "get_sessionmaker", lambda: sessionmaker)
+    _patch(monkeypatch, "_get_runner", lambda: fake_runner)
+    _patch(monkeypatch, "get_sessionmaker", lambda: sessionmaker)
     try:
         client = TestClient(app)
         response = client.post(
@@ -658,11 +667,10 @@ def test_v2_start_retries_failed_provision_for_active_drill(sessionmaker, monkey
     drill_id, scenario_id = _run(_seed())
 
     from app.main import app
-    from app.routers import drills_v2
 
     app.dependency_overrides[get_session] = _override_session
-    monkeypatch.setattr(drills_v2, "_get_runner", lambda: fake_runner)
-    monkeypatch.setattr(drills_v2, "get_sessionmaker", lambda: sessionmaker)
+    _patch(monkeypatch, "_get_runner", lambda: fake_runner)
+    _patch(monkeypatch, "get_sessionmaker", lambda: sessionmaker)
     try:
         client = TestClient(app)
         response = client.post(
@@ -747,10 +755,9 @@ def test_v2_status_refresh_updates_asset_state(sessionmaker, monkeypatch):
     drill_id, asset_id = _run(_seed())
 
     from app.main import app
-    from app.routers import drills_v2
 
     app.dependency_overrides[get_session] = _override_session
-    monkeypatch.setattr(drills_v2, "_get_runner", lambda: FakeRunner())
+    _patch(monkeypatch, "_get_runner", lambda: FakeRunner())
     try:
         client = TestClient(app)
         response = client.get(f"/api/v2/drills/{drill_id}/status")
@@ -905,10 +912,9 @@ def test_v2_range_health_reports_human_readiness(sessionmaker, monkeypatch):
     drill_id = _run(_seed())
 
     from app.main import app
-    from app.routers import drills_v2
 
     app.dependency_overrides[get_session] = _override_session
-    monkeypatch.setattr(drills_v2, "_get_runner", lambda: FakeRunner())
+    _patch(monkeypatch, "_get_runner", lambda: FakeRunner())
     try:
         client = TestClient(app)
         response = client.get(f"/api/v2/drills/{drill_id}/range-health")
@@ -980,11 +986,10 @@ def test_v2_failed_provision_retry_cleans_previous_run_first(sessionmaker, monke
     drill_id, scenario_id = _run(_seed())
 
     from app.main import app
-    from app.routers import drills_v2
 
     app.dependency_overrides[get_session] = _override_session
-    monkeypatch.setattr(drills_v2, "_get_runner", lambda: fake_runner)
-    monkeypatch.setattr(drills_v2, "get_sessionmaker", lambda: sessionmaker)
+    _patch(monkeypatch, "_get_runner", lambda: fake_runner)
+    _patch(monkeypatch, "get_sessionmaker", lambda: sessionmaker)
     try:
         client = TestClient(app)
         response = client.post(
@@ -1039,10 +1044,9 @@ def test_v2_stop_cleans_up_provision_run(sessionmaker, monkeypatch, status, expe
     drill_id = _run(_seed())
 
     from app.main import app
-    from app.routers import drills_v2
 
     app.dependency_overrides[get_session] = _override_session
-    monkeypatch.setattr(drills_v2, "_get_runner", lambda: fake_runner)
+    _patch(monkeypatch, "_get_runner", lambda: fake_runner)
     try:
         client = TestClient(app)
         response = client.post(
@@ -1109,8 +1113,8 @@ def test_cleanup_cancels_worker_and_uses_newest_run(sessionmaker, monkeypatch):
             fake_runner = FakeRunner()
             from app.routers import drills_v2
 
-            monkeypatch.setattr(drills_v2, "_get_runner", lambda: fake_runner)
-            monkeypatch.setattr(drills_v2, "get_sessionmaker", lambda: sessionmaker)
+            _patch(monkeypatch, "_get_runner", lambda: fake_runner)
+            _patch(monkeypatch, "get_sessionmaker", lambda: sessionmaker)
             job = drills_v2.ProvisionJob()
 
             async def _wait_for_cancel():
@@ -1252,10 +1256,9 @@ def test_v2_console_requires_login_and_returns_allowed_ticket(sessionmaker, monk
 
     from app.core.auth import sign_token
     from app.main import app
-    from app.routers import drills_v2
 
     app.dependency_overrides[get_session] = _override_session
-    monkeypatch.setattr(drills_v2, "_get_runner", lambda: FakeRunner())
+    _patch(monkeypatch, "_get_runner", lambda: FakeRunner())
     try:
         client = TestClient(app)
         anonymous = client.post(f"/api/v2/drills/{drill_id}/access/{asset_id}/console")

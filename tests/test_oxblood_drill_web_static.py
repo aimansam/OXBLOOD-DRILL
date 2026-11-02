@@ -89,7 +89,7 @@ def test_api_client_surfaces_fastapi_error_detail() -> None:
 
 
 def test_participants_endpoint_returns_display_names() -> None:
-    router = (API / "routers" / "drills_v2.py").read_text()
+    router = "\n".join(p.read_text() for p in sorted((API / "routers" / "drills_v2").glob("*.py")))
 
     assert re.search(r"from app\.db\.models import [^\n]*\bUser\b", router)
     assert '"sub": users_by_id[p.user_id].sub' in router
