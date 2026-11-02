@@ -25,10 +25,25 @@ APP_JS_PARTS = (
 )
 
 
+def _style_parts() -> list[str]:
+    """styles-*.css in the order index.html links them (one stylesheet, split in order)."""
+    html = (PORTAL / "index.html").read_text()
+    return re.findall(r'href="/drill/(styles-[\w-]+\.css)', html)
+
+
 def _read(relpath: str) -> str:
     if relpath == "app.js":
         return "\n".join((PORTAL / part).read_text() for part in APP_JS_PARTS)
+    if relpath == "styles.css":
+        return "\n".join((PORTAL / part).read_text() for part in _style_parts())
     return (PORTAL / relpath).read_text()
+
+
+def test_every_style_part_is_linked_once() -> None:
+    parts = _style_parts()
+    on_disk = sorted(path.name for path in PORTAL.glob("styles-*.css"))
+    assert sorted(parts) == on_disk
+    assert len(parts) == len(set(parts))
 
 
 def _prototype_methods(js: str) -> set[str]:
