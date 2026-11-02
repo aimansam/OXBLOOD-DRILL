@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useDrills } from '@/api/hooks';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorNote } from '@/components/ErrorNote';
@@ -49,9 +49,14 @@ function Detail({ drill, onClose }: { drill: Drill; onClose: () => void }) {
           <p className="text-xs text-muted-foreground">Range: {String(drill.environment_config.provision_status).replace(/_/g, ' ')}</p>
         ) : null}
         <ExerciseActions drill={drill} onRemoved={onClose} />
-        <Button variant="outline" className="w-full" asChild>
-          <a href="/drill/">Open run in classic portal</a>
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" asChild>
+            <Link to={`/live/${drill.id}`}>Open live range</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to={`/teams?drill=${drill.id}`}>Manage teams</Link>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

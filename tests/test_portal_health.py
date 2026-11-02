@@ -1,4 +1,4 @@
-"""The portal health check must notice when the served files are gone."""
+"""The portal health check must notice when the React build is missing or empty."""
 
 from __future__ import annotations
 
@@ -14,32 +14,33 @@ PORTAL = Path(__file__).resolve().parents[1] / "apps" / "portal"
 
 
 @pytest.fixture
-def portal_app():
+def portal(tmp_path):
     spec = importlib.util.spec_from_file_location("portal_flask_app", PORTAL / "flask_app.py")
     module = importlib.util.module_from_spec(spec)
     sys.modules["portal_flask_app"] = module
     spec.loader.exec_module(module)
-    yield module
+    (tmp_path / "index.html").write_text("<div id=root></div>")
+    module.WEB_DIR = str(tmp_path)
+    yield module, tmp_path
     sys.modules.pop("portal_flask_app", None)
 
 
-def test_healthz_ok_when_index_is_served(portal_app):
-    response = portal_app.app.test_client().get("/healthz")
+def test_healthz_ok_when_the_build_is_served(portal):
+    module, _ = portal
+    response = module.app.test_client().get("/healthz")
     assert response.status_code == 200
     assert response.get_json() == {"status": "ok", "service": "portal"}
 
 
-def test_healthz_degraded_when_app_dir_is_empty(portal_app, tmp_path):
-    # Simulates a stale bind mount: the process is alive but the directory is empty.
-    portal_app.APP_DIR = str(tmp_path)
-    response = portal_app.app.test_client().get("/healthz")
+def test_healthz_degraded_when_the_build_is_missing(portal):
+    module, tmp_path = portal
+    (tmp_path / "index.html").unlink()
+    response = module.app.test_client().get("/healthz")
     assert response.status_code == 503
-    body = response.get_json()
-    assert body["status"] == "degraded"
-    assert body["reason"] == "index.html missing"
+    assert response.get_json()["reason"] == "index.html missing"
 
 
-def test_healthz_degraded_when_index_is_empty(portal_app, tmp_path):
+def test_healthz_degraded_when_index_is_empty(portal):
+    module, tmp_path = portal
     (tmp_path / "index.html").write_text("")
-    portal_app.APP_DIR = str(tmp_path)
-    assert portal_app.app.test_client().get("/healthz").status_code == 503
+    assert module.app.test_client().get("/healthz").status_code == 503

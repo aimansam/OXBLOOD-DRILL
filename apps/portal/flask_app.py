@@ -1,24 +1,20 @@
 """
-Flask portal - serves frontend and proxies API requests to FastAPI.
+Flask portal - serves the React UI and proxies API requests to FastAPI.
 
-This is a reverse proxy that:
-1. Serves the landing page at /
-2. Serves the login page at /login
-3. Serves the drill platform at /drill/*
-4. Proxies /api/* requests to the FastAPI backend
-5. Provides a single entry point (port 80) for everything
+1. Serves the React app (built from apps/web) at /app/
+2. Redirects the old entry points (/, /login, /join, /drill/) to it
+3. Proxies /api/* requests to the FastAPI backend
+4. Provides a single entry point (port 80) for everything
 """
 
 import os
-import re
 
 import requests
-from flask import Flask, Response, abort, request, send_from_directory
+from flask import Flask, Response, abort, redirect, request, send_from_directory
 
 app = Flask(__name__)
 
 # Configuration
-APP_DIR = os.path.join(os.path.dirname(__file__), "app")
 API_BACKEND = os.environ.get("API_BACKEND", "http://api:8000")
 
 # The React UI (apps/web) is built into this directory at image build time and served at /app/.
@@ -35,69 +31,34 @@ WEB_DIR = os.environ.get("WEB_DIR") or next(
 PROXY_TIMEOUT = 30
 
 
-@app.route("/")
-def landing():
-    """Serve the landing page."""
-    return send_from_directory(APP_DIR, "landing.html")
-
-
-@app.route("/login")
-def login():
-    """Serve the login page."""
-    return send_from_directory(APP_DIR, "login.html")
-
-
-@app.route("/join")
-def join():
-    """Invite-only participant registration page."""
-    response = send_from_directory(APP_DIR, "join.html")
-    response.headers["Cache-Control"] = "no-store"
-    response.headers["Referrer-Policy"] = "no-referrer"
-    return response
-
-
-_ASSET_VERSION_RE = re.compile(r'(\.(?:js|css))\?v=[^"\']*')
-
-
-def _asset_version():
-    """Cache-buster derived from the newest top-level JS/CSS mtime."""
-    try:
-        mtimes = [
-            entry.stat().st_mtime
-            for entry in os.scandir(APP_DIR)
-            if entry.is_file() and entry.name.endswith((".js", ".css"))
-        ]
-    except OSError:
-        return "0"
-    return str(int(max(mtimes, default=0)))
-
-
-@app.route("/drill/")
-def drill_index():
-    """Serve the drill platform index with auto-versioned asset URLs."""
-    with open(os.path.join(APP_DIR, "index.html"), encoding="utf-8") as fh:
-        html = fh.read()
-    html = _ASSET_VERSION_RE.sub(rf"\1?v={_asset_version()}", html)
-    response = Response(html, mimetype="text/html")
-    response.headers["Cache-Control"] = "no-cache"
-    return response
-
-
 def _is_asset_path(path):
     """True for file-like URLs that must 404 (not SPA-fallback to HTML)."""
     name = path.rsplit("/", 1)[-1]
     return "." in name or path.startswith("assets/")
 
 
+@app.route("/")
+def landing():
+    """The old landing page is gone; the app's own sign-in is the front door."""
+    return redirect("/app/", code=302)
+
+
+@app.route("/login")
+def login():
+    return redirect("/app/login", code=302)
+
+
+@app.route("/join")
+def join():
+    """Invitation links are shared as /join#token=...; browsers keep the fragment across this redirect."""
+    return redirect("/app/join", code=302)
+
+
+@app.route("/drill/")
 @app.route("/drill/<path:path>")
-def drill_platform(path):
-    """Serve drill platform files."""
-    full = os.path.join(APP_DIR, path)
-    if os.path.isfile(full):
-        return send_from_directory(APP_DIR, path)
-    if _is_asset_path(path):
-        abort(404)
-    return send_from_directory(APP_DIR, "index.html")
+def classic_portal(path=""):
+    """The classic portal was retired; old bookmarks land on the new UI."""
+    return redirect("/app/", code=302)
 
 
 @app.route("/app/")
@@ -117,6 +78,10 @@ def web_app(path=""):
         return Response("The web app is not built", 503, mimetype="text/plain")
     response = send_from_directory(WEB_DIR, "index.html")
     response.headers["Cache-Control"] = "no-cache"
+    if path == "join":
+        # The invitation secret is in the URL fragment; never leak it through Referer.
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
     return response
 
 
@@ -173,11 +138,10 @@ def proxy_api(path):
 def health():
     """Liveness plus a check that the files we serve are really there.
 
-    A bind mount that went stale (the host directory was replaced) leaves this
-    process running with an empty APP_DIR, so every page 404s while a bare
-    liveness check keeps saying "ok". Report that as unhealthy instead.
+    If the web build is missing or empty the process is up but every page fails, so
+    report that as unhealthy instead of a bare "ok".
     """
-    index = os.path.join(APP_DIR, "index.html")
+    index = os.path.join(WEB_DIR, "index.html")
     try:
         served = os.path.getsize(index) > 0
     except OSError:
@@ -188,16 +152,11 @@ def health():
 
 
 @app.route("/<path:path>")
-def static_files(path):
-    """Serve static files from the app directory."""
-    full = os.path.join(APP_DIR, path)
-    if os.path.isfile(full):
-        return send_from_directory(APP_DIR, path)
-    # Missing assets must 404 so the browser doesn't parse HTML as JS/CSS.
+def other(path):
+    """Anything else: files 404, page-like URLs go to the app."""
     if _is_asset_path(path):
         abort(404)
-    # Extensionless routes fall back to the landing page (SPA routing).
-    return send_from_directory(APP_DIR, "landing.html")
+    return redirect("/app/", code=302)
 
 
 if __name__ == "__main__":

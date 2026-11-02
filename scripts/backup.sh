@@ -23,7 +23,7 @@ echo "   ✓ Database backed up to $BACKUP_PATH/database.sql"
 
 # 2. Portal code backup
 echo "2. Backing up portal code..."
-cp -r /DATA/Storage/docker/divide-cyber-drill/apps/portal/app "$BACKUP_PATH/portal_app"
+cp -r /DATA/Storage/docker/divide-cyber-drill/apps/web/src "$BACKUP_PATH/web_src"
 echo "   ✓ Portal code backed up"
 
 # 3. API routers backup

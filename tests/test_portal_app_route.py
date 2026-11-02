@@ -67,8 +67,35 @@ def test_unbuilt_app_reports_503(web):
     assert client.get("/app/").status_code == 503
 
 
-def test_classic_portal_and_api_proxy_routes_are_unaffected(web):
-    client, module, _ = web
-    assert client.get("/healthz").status_code == 200
-    assert client.get("/drill/").status_code == 200
+def test_old_entry_points_redirect_into_the_app(web):
+    client, _, _ = web
+    expected = {
+        "/": "/app/",
+        "/login": "/app/login",
+        "/join": "/app/join",
+        "/drill/": "/app/",
+        "/drill/anything": "/app/",
+    }
+    for path, target in expected.items():
+        response = client.get(path)
+        assert response.status_code == 302, path
+        assert response.headers["Location"].endswith(target), (path, response.headers["Location"])
+
+
+def test_unknown_pages_go_to_the_app_but_unknown_files_404(web):
+    client, _, _ = web
+    assert client.get("/whatever").headers["Location"].endswith("/app/")
+    assert client.get("/missing.js").status_code == 404
+
+
+def test_join_page_never_leaks_the_invitation_through_referer_or_cache(web):
+    client, _, _ = web
+    response = client.get("/app/join")
+    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert response.headers["Cache-Control"] == "no-store"
+
+
+def test_api_proxy_route_is_registered(web):
+    _, module, _ = web
     assert module.app.url_map.bind("localhost").match("/api/v1/me", method="GET")[0] == "proxy_api"
+    assert module.app.url_map.bind("localhost").match("/healthz", method="GET")[0] == "health"

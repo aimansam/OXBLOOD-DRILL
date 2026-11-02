@@ -1,4 +1,4 @@
-// Same storage key and header as the classic portal (apps/portal/app/auth.js), so one
+// Same storage key and header as the classic portal (the retired classic portal's auth.js), so one
 // sign-in works in both UIs.
 const TOKEN_KEY = 'divide_token';
 

@@ -4,9 +4,9 @@ import { useMe } from '@/api/hooks';
 import { getToken } from '@/api/token';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const PARTICIPANT_ROLES = new Set(['red', 'blue']);
+export const isParticipant = (role: string | undefined) => ['red', 'blue'].includes(String(role ?? '').toLowerCase());
 
-/** Gate for signed-in routes. Participants (red/blue) still use the classic portal for now. */
+/** Gate for signed-in routes: sends anonymous users to sign-in and handles expired tokens. */
 export function RequireAuth() {
   const navigate = useNavigate();
   const hasToken = Boolean(getToken());
@@ -18,12 +18,8 @@ export function RequireAuth() {
     return () => window.removeEventListener('oxblood:unauthorized', onUnauthorized);
   }, [navigate]);
 
-  useEffect(() => {
-    if (me && PARTICIPANT_ROLES.has(String(me.role).toLowerCase())) window.location.replace('/drill/');
-  }, [me]);
-
   if (!hasToken || isError) return <Navigate to="/login" replace />;
-  if (isLoading || !me || PARTICIPANT_ROLES.has(String(me.role).toLowerCase())) {
+  if (isLoading || !me) {
     return (
       <div className="space-y-4 p-8">
         <Skeleton className="h-8 w-48" />
@@ -32,4 +28,16 @@ export function RequireAuth() {
     );
   }
   return <Outlet />;
+}
+
+/** Operator-only area: players are sent to their mission screen. */
+export function RequireOperator() {
+  const { data: me } = useMe();
+  return isParticipant(me?.role) ? <Navigate to="/mission" replace /> : <Outlet />;
+}
+
+/** Player-only area: operators belong in the workspace. */
+export function RequireParticipant() {
+  const { data: me } = useMe();
+  return isParticipant(me?.role) ? <Outlet /> : <Navigate to="/" replace />;
 }

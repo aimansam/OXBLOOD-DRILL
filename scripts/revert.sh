@@ -46,8 +46,8 @@ fi
 
 # 2. Restore portal code
 echo "2. Restoring portal code..."
-if [ -d "$BACKUP_PATH/portal_app" ]; then
-  cp -r "$BACKUP_PATH/portal_app/"* /DATA/Storage/docker/divide-cyber-drill/apps/portal/app/
+if [ -d "$BACKUP_PATH/web_src" ]; then
+  cp -r "$BACKUP_PATH/web_src/"* /DATA/Storage/docker/divide-cyber-drill/apps/web/src/
   echo "   ✓ Portal code restored"
 else
   echo "   ⚠ No portal backup found, skipping"

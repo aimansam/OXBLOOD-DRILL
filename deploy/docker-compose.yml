@@ -1,6 +1,6 @@
 name: divide-cyber-drill
 
-# Architecture: Flask portal (port 80) serves frontend + proxies /api/* to FastAPI (internal port 8000)
+# Architecture: Flask portal (port 80) serves the React UI at /app/ + proxies /api/* to FastAPI (internal port 8000)
 # Single entry point for users: http://localhost
 
 services:
@@ -21,9 +21,6 @@ services:
       api:
         condition: service_healthy
     networks: [divide-net]
-    volumes:
-      # Serve static files directly (no build step — plain HTML/CSS/JS)
-      - ${DIVIDE_REPO_ROOT:-..}/apps/portal/app:/app/app:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:80/healthz"]
       interval: 15s

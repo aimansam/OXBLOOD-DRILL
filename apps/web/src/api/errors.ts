@@ -1,6 +1,6 @@
 /**
  * Turn an API error body into one readable line. Mirrors the legacy portal's
- * `_errorFromResponse` (apps/portal/app/api.js): FastAPI validation errors are
+ * `_errorFromResponse` (the retired classic portal's api.js): FastAPI validation errors are
  * an array of {msg}, domain errors are a string or {message}.
  */
 export function formatApiError(status: number, body: unknown): string {

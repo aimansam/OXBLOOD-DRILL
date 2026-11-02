@@ -7,7 +7,7 @@ API. The response carries the verified ``sub``/``role``/``iat``/
 ``exp`` plus a convenience ``ttl_remaining_s``.
 
 This file is part of the M3.2 commit (Half 1 of role-by-role UI):
-see apps/portal/app/src/lib/auth.ts (useMe) + app.tsx role
+see apps/web/src/api/hooks.ts (useMe) and apps/web/src/components/RequireAuth.tsx for role routing
 router. The tests pin the wire shape so the portal's useMe() can
 rely on it.
 """
