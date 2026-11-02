@@ -35,6 +35,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
@@ -188,7 +189,7 @@ def _load_validator() -> Draft202012Validator:
     return Draft202012Validator(schema, format_checker=_format_checker)
 
 
-def _load_yaml(path: Path) -> object:
+def _load_yaml(path: Path) -> Any:
     with path.open(encoding="utf-8") as f:
         return yaml.safe_load(f)
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -272,7 +273,7 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
         (scenario.spec if scenario else None) or {}
     )
     run_id = _drill_provision_run_id(drill)
-    assets = []
+    assets: Sequence[catalog_models.Asset] = []
     if run_id is not None:
         assets = (
             (
@@ -307,7 +308,7 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
         declared = [
             {
                 "id": f"{asset.get('role')}-ready",
-                "label": f"{_human_role(asset.get('role'))} is ready",
+                "label": f"{_human_role(asset.get('role') or '')} is ready",
                 "type": "role_running",
                 "role": asset.get("role"),
                 "side": _asset_side(str(asset.get("role") or "")),

@@ -21,6 +21,7 @@ operator-only configuration, not a record-of-truth.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -187,7 +188,7 @@ async def probe_config_with_db(db: AsyncSession) -> tuple[bool, str | None]:
     if row is None:
         return False, "no pve_config row to probe"
     try:
-        await get_version()
+        await asyncio.to_thread(get_version)
     except ProxmoxNotConfiguredError as e:
         return False, f"config incomplete: {e}"
     except ProxmoxAPIError as e:

@@ -127,7 +127,7 @@ async def get_service_status(db: AsyncSession) -> dict[str, Any]:
     pve: dict[str, Any] = {}
     try:
         result = admin_svc.probe_pve()
-        pve = result.to_dict() if hasattr(result, "to_dict") else dict(result)
+        pve = result.to_dict()
         pve_ok = bool(pve.get("reachable"))
     except Exception as e:  # pragma: no cover -- defensive
         pve = {"reachable": False, "error": str(e)}

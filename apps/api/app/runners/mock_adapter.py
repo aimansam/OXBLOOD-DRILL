@@ -225,7 +225,7 @@ class MockProxmoxAdapter(ProxmoxAdapter):
     async def create_sdn_vnet(self, bridge: str, zone: str = "divide") -> None:
         """Mock: track SDN VNet creation."""
         if not hasattr(self, "sdn_vnets"):
-            self.sdn_vnets = []
+            self.sdn_vnets: list[str] = []
         if bridge not in self.sdn_vnets:
             self.sdn_vnets.append(bridge)
         self._bridges.add(bridge)

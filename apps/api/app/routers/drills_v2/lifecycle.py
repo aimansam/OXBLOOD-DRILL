@@ -281,7 +281,7 @@ async def start_drill_endpoint(
     await set_environment_lock_status(db, drill_id=drill_id, status="active")
     return {
         "message": "Exercise started",
-        "status": drill.status.value,
+        "status": drill.status.value,  # type: ignore[union-attr]
         "provision_status": env.get("provision_status"),
         "provision_run_id": env.get("provision_run_id"),
     }
@@ -467,7 +467,7 @@ async def stop_drill_endpoint(
             await db.refresh(current)
             drill = current
         else:
-            drill = await stop_drill(db, drill_id)
+            drill = await stop_drill(db, drill_id)  # type: ignore[assignment]
         if not drill:
             raise HTTPException(status_code=404, detail="Drill not found")
         cleanup_status = await _stop_drill_provision_run(db, drill)

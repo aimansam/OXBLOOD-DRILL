@@ -64,7 +64,7 @@ async def get_participants(
                 "status": p.status,
                 "joined_at": p.joined_at.isoformat() if p.joined_at else None,
                 "last_login_at": (
-                    users_by_id[p.user_id].last_login_at.isoformat()
+                    users_by_id[p.user_id].last_login_at.isoformat()  # type: ignore[union-attr]
                     if p.user_id in users_by_id and users_by_id[p.user_id].last_login_at
                     else None
                 ),

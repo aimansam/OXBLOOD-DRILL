@@ -127,7 +127,7 @@ async def start_drill(
             from app.db.models import TeamMembership
 
             role = getattr(token, "role", None)
-            role_value = role.value if hasattr(role, "value") else role
+            role_value = role.value if hasattr(role, "value") else role  # type: ignore[union-attr]
             is_admin_or_lead = role_value in ("admin", "lead")
             if not is_admin_or_lead:
                 # Non-admins must be a member of the exercise.
@@ -686,7 +686,7 @@ async def sync_asset_status(
     drifted = mapped_status is not None and asset.status != mapped_status
     if drifted:
         old_status = asset.status
-        asset.status = mapped_status
+        asset.status = mapped_status  # type: ignore[assignment]
         # If PVE says missing, stamp cleaned_at so the janitor skips it.
         if pve_missing and asset.cleaned_at is None:
             asset.cleaned_at = datetime.now(UTC)
@@ -702,7 +702,7 @@ async def sync_asset_status(
             actor=token.sub,
             details={
                 "old_status": old_status.value,
-                "new_status": mapped_status.value,
+                "new_status": mapped_status.value,  # type: ignore[union-attr]
                 "pve_status": pve_status,
                 "pve_missing": pve_missing,
             },
@@ -1014,7 +1014,7 @@ async def submit_flag(
     from app.db.models import TeamMembership
 
     role = token.role if hasattr(token, "role") else None
-    role_value = role.value if hasattr(role, "value") else role
+    role_value = role.value if hasattr(role, "value") else role  # type: ignore[union-attr]
     is_admin_or_lead = role_value in ("admin", "lead", "observer")
     is_owner = started_by == getattr(token, "sub", None)
     is_team_member = False
@@ -1143,8 +1143,8 @@ async def submit_flag(
     )
     red_total = int(red_q.scalar_one() or 0)
     blue_total = int(blue_q.scalar_one() or 0)
-    run_obj = await session.execute(select(db_models.Run).where(db_models.Run.id == run_id))
-    run_obj = run_obj.scalar_one()
+    run_result = await session.execute(select(db_models.Run).where(db_models.Run.id == run_id))
+    run_obj = run_result.scalar_one()
     run_obj.score_red = red_total
     run_obj.score_blue = blue_total
     # F6: if this run is part of an exercise, bump the team's

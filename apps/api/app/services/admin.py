@@ -582,9 +582,9 @@ async def get_progress(job_id: str, kind: str = "upload") -> dict[str, Any] | No
     out: dict[str, Any] = {}
     for k, v in raw.items():
         try:
-            out[k] = json.loads(v)
+            out[k] = json.loads(v)  # type: ignore[index]
         except (TypeError, ValueError):
-            out[k] = v
+            out[k] = v  # type: ignore[index]
     return out
 
 
@@ -603,9 +603,9 @@ async def list_in_progress() -> list[dict[str, Any]]:
             decoded: dict[str, Any] = {}
             for k, v in raw.items():
                 try:
-                    decoded[k] = json.loads(v)
+                    decoded[k] = json.loads(v)  # type: ignore[index]
                 except (TypeError, ValueError):
-                    decoded[k] = v
+                    decoded[k] = v  # type: ignore[index]
             decoded["_kind"] = kind
             out.append(decoded)
     return out

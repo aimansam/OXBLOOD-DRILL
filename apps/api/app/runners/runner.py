@@ -811,14 +811,14 @@ class Runner:
             async with self._pve_lifecycle_section(
                 "baseline-snapshot", run_id=run.id, role=asset.role, vmid=asset.pve_vmid
             ):
-                await self._adapter.stop_vm(asset.pve_vmid, asset.pve_node, force=True)
-                snapshots = await self._adapter.list_vm_snapshots(asset.pve_vmid, asset.pve_node)
+                await self._adapter.stop_vm(asset.pve_vmid, asset.pve_node, force=True)  # type: ignore[arg-type]
+                snapshots = await self._adapter.list_vm_snapshots(asset.pve_vmid, asset.pve_node)  # type: ignore[arg-type]
                 asset_snapshot_name = snapshot_name
                 if snapshot_name not in snapshots:
                     try:
                         await self._adapter.create_vm_snapshot(
-                            asset.pve_vmid,
-                            asset.pve_node,
+                            asset.pve_vmid,  # type: ignore[arg-type]
+                            asset.pve_node,  # type: ignore[arg-type]
                             snapshot_name,
                             description=f"OxBlood {scenario.name} v{scenario.version} clean baseline",
                         )
@@ -1405,7 +1405,7 @@ class Runner:
             for command in (windows_setup.get("commands") or [])
             if str(command).strip()
         ]
-        windows_phases = []
+        windows_phases: list[dict] = []
         for phase in windows_setup.get("phases") or []:
             if not isinstance(phase, dict):
                 continue
@@ -1577,7 +1577,7 @@ class Runner:
             if bridge is None:
                 raise RunnerError(f"router asset {asset.role!r} has no attached networks")
             await self._adapter.attach_network(
-                asset.pve_vmid,
+                asset.pve_vmid,  # type: ignore[arg-type]
                 node,
                 bridge,
                 0,
@@ -1601,7 +1601,7 @@ class Runner:
                 )
                 continue
             await self._adapter.attach_network(
-                asset.pve_vmid,
+                asset.pve_vmid,  # type: ignore[arg-type]
                 node,
                 bridge,
                 nic_id,
@@ -1813,6 +1813,8 @@ class Runner:
                 run.started_at,
                 timeout_min=scenario_timeout_min,
             )
+            if remaining is None:
+                continue  # no deadline can be derived
             if remaining <= 0:
                 log.warning(
                     "runner.recover_watchdog.already_expired run_id=%s remaining=%s - firing timeout immediately",
@@ -1948,7 +1950,7 @@ class Runner:
             return await _do(session)
 
     async def _watchdog_timeout_fire(
-        self, *, run_id: int, node: str, timeout_min: int, asset_count: int
+        self, *, run_id: int, node: str, timeout_min: float, asset_count: int
     ) -> None:
         """Sleep then flip the run to TIMEOUT if still RUNNING.
 

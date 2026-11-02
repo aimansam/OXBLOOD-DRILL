@@ -23,14 +23,10 @@ ACTIVE_LOCK_STATUSES = {
 
 
 async def _other_environment_owner(db: AsyncSession, drill_id: int | None = None):
-    candidates = (
-        await db.execute(
-            select(Drill)
-            .where(Drill.deleted_at.is_(None))
-            .where(Drill.id != drill_id if drill_id is not None else True)
-            .order_by(Drill.id.desc())
-        )
-    ).scalars()
+    stmt = select(Drill).where(Drill.deleted_at.is_(None))
+    if drill_id is not None:
+        stmt = stmt.where(Drill.id != drill_id)
+    candidates = (await db.execute(stmt.order_by(Drill.id.desc()))).scalars()
     for drill in candidates:
         env = drill.environment_config or {}
         if drill.status in {DrillStatus.ACTIVE, DrillStatus.PAUSED} or (

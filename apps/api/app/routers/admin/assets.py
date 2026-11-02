@@ -98,7 +98,7 @@ async def list_orphan_assets(
     db: Annotated[AsyncSession, Depends(get_session)],
     grace_minutes: int = 5,
     asset_ids: str | None = None,
-    token: Annotated[TokenData, Depends(require_role(Role.ADMIN))] = None,
+    token: Annotated[TokenData | None, Depends(require_role(Role.ADMIN))] = None,
 ) -> OrphanListResponse:
     """Preview what ``POST /assets/cleanup`` would do.
 
@@ -163,7 +163,7 @@ async def list_orphan_assets(
 async def cleanup_orphan_assets(
     body: CleanupRequest,
     db: Annotated[AsyncSession, Depends(get_session)],
-    token: Annotated[TokenData, Depends(require_role(Role.ADMIN))] = None,
+    token: Annotated[TokenData | None, Depends(require_role(Role.ADMIN))] = None,
 ) -> CleanupResponse:
     """Best-effort destroy every orphan matching the request body.
 

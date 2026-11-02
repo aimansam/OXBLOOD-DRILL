@@ -159,13 +159,15 @@ def plan_bridges(scenarios: Iterable[dict]) -> BridgePlan:
     # in deterministic order.
     triples: list[tuple[str, str, str]] = []
     vlan_entries: list[tuple[str, str, str, int]] = []
-    for scenario in scenarios:
-        name = scenario.get("name") or scenario.get("metadata", {}).get("name") or "?"
+    for scenario_doc in scenarios:
+        name = scenario_doc.get("name") or scenario_doc.get("metadata", {}).get("name") or "?"
         # DB stores the whole YAML body under ``spec``; the body
         # itself has ``spec: { ... networks: [...] }``. We accept
         # both shapes (DB rows + /scenarios output) for callers.
-        outer = scenario.get("spec") or {}
-        inner = outer.get("spec") if isinstance(outer.get("spec"), dict) else outer
+        outer = scenario_doc.get("spec") or {}
+        inner = outer.get("spec")
+        if not isinstance(inner, dict):
+            inner = outer
         networks = inner.get("networks") or []
         for offset, net in enumerate(networks):
             cidr = net.get("cidr")
@@ -191,17 +193,17 @@ def plan_bridges(scenarios: Iterable[dict]) -> BridgePlan:
     # are global on this single-node range, so accidental reuse is rejected.
     if triples and len(vlan_entries) == len(triples):
         seen_vlans: dict[int, tuple[str, str, str]] = {}
-        conflicts: list[str] = []
-        for scenario, network, cidr, vlan_id in vlan_entries:
+        vlan_conflicts: list[str] = []
+        for vlan_scenario, vlan_network, cidr, vlan_id in vlan_entries:
             previous = seen_vlans.get(vlan_id)
             # Reuse is safe when the VLAN maps to the same segment. A
             # different CIDR on one shared VLAN is the real collision.
             if previous and previous[2] != cidr:
-                conflicts.append(
+                vlan_conflicts.append(
                     f"VLAN {vlan_id} is declared by {previous[0]!r}/{previous[1]!r} "
-                    f"and {scenario!r}/{network!r}"
+                    f"and {vlan_scenario!r}/{vlan_network!r}"
                 )
-            seen_vlans[vlan_id] = (scenario, network, cidr)
+            seen_vlans[vlan_id] = (vlan_scenario, vlan_network, cidr)
         return BridgePlan(
             bridges=[
                 BridgeSpec(
@@ -212,7 +214,7 @@ def plan_bridges(scenarios: Iterable[dict]) -> BridgePlan:
                     network="vlan-aware",
                 )
             ],
-            conflicts=conflicts,
+            conflicts=vlan_conflicts,
         )
     if vlan_entries:
         raise BridgePlanError("scenario catalog mixes VLAN and non-VLAN network definitions")

@@ -331,7 +331,7 @@ async def post_evidence(
             try:
                 await record_drill_event(
                     session,
-                    (await get_submission(session, submission_id)).drill_id,
+                    (await get_submission(session, submission_id)).drill_id,  # type: ignore[union-attr, arg-type]
                     "milestone",
                     "Evidence submitted",
                     detail=(data.description or "Evidence attached to an objective.")[:500],

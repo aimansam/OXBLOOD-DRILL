@@ -48,7 +48,7 @@ class ProxmoxAPIError(RuntimeError):
 _DB_OVERLAY: dict[str, Any] | None = None
 
 
-def _validate_config() -> tuple[str, str, str]:
+def _validate_config() -> tuple[str, str, str, str]:
     """Resolve PVE creds from the DB overlay if present, else env.
 
     The DB overlay takes precedence: once an admin POSTs

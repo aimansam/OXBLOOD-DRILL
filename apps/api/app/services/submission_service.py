@@ -88,7 +88,7 @@ async def submit_flag(
             DrillFlagSubmission.lab_flag_id == lab_flag_id
         )
     )
-    attempt_number = attempt_result.scalar() + 1
+    attempt_number = (attempt_result.scalar() or 0) + 1
 
     # Create flag submission record
     flag_submission = DrillFlagSubmission(
@@ -210,7 +210,7 @@ async def list_user_submissions(
         query = query.where(Submission.drill_id == drill_id)
     query = query.order_by(Submission.submitted_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_submission(db: AsyncSession, submission_id: int) -> Submission | None:
@@ -284,7 +284,7 @@ async def upload_evidence(
         await update_user_score(
             db,
             submission.user_id,
-            submission.drill_id,
+            submission.drill_id,  # type: ignore[arg-type]  # set for drill submissions
             quality_points,
             "evidence_quality",
             submission.team_id,
@@ -303,7 +303,7 @@ async def list_submission_evidence(
     result = await db.execute(
         select(EvidenceSubmission).where(EvidenceSubmission.submission_id == submission_id)
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 # ============================================================================
@@ -419,7 +419,7 @@ async def get_drill_scores(db: AsyncSession, drill_id: int) -> list[Score]:
     result = await db.execute(
         select(Score).where(Score.drill_id == drill_id).order_by(Score.total_points.desc())
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_user_scores(db: AsyncSession, user_id: int) -> list[Score]:
@@ -427,7 +427,7 @@ async def get_user_scores(db: AsyncSession, user_id: int) -> list[Score]:
     result = await db.execute(
         select(Score).where(Score.user_id == user_id).order_by(Score.last_updated_at.desc())
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_leaderboard(
@@ -496,7 +496,7 @@ async def get_score_history(
         query = query.where(ScoreHistory.drill_id == drill_id)
     query = query.order_by(ScoreHistory.recorded_at.desc())
     result = await db.execute(query)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 # ============================================================================
@@ -509,7 +509,7 @@ async def get_drill_first_bloods(db: AsyncSession, drill_id: int) -> list[FirstB
     result = await db.execute(
         select(FirstBlood).where(FirstBlood.drill_id == drill_id).order_by(FirstBlood.captured_at)
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_user_first_bloods(db: AsyncSession, user_id: int) -> list[FirstBlood]:
@@ -519,7 +519,7 @@ async def get_user_first_bloods(db: AsyncSession, user_id: int) -> list[FirstBlo
         .where(FirstBlood.user_id == user_id)
         .order_by(FirstBlood.captured_at.desc())
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 # ============================================================================

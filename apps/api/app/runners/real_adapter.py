@@ -442,7 +442,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                         }
                     )
                     networks = []
-                bridge = next((n for n in networks if n.get("iface") == "vmbr200"), {})
+                bridge: dict = next((n for n in networks if n.get("iface") == "vmbr200"), {})
                 checks.append(
                     {
                         "id": "network",
@@ -1049,7 +1049,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 raise ProxmoxAPIError(f"Windows OOBE did not complete for VM {vmid}")
             await asyncio.sleep(5)
 
-    async def apply_guest_seed(
+    async def apply_guest_seed(  # type: ignore[override]  # adds phase kwargs, returns reboot flag
         self,
         vmid: int,
         node: str,
@@ -1112,7 +1112,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             return False
 
         if not files and not commands and not windows_commands:
-            return
+            return False
 
         if windows_commands:
             await self._wait_for_windows_oobe(
@@ -1129,7 +1129,8 @@ class RealProxmoxAdapter(ProxmoxAdapter):
             # PowerShell wait forever after the command has otherwise started.
             # UTF-16LE is the format required by Windows PowerShell's
             # ``-EncodedCommand`` option.
-            input_data = "\n".join(windows_commands)
+            input_data: str | None = "\n".join(windows_commands)
+            assert input_data is not None
             encoded_script = base64.b64encode(input_data.encode("utf-16le")).decode("ascii")
             command = [
                 "powershell.exe",

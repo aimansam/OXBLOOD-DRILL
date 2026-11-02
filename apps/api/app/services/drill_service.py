@@ -69,7 +69,7 @@ async def list_drills(
         query = query.where(Drill.status == status)
     query = query.order_by(Drill.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_drill(db: AsyncSession, drill_id: int) -> Drill | None:
@@ -340,7 +340,7 @@ async def list_drill_participants(db: AsyncSession, drill_id: int) -> list[Drill
         .where(DrillParticipant.drill_id == drill_id)
         .order_by(DrillParticipant.joined_at)
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def add_participant(
@@ -389,7 +389,7 @@ async def remove_participant(db: AsyncSession, drill_id: int, user_id: int) -> b
         )
     )
     await db.commit()
-    return result.rowcount > 0
+    return result.rowcount > 0  # type: ignore[attr-defined]  # CursorResult at runtime
 
 
 # ============================================================================
@@ -408,7 +408,7 @@ async def list_drill_announcements(db: AsyncSession, drill_id: int) -> list[Dril
         .where(DrillAnnouncement.drill_id == drill_id)
         .order_by(DrillAnnouncement.published_at.desc())
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def create_announcement(
@@ -478,7 +478,7 @@ async def list_drill_objectives(db: AsyncSession, drill_id: int) -> list[DrillOb
         .where(DrillObjective.drill_id == drill_id)
         .order_by(DrillObjective.sort_order)
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def create_drill_objective(
@@ -768,7 +768,7 @@ async def list_drill_scenarios(db: AsyncSession, drill_id: int) -> list[DrillSce
         .where(DrillScenario.drill_id == drill_id)
         .order_by(DrillScenario.created_at)
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def link_scenario(
@@ -816,6 +816,7 @@ async def link_scenario(
     db.add(scenario)
     if scenario_id is not None:
         drill.scenario_id = scenario_id
+        assert catalog_row is not None  # loaded and validated above
         await seed_drill_from_scenario(db, drill, catalog_row)
     else:
         await db.commit()

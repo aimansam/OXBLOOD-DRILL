@@ -23,10 +23,7 @@ jobs:
         run: ruff check .
       - name: Ruff format check
         run: ruff format --check .
-      - name: MyPy (advisory)
-        # ~100 Optional-narrowing/annotation findings remain; advisory until
-        # they are cleaned up. Do not let it block lint/test results.
-        continue-on-error: true
+      - name: MyPy
         run: mypy apps/api/app
       - name: Install scenario validation deps
         run: pip install jsonschema pyyaml

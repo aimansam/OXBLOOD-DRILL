@@ -179,6 +179,7 @@ async def preview_invitation(body: SecretRequest, db: AsyncSession = Depends(get
     invite, drill = await _find(db, body.token)
     if not _valid(invite, drill):
         raise HTTPException(404, _UNAVAILABLE)
+    assert invite is not None and drill is not None  # guaranteed by _valid
     return {"title": drill.title, "side": invite.side, "expires_at": invite.expires_at.isoformat()}
 
 
@@ -187,6 +188,7 @@ async def redeem_invitation(body: RedeemRequest, db: AsyncSession = Depends(get_
     invite, drill = await _find(db, body.token)
     if not _valid(invite, drill):
         raise HTTPException(404, _UNAVAILABLE)
+    assert invite is not None and drill is not None  # guaranteed by _valid
     now = datetime.now(UTC)
     # Claim by conditional UPDATE. A concurrent request cannot claim the same
     # invitation; account creation and enrollment share this transaction.
@@ -201,7 +203,7 @@ async def redeem_invitation(body: RedeemRequest, db: AsyncSession = Depends(get_
         .values(redeemed_at=now)
         .execution_options(synchronize_session=False)
     )
-    if claimed.rowcount != 1:
+    if claimed.rowcount != 1:  # type: ignore[attr-defined]
         await db.rollback()
         raise HTTPException(404, _UNAVAILABLE)
     # Serialize redemptions for this drill before checking roster capacity.

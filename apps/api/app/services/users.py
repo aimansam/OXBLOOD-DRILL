@@ -390,7 +390,7 @@ async def consume_reset_token(
         )
     )
     result = await session.execute(stmt)
-    if result.rowcount == 0:
+    if result.rowcount == 0:  # type: ignore[attr-defined]
         raise InvalidResetTokenError("token already consumed")
     await session.flush()
     await session.refresh(user)

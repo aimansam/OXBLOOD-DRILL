@@ -376,7 +376,7 @@ async def pve_guest_inventory(
                 )
             )
         ).scalars()
-        registered.update(int(vmid) for vmid in vmids)
+        registered.update(int(vmid) for vmid in vmids if vmid is not None)
     scoped = [guest for guest in items if int(guest["vmid"]) in registered]
     return {"items": scoped, "total": len(scoped), "total_registered": len(registered)}
 

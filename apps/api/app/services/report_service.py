@@ -45,7 +45,7 @@ async def list_reports(
         query = query.where(Report.status == status)
     query = query.order_by(Report.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_report(db: AsyncSession, report_id: int) -> Report | None:
@@ -145,7 +145,7 @@ async def list_findings(db: AsyncSession, report_id: int) -> list[ReportFinding]
         .where(ReportFinding.report_id == report_id)
         .order_by(ReportFinding.sort_order)
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def create_finding(
@@ -215,7 +215,7 @@ async def delete_finding(db: AsyncSession, finding_id: int) -> bool:
 async def list_finding_evidence(db: AsyncSession, finding_id: int) -> list[Evidence]:
     """List all evidence for a finding."""
     result = await db.execute(select(Evidence).where(Evidence.finding_id == finding_id))
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def add_evidence(
@@ -348,7 +348,7 @@ async def get_benchmark_history(
         .order_by(BenchmarkHistory.calculated_at.desc())
         .limit(limit)
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 
 async def get_global_benchmarks(
@@ -359,4 +359,4 @@ async def get_global_benchmarks(
     result = await db.execute(
         select(Benchmark).order_by(Benchmark.overall_score.desc()).limit(limit)
     )
-    return result.scalars().all()
+    return list(result.scalars().all())
