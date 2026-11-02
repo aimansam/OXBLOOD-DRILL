@@ -401,7 +401,11 @@ def test_clone_vm_with_explicit_vmid_and_overrides():
         storage="local-lvm",
     )
     config_post = client.nodes("pve").qemu(9100).config.post
+    # Every clone also gets the QGA channel forced on and cloud-init package
+    # upgrades disabled (isolated VLANs cannot reach the repositories).
     config_post.assert_any_call(
+        agent="enabled=1",
+        ciupgrade=0,
         cores=4,
         sockets=1,
         memory=4096,
@@ -557,18 +561,20 @@ def test_clone_vm_resizes_detected_primary_disk_for_windows_template():
                 node="pve",
                 name="divide-7-victim",
                 template_name="tpl-win11-enterprise",
-                disk_gb=20,
+                # disk_gb is a target size: the 64G template disk grows by 16G.
+                disk_gb=80,
             )
         )
     )
 
     client.nodes("pve").qemu(9100).resize.put.assert_called_once_with(
         disk="sata0",
-        size="+20G",
+        size="+16G",
     )
     # Windows templates keep their original boot order and do not get the
     # Linux cloud-init cleanup/boot override.
-    client.nodes("pve").qemu(9100).config.post.assert_not_called()
+    for config_call in client.nodes("pve").qemu(9100).config.post.call_args_list:
+        assert "boot" not in config_call.kwargs
 
 
 def test_clone_vm_missing_node_raises():
@@ -649,52 +655,15 @@ def test_seed_vm_applies_cloud_init_credentials():
     )
 
     client.nodes("pve").qemu(9100).config.post.assert_called_once()
-    client.nodes("pve").storage("local").upload.post.assert_called_once()
-    kwargs = client.nodes("pve").qemu(9100).config.post.call_args.kwargs
-    assert kwargs["ciuser"] == "red"
-    assert kwargs["cipassword"] == "red-team"
-    assert kwargs["cicustom"] == "user=local:snippets/divide-seed-9100.yaml"
-    assert "role=red_workstation" in kwargs["description"]
-    assert "snippet=uploaded" in kwargs["description"]
-
-
-def test_seed_vm_continues_when_snippet_upload_is_not_supported():
-    a = RealProxmoxAdapter(
-        host="pve",
-        port=8006,
-        user="u",
-        token_id="u!t",
-        token_secret="x",
-    )
-    client = _build_mock_client()
-    _install_client(a, client)
-    client.nodes("pve").storage("local").upload.post.side_effect = ProxmoxAPIError(
-        "ResourceException: 400 Bad Request: Parameter verification failed. - "
-        "{'content': \"value 'snippets' does not have a value in the enumeration "
-        "'iso, vztmpl, import'\"}"
-    )
-
-    asyncio.run(
-        a.seed_vm(
-            9100,
-            "pve",
-            SeedSpec(
-                role="red_workstation",
-                ciuser="red",
-                cipassword="red-team",
-                files={"/opt/divide/role.txt": "red_workstation\n"},
-                runcmd=["mkdir -p /opt/divide"],
-            ),
-        )
-    )
-
-    client.nodes("pve").qemu(9100).config.post.assert_called_once()
+    # Files and commands are applied through the guest agent, never uploaded
+    # as cloud-init snippets (PVE 9 rejects snippet uploads on this host).
+    client.nodes("pve").storage("local").upload.post.assert_not_called()
     kwargs = client.nodes("pve").qemu(9100).config.post.call_args.kwargs
     assert kwargs["ciuser"] == "red"
     assert kwargs["cipassword"] == "red-team"
     assert "cicustom" not in kwargs
-    assert "snippet=skipped" in kwargs["description"]
-    assert "file seed skipped" in kwargs["description"]
+    assert "role=red_workstation" in kwargs["description"]
+    assert "seed=guest-agent" in kwargs["description"]
 
 
 def test_seed_vm_continues_when_config_apply_fails():
