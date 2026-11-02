@@ -21,6 +21,23 @@
     --danger: 0 72% 58%;
     --info: 215 82% 64%;
   }
+  /* Light theme: same tokens, different values. The live range map keeps its own dark palette. */
+  html.light {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 8%;
+    --muted: 240 5% 95%;
+    --muted-foreground: 240 4% 38%;
+    --border: 240 6% 88%;
+    --primary: 352 68% 42%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 352 68% 42%;
+    --success: 152 60% 28%;
+    --warning: 30 90% 34%;
+    --danger: 0 70% 44%;
+    --info: 215 80% 42%;
+  }
   * {
     @apply border-border;
   }

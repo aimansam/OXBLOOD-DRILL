@@ -1,3 +1,4 @@
+import { api, unwrap } from './client';
 import { http } from './http';
 import type { Drill, DrillStatus } from './types';
 
@@ -20,7 +21,7 @@ export const drillsApi = {
   pause: (id: number) => http.post<unknown>(`/api/v2/drills/${id}/pause`),
   resume: (id: number) => http.post<unknown>(`/api/v2/drills/${id}/resume`),
   stop: (id: number) => http.post<unknown>(`/api/v2/drills/${id}/stop`),
-  status: (id: number) => http.get<DrillStatus>(`/api/v2/drills/${id}/status`),
+  status: async (id: number): Promise<DrillStatus> => unwrap(await api.GET('/api/v2/drills/{drill_id}/status', { params: { path: { drill_id: id } } })),
   get: (id: number) => http.get<Drill>(`/api/v2/drills/${id}`),
   /** Duplicate keeps the scenario, so the copy can be prepared immediately. */
   duplicate: (d: Drill) =>

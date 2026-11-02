@@ -3008,6 +3008,30 @@ export interface components {
              */
             storage: string;
         };
+        /** CandidateListOut */
+        CandidateListOut: {
+            /** Candidates */
+            candidates: components["schemas"]["CandidateOut"][];
+            /** Drill Id */
+            drill_id?: number | null;
+            /** Drill Status */
+            drill_status?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CandidateOut */
+        CandidateOut: {
+            /** Id */
+            id: number;
+            /** Last Login At */
+            last_login_at?: string | null;
+            /** Role */
+            role: string;
+            /** Sub */
+            sub: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** CleanupFailureItem */
         CleanupFailureItem: {
             /** Asset Id */
@@ -3209,6 +3233,24 @@ export interface components {
          * @enum {string}
          */
         DrillStatus: "scheduled" | "active" | "paused" | "completed" | "cancelled";
+        /** DrillStatusOut */
+        DrillStatusOut: {
+            /** Drill Id */
+            drill_id: number;
+            /** Environment Config */
+            environment_config?: {
+                [key: string]: unknown;
+            } | null;
+            /** Lifecycle */
+            lifecycle?: {
+                [key: string]: unknown;
+            } | null;
+            provision?: components["schemas"]["ProvisionOut"] | null;
+            /** Status */
+            status: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** DrillUpdate */
         DrillUpdate: {
             /** Description */
@@ -3235,6 +3277,27 @@ export interface components {
             scheduled_start_at?: string | null;
             /** Title */
             title?: string | null;
+        };
+        /** EnvironmentLockOut */
+        EnvironmentLockOut: {
+            /** Acquired At */
+            acquired_at?: string | null;
+            /** Available */
+            available: boolean;
+            /** Drill Id */
+            drill_id?: number | null;
+            /** Lock Key */
+            lock_key?: string | null;
+            /** Owner Role */
+            owner_role?: string | null;
+            /** Owner Sub */
+            owner_sub?: string | null;
+            /** Released At */
+            released_at?: string | null;
+            /** Status */
+            status?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /** EvidenceCreate */
         EvidenceCreate: {
@@ -3418,6 +3481,24 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** InvitationListOut */
+        InvitationListOut: {
+            /** Invitations */
+            invitations: components["schemas"]["InvitationOut"][];
+        };
+        /** InvitationOut */
+        InvitationOut: {
+            /** Created At */
+            created_at: string;
+            /** Expires At */
+            expires_at: string;
+            /** Id */
+            id: number;
+            /** Side */
+            side: string;
+            /** Status */
+            status: string;
+        };
         /** IssueRequest */
         IssueRequest: {
             /** Side */
@@ -3444,6 +3525,28 @@ export interface components {
             reset_token: string;
             /** Sub */
             sub: string;
+        };
+        /** LeaderboardEntryOut */
+        LeaderboardEntryOut: {
+            /** Completion Time Seconds */
+            completion_time_seconds?: number | null;
+            /** Flags Captured */
+            flags_captured: number;
+            /** Rank */
+            rank?: number | null;
+            /** Total Points */
+            total_points: number;
+            /** User Id */
+            user_id: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LeaderboardOut */
+        LeaderboardOut: {
+            /** Count */
+            count: number;
+            /** Leaderboard */
+            leaderboard: components["schemas"]["LeaderboardEntryOut"][];
         };
         /** LoginRequest */
         LoginRequest: {
@@ -3561,6 +3664,43 @@ export interface components {
             /** User Id */
             user_id: number;
         };
+        /** ParticipantListOut */
+        ParticipantListOut: {
+            /** Participants */
+            participants: components["schemas"]["ParticipantOut"][];
+        };
+        /** ParticipantOut */
+        ParticipantOut: {
+            /** Id */
+            id?: number | null;
+            /** Joined At */
+            joined_at?: string | null;
+            /** Last Login At */
+            last_login_at?: string | null;
+            /** Role */
+            role: string;
+            /** Status */
+            status?: string | null;
+            /** Sub */
+            sub?: string | null;
+            /** Team Id */
+            team_id?: number | null;
+            /** User Id */
+            user_id: number;
+            /** Username */
+            username?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** PreflightCheckOut */
+        PreflightCheckOut: {
+            /** Detail */
+            detail: string;
+            /** Ready */
+            ready: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /** ProbeResponse */
         ProbeResponse: {
             /** Drill Privs Missing */
@@ -3589,6 +3729,48 @@ export interface components {
             }[];
             /** Version */
             version: string | null;
+        };
+        /** ProvisionAssetOut */
+        ProvisionAssetOut: {
+            /** Error */
+            error?: string | null;
+            /** Id */
+            id?: number | null;
+            /** Ip */
+            ip?: string | null;
+            /** Pve Node */
+            pve_node?: string | null;
+            /** Pve Vmid */
+            pve_vmid?: number | null;
+            /** Role */
+            role: string;
+            /** Status */
+            status: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** ProvisionOut */
+        ProvisionOut: {
+            /**
+             * Assets
+             * @default []
+             */
+            assets: components["schemas"]["ProvisionAssetOut"][];
+            /**
+             * Errors
+             * @default []
+             */
+            errors: unknown[];
+            /** Lifecycle */
+            lifecycle?: {
+                [key: string]: unknown;
+            } | null;
+            /** Provision Phase */
+            provision_phase?: string | null;
+            /** Run Id */
+            run_id?: number | null;
+        } & {
+            [key: string]: unknown;
         };
         /** PveBridgeStatusResponse */
         PveBridgeStatusResponse: {
@@ -3698,6 +3880,54 @@ export interface components {
             reload_ok: boolean;
             /** Verify Ok */
             verify_ok: boolean;
+        };
+        /** RangeCheckOut */
+        RangeCheckOut: {
+            /** Detail */
+            detail?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Label */
+            label: string;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /** Side */
+            side?: string | null;
+            /** State */
+            state: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** RangeHealthOut */
+        RangeHealthOut: {
+            /** Checked At */
+            checked_at?: string | null;
+            /**
+             * Checks
+             * @default []
+             */
+            checks: components["schemas"]["RangeCheckOut"][];
+            /** Counts */
+            counts?: {
+                [key: string]: unknown;
+            } | null;
+            /** Drill Id */
+            drill_id?: number | null;
+            /** Mood */
+            mood?: string | null;
+            /** Run Id */
+            run_id?: number | null;
+            /** Scenario */
+            scenario?: {
+                [key: string]: unknown;
+            } | null;
+            /** Summary */
+            summary?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /** ReadinessResponse */
         ReadinessResponse: {
@@ -3833,6 +4063,22 @@ export interface components {
              * @default []
              */
             vulnerabilities: unknown[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** ScenarioPreflightOut */
+        ScenarioPreflightOut: {
+            /** Checked At */
+            checked_at?: string | null;
+            /**
+             * Checks
+             * @default []
+             */
+            checks: components["schemas"]["PreflightCheckOut"][];
+            /** Node */
+            node?: string | null;
+            /** Ready */
+            ready: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -6724,7 +6970,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EnvironmentLockOut"];
                 };
             };
             /** @description Validation Error */
@@ -6757,7 +7003,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ScenarioPreflightOut"];
                 };
             };
             /** @description Validation Error */
@@ -7226,7 +7472,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["InvitationListOut"];
                 };
             };
             /** @description Validation Error */
@@ -7469,7 +7715,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ParticipantListOut"];
                 };
             };
             /** @description Validation Error */
@@ -7641,7 +7887,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RangeHealthOut"];
                 };
             };
             /** @description Validation Error */
@@ -7707,7 +7953,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CandidateListOut"];
                 };
             };
             /** @description Validation Error */
@@ -7903,7 +8149,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DrillStatusOut"];
                 };
             };
             /** @description Validation Error */
@@ -8201,7 +8447,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LeaderboardOut"];
                 };
             };
             /** @description Validation Error */

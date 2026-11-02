@@ -58,7 +58,16 @@ from .access import (
 )
 from .health import _range_health, _refresh_drill_provision_state
 from .provisioning import _stop_drill_provision_run
-from .schemas import ConsoleRequest, DrillCreate, DrillListOut, DrillOut, DrillUpdate
+from .schemas import (
+    ConsoleRequest,
+    DrillCreate,
+    DrillListOut,
+    DrillOut,
+    DrillStatusOut,
+    DrillUpdate,
+    EnvironmentLockOut,
+    RangeHealthOut,
+)
 
 router = APIRouter()
 log = logging.getLogger("app.routers.drills_v2")
@@ -115,7 +124,9 @@ async def get_drills(
     return {"drills": [drill_to_dict(drill) for drill in drills]}
 
 
-@router.get("/environment-lock")
+@router.get(
+    "/environment-lock", response_model=EnvironmentLockOut, response_model_exclude_unset=True
+)
 async def get_environment_lock(
     db: AsyncSession = Depends(get_session),
     token: TokenData = Depends(require_role(Role.ADMIN, Role.LEAD)),
@@ -187,7 +198,7 @@ async def get_drill_endpoint(
     return drill_to_dict(drill)
 
 
-@router.get("/{drill_id}/status")
+@router.get("/{drill_id}/status", response_model=DrillStatusOut, response_model_exclude_unset=True)
 async def get_drill_status(
     drill_id: int,
     refresh: bool = Query(True),
@@ -220,7 +231,9 @@ async def get_drill_status(
     }
 
 
-@router.get("/{drill_id}/range-health")
+@router.get(
+    "/{drill_id}/range-health", response_model=RangeHealthOut, response_model_exclude_unset=True
+)
 async def get_drill_range_health(
     drill_id: int,
     refresh: bool = Query(True),

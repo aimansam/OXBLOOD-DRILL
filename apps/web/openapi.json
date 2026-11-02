@@ -63,6 +63,80 @@
         "title": "Body_upload_qcow2_api_v1_admin_upload_qcow2_post",
         "type": "object"
       },
+      "CandidateListOut": {
+        "additionalProperties": true,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateOut"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "drill_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drill Id"
+          },
+          "drill_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drill Status"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "title": "CandidateListOut",
+        "type": "object"
+      },
+      "CandidateOut": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "sub": {
+            "title": "Sub",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sub",
+          "role"
+        ],
+        "title": "CandidateOut",
+        "type": "object"
+      },
       "CleanupFailureItem": {
         "properties": {
           "asset_id": {
@@ -635,6 +709,59 @@
         "title": "DrillStatus",
         "type": "string"
       },
+      "DrillStatusOut": {
+        "additionalProperties": true,
+        "properties": {
+          "drill_id": {
+            "title": "Drill Id",
+            "type": "integer"
+          },
+          "environment_config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment Config"
+          },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle"
+          },
+          "provision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProvisionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "drill_id",
+          "status"
+        ],
+        "title": "DrillStatusOut",
+        "type": "object"
+      },
       "DrillUpdate": {
         "properties": {
           "description": {
@@ -753,6 +880,97 @@
           }
         },
         "title": "DrillUpdate",
+        "type": "object"
+      },
+      "EnvironmentLockOut": {
+        "additionalProperties": true,
+        "properties": {
+          "acquired_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acquired At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "drill_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drill Id"
+          },
+          "lock_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lock Key"
+          },
+          "owner_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Role"
+          },
+          "owner_sub": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Sub"
+          },
+          "released_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released At"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "EnvironmentLockOut",
         "type": "object"
       },
       "EvidenceCreate": {
@@ -1300,6 +1518,55 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "InvitationListOut": {
+        "properties": {
+          "invitations": {
+            "items": {
+              "$ref": "#/components/schemas/InvitationOut"
+            },
+            "title": "Invitations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "invitations"
+        ],
+        "title": "InvitationListOut",
+        "type": "object"
+      },
+      "InvitationOut": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "side": {
+            "title": "Side",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "side",
+          "status",
+          "expires_at",
+          "created_at"
+        ],
+        "title": "InvitationOut",
+        "type": "object"
+      },
       "IssueRequest": {
         "properties": {
           "side": {
@@ -1341,6 +1608,73 @@
           "expires_at"
         ],
         "title": "IssueResetLinkResponse",
+        "type": "object"
+      },
+      "LeaderboardEntryOut": {
+        "additionalProperties": true,
+        "properties": {
+          "completion_time_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Time Seconds"
+          },
+          "flags_captured": {
+            "title": "Flags Captured",
+            "type": "integer"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "total_points": {
+            "title": "Total Points",
+            "type": "integer"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "total_points",
+          "flags_captured"
+        ],
+        "title": "LeaderboardEntryOut",
+        "type": "object"
+      },
+      "LeaderboardOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "leaderboard": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardEntryOut"
+            },
+            "title": "Leaderboard",
+            "type": "array"
+          }
+        },
+        "required": [
+          "leaderboard",
+          "count"
+        ],
+        "title": "LeaderboardOut",
         "type": "object"
       },
       "LoginRequest": {
@@ -1665,6 +1999,137 @@
         "title": "ParticipantAdd",
         "type": "object"
       },
+      "ParticipantListOut": {
+        "properties": {
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/ParticipantOut"
+            },
+            "title": "Participants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "participants"
+        ],
+        "title": "ParticipantListOut",
+        "type": "object"
+      },
+      "ParticipantOut": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "joined_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joined At"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "sub": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "user_id",
+          "role"
+        ],
+        "title": "ParticipantOut",
+        "type": "object"
+      },
+      "PreflightCheckOut": {
+        "additionalProperties": true,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready",
+          "detail"
+        ],
+        "title": "PreflightCheckOut",
+        "type": "object"
+      },
       "ProbeResponse": {
         "properties": {
           "drill_privs_missing": {
@@ -1763,6 +2228,135 @@
           "nodes"
         ],
         "title": "ProbeResponse",
+        "type": "object"
+      },
+      "ProvisionAssetOut": {
+        "additionalProperties": true,
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "pve_node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pve Node"
+          },
+          "pve_vmid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pve Vmid"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "status"
+        ],
+        "title": "ProvisionAssetOut",
+        "type": "object"
+      },
+      "ProvisionOut": {
+        "additionalProperties": true,
+        "properties": {
+          "assets": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProvisionAssetOut"
+            },
+            "title": "Assets",
+            "type": "array"
+          },
+          "errors": {
+            "default": [],
+            "items": {},
+            "title": "Errors",
+            "type": "array"
+          },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle"
+          },
+          "provision_phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provision Phase"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "title": "ProvisionOut",
         "type": "object"
       },
       "PveBridgeStatusResponse": {
@@ -1962,6 +2556,157 @@
           "message"
         ],
         "title": "PveSetupBridgesResponse",
+        "type": "object"
+      },
+      "RangeCheckOut": {
+        "additionalProperties": true,
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "state"
+        ],
+        "title": "RangeCheckOut",
+        "type": "object"
+      },
+      "RangeHealthOut": {
+        "additionalProperties": true,
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "checks": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RangeCheckOut"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counts"
+          },
+          "drill_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drill Id"
+          },
+          "mood": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mood"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "title": "RangeHealthOut",
         "type": "object"
       },
       "ReadinessResponse": {
@@ -2413,6 +3158,50 @@
           "difficulty"
         ],
         "title": "ScenarioOut",
+        "type": "object"
+      },
+      "ScenarioPreflightOut": {
+        "additionalProperties": true,
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "checks": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PreflightCheckOut"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready"
+        ],
+        "title": "ScenarioPreflightOut",
         "type": "object"
       },
       "ScenarioStartRequest": {
@@ -7346,7 +8135,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentLockOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -7402,7 +8193,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioPreflightOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -8156,7 +8949,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationListOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -8559,7 +9354,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantListOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -8871,7 +9668,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RangeHealthOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -8985,7 +9784,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateListOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -9281,7 +10082,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DrillStatusOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -9734,7 +10537,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardOut"
+                }
               }
             },
             "description": "Successful Response"

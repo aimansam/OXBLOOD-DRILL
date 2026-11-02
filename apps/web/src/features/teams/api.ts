@@ -1,25 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
+import { api, unwrap } from '@/api/client';
 import { http } from '@/api/http';
+import type { components } from '@/api/schema';
 
-export interface Participant {
-  user_id: number;
-  username?: string;
-  sub?: string;
-  role: string;
-  status?: string;
-  last_login_at?: string | null;
-}
-export interface Candidate {
-  id: number;
-  sub: string;
-  role: string;
-}
-export interface Invitation {
-  id: number;
-  side: string;
-  status: string;
-  expires_at?: string;
-}
+export type Participant = components['schemas']['ParticipantOut'];
+export type Candidate = components['schemas']['CandidateOut'];
+export type Invitation = components['schemas']['InvitationOut'];
 
 export const participantName = (p: Participant) => p.username || p.sub || `User ${p.user_id}`;
 
@@ -35,16 +21,17 @@ export function useRoster(drillId: number | null) {
     queryKey: ['roster', drillId],
     enabled: drillId !== null,
     queryFn: async () => {
+      const path = { params: { path: { drill_id: drillId as number } } };
       const [people, candidates, invites] = await Promise.all([
-        http.get<{ participants?: Participant[] }>(`/api/v2/drills/${drillId}/participants`),
-        http.get<{ candidates?: Candidate[] }>(`/api/v2/drills/${drillId}/roster-candidates`).catch(() => ({ candidates: [] })),
-        http.get<{ invitations?: Invitation[] }>(`/api/v2/drills/${drillId}/invitations`).catch(() => ({ invitations: [] })),
+        api.GET('/api/v2/drills/{drill_id}/participants', path).then(unwrap),
+        api.GET('/api/v2/drills/{drill_id}/roster-candidates', path).then(unwrap).catch(() => ({ candidates: [] as Candidate[] })),
+        api.GET('/api/v2/drills/{drill_id}/invitations', path).then(unwrap).catch(() => ({ invitations: [] as Invitation[] })),
       ]);
       return {
         // Removed and departed players stay in the table but are not on the team any more.
-        participants: (people.participants ?? []).filter((p) => !['removed', 'left'].includes(String(p.status ?? '').toLowerCase())),
-        candidates: candidates.candidates ?? [],
-        invitations: (invites.invitations ?? []).filter((i) => i.status === 'pending'),
+        participants: people.participants.filter((p) => !['removed', 'left'].includes(String(p.status ?? '').toLowerCase())),
+        candidates: candidates.candidates,
+        invitations: invites.invitations.filter((i) => i.status === 'pending'),
       };
     },
   });

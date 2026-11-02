@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { api, unwrap } from '@/api/client';
 import { http } from '@/api/http';
 import type {
   ExpectedBridges,
@@ -32,9 +33,10 @@ export function useReadiness(scenario: Scenario | undefined, enabled: boolean) {
         http.get<ExpectedBridges>('/api/v1/admin/expected-bridges').catch((e) => ({ bridges: [], conflicts: [], error: msg(e) }) as ExpectedBridges),
         http.get<SdnStatus>(`/api/v1/admin/pve-sdn-status?node=${encodeURIComponent(node)}`).catch((e) => ({ reachable: false, error: msg(e) }) as SdnStatus),
         http.get<StorageStatus>(`/api/v1/admin/storage?_=${Date.now()}`).catch((e) => ({ items: [], error: msg(e) }) as StorageStatus),
-        http
-          .get<ScenarioPreflight>(`/api/v2/drills/scenario-preflight/${scenario.id}`)
-          .catch((e) => ({ ready: false, node, checks: [{ ready: false, detail: msg(e) }] }) as ScenarioPreflight),
+        api
+          .GET('/api/v2/drills/scenario-preflight/{scenario_id}', { params: { path: { scenario_id: scenario.id } } })
+          .then(unwrap)
+          .catch((e): ScenarioPreflight => ({ ready: false, node, checks: [{ ready: false, detail: msg(e) }] })),
       ]);
       return computeReadiness({ scenario, pve, templateStatus, pveTemplates, bridgePlan, bridgeStatus, storageStatus, preflight });
     },

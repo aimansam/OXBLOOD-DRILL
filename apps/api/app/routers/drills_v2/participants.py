@@ -25,7 +25,7 @@ from app.services.drill_service import (
     remove_participant,
 )
 
-from .schemas import AnnouncementCreate, ParticipantAdd
+from .schemas import AnnouncementCreate, CandidateListOut, ParticipantAdd, ParticipantListOut
 
 router = APIRouter()
 log = logging.getLogger("app.routers.drills_v2")
@@ -36,7 +36,9 @@ log = logging.getLogger("app.routers.drills_v2")
 # ============================================================================
 
 
-@router.get("/{drill_id}/participants")
+@router.get(
+    "/{drill_id}/participants", response_model=ParticipantListOut, response_model_exclude_unset=True
+)
 async def get_participants(
     drill_id: int,
     db: AsyncSession = Depends(get_session),
@@ -74,7 +76,11 @@ async def get_participants(
     }
 
 
-@router.get("/{drill_id}/roster-candidates")
+@router.get(
+    "/{drill_id}/roster-candidates",
+    response_model=CandidateListOut,
+    response_model_exclude_unset=True,
+)
 async def get_roster_candidates(
     drill_id: int,
     db: AsyncSession = Depends(get_session),

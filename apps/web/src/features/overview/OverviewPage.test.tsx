@@ -10,7 +10,7 @@ function mockApi(drills: unknown[], scenarios: unknown[]) {
     'fetch',
     vi.fn(async (input: Request | string) => {
       const url = typeof input === 'string' ? input : input.url;
-      const body = url.includes('/api/v2/drills') ? { drills } : { items: scenarios, total: scenarios.length };
+      const body = url.includes('/api/v2/drills') ? { drills } : url.includes('/api/v1/audit') ? { items: [{ id: 1, action: 'run.started', actor: 'admin', at: '2026-11-01T00:00:00' }] } : { items: scenarios, total: scenarios.length };
       return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }),
   );
@@ -39,6 +39,7 @@ describe('OverviewPage', () => {
     renderPage();
     expect(await screen.findByText('Friday drill', { selector: 'div.text-lg' })).toBeInTheDocument();
     expect(await screen.findByText('Organizations')).toBeInTheDocument();
+    expect(await screen.findByText('Run started')).toBeInTheDocument();
   });
 
   it('shows a call to action when nothing is scheduled', async () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DrillStatus } from '@/api/types';
 import { provisionPhase } from './provision';
 
-const withEnv = (env: Record<string, unknown>, lifecycle?: { provision_phase?: string }): DrillStatus => ({ environment_config: env, lifecycle });
+const withEnv = (env: Record<string, unknown>, lifecycle?: { provision_phase?: string }): DrillStatus => ({ drill_id: 1, status: 'scheduled', environment_config: env, lifecycle });
 
 describe('provisionPhase', () => {
   it('starts as starting and not terminal', () => {

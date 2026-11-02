@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { drillsApi } from '@/api/drills';
 import { useDrills, useMe } from '@/api/hooks';
-import { http } from '@/api/http';
+import { api, unwrap } from '@/api/client';
 import type { Drill } from '@/api/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -17,11 +17,6 @@ import './legacy/map.css';
 import { useState } from 'react';
 
 const REFRESH_MS = 5000;
-
-interface RangeHealth {
-  summary?: string;
-  checks?: { label: string; state: string; required?: boolean; detail?: string }[];
-}
 
 /** Live range view: React HUD around the vendored map engine (see legacy/engine.js). */
 export function ThreatMapPage() {
@@ -131,7 +126,7 @@ function LiveRange({ drill, user }: { drill: Drill; user: { sub: string; role: s
 }
 
 function ReadinessDialog({ drillId, open, onOpenChange }: { drillId: number; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const q = useQuery({ queryKey: ['range-health', drillId], enabled: open, queryFn: () => http.get<RangeHealth>(`/api/v2/drills/${drillId}/range-health`), staleTime: 0 });
+  const q = useQuery({ queryKey: ['range-health', drillId], enabled: open, queryFn: async () => unwrap(await api.GET('/api/v2/drills/{drill_id}/range-health', { params: { path: { drill_id: drillId } } })), staleTime: 0 });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent aria-describedby={undefined}>

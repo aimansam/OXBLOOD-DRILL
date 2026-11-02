@@ -44,7 +44,7 @@ from app.services.pve_sdn import SdnPermissionError
 from .access import _get_runner
 from .health import _range_health, _refresh_drill_provision_state
 from .provisioning import _queue_drill_provision, _stop_drill_provision_run
-from .schemas import ScenarioStartRequest
+from .schemas import ScenarioPreflightOut, ScenarioStartRequest
 
 router = APIRouter()
 log = logging.getLogger("app.routers.drills_v2")
@@ -287,7 +287,11 @@ async def start_drill_endpoint(
     }
 
 
-@router.get("/scenario-preflight/{scenario_id}")
+@router.get(
+    "/scenario-preflight/{scenario_id}",
+    response_model=ScenarioPreflightOut,
+    response_model_exclude_unset=True,
+)
 async def scenario_preflight(
     scenario_id: int,
     db: AsyncSession = Depends(get_session),

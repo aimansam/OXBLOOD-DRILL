@@ -2,8 +2,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { drillsApi } from '@/api/drills';
-import { useDrills, useMe } from '@/api/hooks';
-import { http } from '@/api/http';
+import { useAudit, useDrills, useMe } from '@/api/hooks';
+import { api, unwrap } from '@/api/client';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusChip } from '@/components/StatusChip';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatWhen } from '@/lib/utils';
 import { useGuests, useHealth, usePveConfig } from '../settings/api';
+import { humanizeAction, visibleActivity } from '../overview/activity';
 import { useWizard } from '../wizard/WizardProvider';
-import { type RangeCheck, nextAction } from './next';
+import { nextAction } from './next';
 
 function Metric({ k, v }: { k: string; v: string | number }) {
   return (
@@ -24,8 +25,6 @@ function Metric({ k, v }: { k: string; v: string | number }) {
     </Card>
   );
 }
-
-interface AuditItem { id: number; at?: string | null; action: string; actor?: string | null }
 
 export function MissionControlPage() {
   const navigate = useNavigate();
@@ -47,24 +46,22 @@ export function MissionControlPage() {
     enabled: Boolean(current),
     refetchInterval: 10_000,
     queryFn: async () => {
+      const path = { params: { path: { drill_id: current?.id as number } } };
       const [roster, range] = await Promise.all([
-        http.get<{ participants?: { role: string; status?: string }[] }>(`/api/v2/drills/${current?.id}/participants`).catch(() => null),
-        http.get<{ checks?: (RangeCheck & { id?: string; label?: string })[] }>(`/api/v2/drills/${current?.id}/range-health`).catch(() => null),
+        api.GET('/api/v2/drills/{drill_id}/participants', path).then(unwrap).catch(() => null),
+        api.GET('/api/v2/drills/{drill_id}/range-health', path).then(unwrap).catch(() => null),
       ]);
       return { people: roster?.participants ?? [], checks: range?.checks ?? [] };
     },
   });
-  const audit = useQuery({
-    queryKey: ['audit', 8],
-    queryFn: async () => (await http.get<{ items?: AuditItem[] }>('/api/v1/audit?limit=8').catch(() => ({ items: [] as AuditItem[] }))).items ?? [],
-  });
+  const audit = useAudit(30);
 
   const checks = detail.data?.checks ?? [];
   const next = nextAction({ current, scheduled, people: detail.data?.people ?? [], checks });
   const connected = isAdmin ? !pve.isError && !guests.isError : health.data?.health?.status === 'ok';
   const gitems = guests.data?.items ?? [];
   const requiredChecks = checks.filter((c) => c.required);
-  const networkCheck = checks.find((c) => /network|bridge/i.test(`${(c as { id?: string }).id ?? ''} ${(c as { label?: string }).label ?? ''}`));
+  const networkCheck = checks.find((c) => /network|bridge/i.test(`${c.id ?? ''} ${c.label}`));
 
   const act = async () => {
     try {
@@ -123,9 +120,9 @@ export function MissionControlPage() {
         <Card>
           <CardHeader><CardTitle>Recent activity</CardTitle></CardHeader>
           <CardContent>
-            {(audit.data ?? []).length === 0 ? <p className="text-muted-foreground">No recent audit events.</p> : (
+            {visibleActivity(audit.data ?? [], 5).length === 0 ? <p className="text-muted-foreground">No recent audit events.</p> : (
               <ul className="divide-y divide-border">
-                {(audit.data ?? []).slice(0, 5).map((a) => <li key={a.id} className="flex justify-between gap-3 py-2"><span className="truncate">{a.action.replace(/[._]/g, ' ')}{a.actor ? <span className="text-muted-foreground"> · {a.actor}</span> : null}</span><time className="shrink-0 text-xs text-muted-foreground">{formatWhen(a.at)}</time></li>)}
+                {visibleActivity(audit.data ?? [], 5).map((a) => <li key={a.id} className="flex justify-between gap-3 py-2"><span className="truncate">{humanizeAction(a.action)}{a.actor ? <span className="text-muted-foreground"> · {a.actor}</span> : null}</span><time className="shrink-0 text-xs text-muted-foreground">{formatWhen(a.at)}</time></li>)}
               </ul>
             )}
           </CardContent>

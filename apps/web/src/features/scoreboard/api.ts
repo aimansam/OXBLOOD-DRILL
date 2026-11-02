@@ -1,12 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { http } from '@/api/http';
+import type { components } from '@/api/schema';
+import { api, unwrap } from '@/api/client';
 
-export interface Entry {
-  rank?: number;
-  user_id: number;
-  total_points: number;
-  flags_captured: number;
-}
+export type Entry = components['schemas']['LeaderboardEntryOut'];
 
 export const useLeaderboard = (drillId: number | null) =>
   useQuery({
@@ -14,12 +10,13 @@ export const useLeaderboard = (drillId: number | null) =>
     enabled: drillId !== null,
     refetchInterval: 15_000,
     queryFn: async () => {
+      const path = { params: { path: { drill_id: drillId as number } } };
       const [board, roster] = await Promise.all([
-        http.get<{ leaderboard?: Entry[] }>(`/api/v2/leaderboard/drill/${drillId}`),
-        http.get<{ participants?: { user_id: number; username?: string; sub?: string }[] }>(`/api/v2/drills/${drillId}/participants`).catch(() => null),
+        api.GET('/api/v2/leaderboard/drill/{drill_id}', path).then(unwrap),
+        api.GET('/api/v2/drills/{drill_id}/participants', path).then(unwrap).catch(() => null),
       ]);
-      const names = new Map((roster?.participants ?? []).map((p) => [Number(p.user_id), p.username || p.sub || '']));
-      return rankEntries(board.leaderboard ?? [], names);
+      const names = new Map((roster?.participants ?? []).map((p) => [Number(p.user_id), p.username || p.sub || ''] as [number, string]));
+      return rankEntries(board.leaderboard, names);
     },
   });
 

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useDrills, useScenarios } from '@/api/hooks';
+import { useAudit, useDrills, useScenarios } from '@/api/hooks';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorNote } from '@/components/ErrorNote';
 import { PageHeader } from '@/components/PageHeader';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatWhen } from '@/lib/utils';
 import { useWizard } from '../wizard/WizardProvider';
+import { humanizeAction, visibleActivity } from './activity';
 import { nextDrill } from '../exercises/filter';
 
 function Stat({ label, value }: { label: string; value: number | undefined }) {
@@ -26,6 +27,7 @@ export function OverviewPage() {
   const wizard = useWizard();
   const drills = useDrills();
   const scenarios = useScenarios();
+  const audit = useAudit(30);
   const list = drills.data;
   const count = (status: string) => list?.filter((d) => d.status === status).length;
   const next = list ? nextDrill(list) : undefined;
@@ -112,6 +114,34 @@ export function OverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Recent activity</CardTitle>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/reports">Reports</Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="pt-3">
+          {audit.isLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : visibleActivity(audit.data ?? [], 8).length === 0 ? (
+            <p className="py-6 text-center text-muted-foreground">No recent activity.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {visibleActivity(audit.data ?? [], 8).map((a) => (
+                <li key={a.id} className="flex items-center justify-between gap-3 py-2">
+                  <span className="truncate">
+                    {humanizeAction(a.action)}
+                    {a.actor ? <span className="text-muted-foreground"> · {a.actor}</span> : null}
+                  </span>
+                  <time className="shrink-0 text-xs text-muted-foreground">{formatWhen(a.at)}</time>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 }

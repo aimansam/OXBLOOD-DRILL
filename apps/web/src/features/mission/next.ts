@@ -15,7 +15,7 @@ export interface RangeCheck {
 const PREPARING = new Set(['starting', 'waiting', 'validating']);
 
 /** The one thing the operator should do next. Port of the classic Mission Control logic. */
-export function nextAction(opts: { current?: Drill; scheduled?: Drill; people: { role: string; status?: string }[]; checks: RangeCheck[] }): Next {
+export function nextAction(opts: { current?: Drill; scheduled?: Drill; people: { role: string; status?: string | null }[]; checks: RangeCheck[] }): Next {
   const { current, scheduled, people, checks } = opts;
   const status = String(current?.status ?? '').toLowerCase();
   const provision = String((scheduled?.environment_config as Record<string, unknown> | null | undefined)?.provision_status ?? '').toLowerCase();

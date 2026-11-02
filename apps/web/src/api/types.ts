@@ -5,15 +5,8 @@ import type { components } from './schema';
 export type Drill = components['schemas']['DrillOut'];
 export type Scenario = components['schemas']['ScenarioOut'];
 
-export interface PreflightCheck {
-  ready: boolean;
-  detail: string;
-}
-export interface ScenarioPreflight {
-  ready: boolean;
-  node: string;
-  checks: PreflightCheck[];
-}
+export type PreflightCheck = components['schemas']['PreflightCheckOut'];
+export type ScenarioPreflight = components['schemas']['ScenarioPreflightOut'];
 export interface PveConfigResponse {
   node?: string;
   clone_storage?: string;
@@ -54,16 +47,7 @@ export interface StorageStatus {
   items?: { storage: string; content?: string[] }[];
   error?: string;
 }
-export interface ProvisionAsset {
-  id?: number;
-  role: string;
-  status: string;
-  pve_vmid?: number | null;
-  ip?: string | null;
-  error?: string | null;
-}
-export interface DrillStatus {
-  environment_config?: Record<string, unknown> | null;
-  lifecycle?: { provision_phase?: string } | null;
-  provision?: { assets?: ProvisionAsset[] } | null;
-}
+export type ProvisionAsset = components['schemas']['ProvisionAssetOut'];
+export type DrillStatus = components['schemas']['DrillStatusOut'];
+export type RangeHealth = components['schemas']['RangeHealthOut'];
+export type EnvironmentLock = components['schemas']['EnvironmentLockOut'];

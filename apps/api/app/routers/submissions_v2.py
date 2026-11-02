@@ -6,7 +6,7 @@ Provides endpoints for flag submissions, evidence uploads, scoring, leaderboards
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -429,7 +429,26 @@ async def get_global_leaderboard(
     }
 
 
-@router.get("/leaderboard/drill/{drill_id}")
+class LeaderboardEntryOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    rank: int | None = None
+    user_id: int
+    total_points: int
+    flags_captured: int
+    completion_time_seconds: int | None = None
+
+
+class LeaderboardOut(BaseModel):
+    leaderboard: list[LeaderboardEntryOut]
+    count: int
+
+
+@router.get(
+    "/leaderboard/drill/{drill_id}",
+    response_model=LeaderboardOut,
+    response_model_exclude_unset=True,
+)
 async def get_drill_leaderboard(
     drill_id: int,
     limit: int = Query(100, ge=1, le=500),

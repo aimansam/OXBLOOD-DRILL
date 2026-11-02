@@ -30,3 +30,14 @@ CI fails if either file is stale. An endpoint only has useful types once it decl
 - Design tokens are CSS variables in `src/index.css`, mapped in `tailwind.config.ts`.
 
 The production build is baked into the portal image (`apps/portal/Dockerfile`), not committed.
+
+## Browser tests
+`e2e/` holds Playwright tests that drive the production build against a throwaway stack
+(the real API on SQLite with the mock Proxmox adapter, behind the Flask portal). They need a Redis
+and the Python dependencies of `apps/api` and `apps/portal`:
+
+    docker run -d --rm --name oxb-redis -p 127.0.0.1:6399:6379 redis:7-alpine
+    npm run test:e2e                      # builds, starts API + portal on :8100/:5100, runs the suite
+    DIVIDE_REDIS_URL=redis://127.0.0.1:6379/0 E2E_PYTHON=.venv/bin/python npm run test:e2e
+
+An already running stack on those ports is reused locally; CI always starts a fresh one.

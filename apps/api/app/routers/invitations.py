@@ -30,6 +30,18 @@ def _digest(secret: str) -> str:
     return hashlib.sha256(secret.encode("ascii")).hexdigest()
 
 
+class InvitationOut(BaseModel):
+    id: int
+    side: str
+    status: str
+    expires_at: str
+    created_at: str
+
+
+class InvitationListOut(BaseModel):
+    invitations: list[InvitationOut]
+
+
 def _public(invite: DrillInvitation) -> dict:
     now = datetime.now(UTC)
     state = (
@@ -87,7 +99,7 @@ class RedeemRequest(SecretRequest):
     password: str = Field(min_length=8, max_length=512)
 
 
-@router.get("/drills/{drill_id}/invitations")
+@router.get("/drills/{drill_id}/invitations", response_model=InvitationListOut)
 async def list_invitations(
     drill_id: int,
     db: AsyncSession = Depends(get_session),
