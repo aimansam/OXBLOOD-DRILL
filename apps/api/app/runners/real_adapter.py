@@ -1899,11 +1899,7 @@ class RealProxmoxAdapter(ProxmoxAdapter):
                 # Logged here -- the calling code wraps _call() with
                 # its own error handling and we don't want to mask
                 # a genuine runner failure by raising on cleanup.
-                log.warning(
-                    "pve_runner.remove_bridge.failed",
-                    bridge=bridge,
-                    error=str(exc),
-                )
+                log.warning("pve_runner.remove_bridge.failed bridge=%s error=%s", bridge, exc)
 
         with suppress(Exception):
             await self._call(_do)

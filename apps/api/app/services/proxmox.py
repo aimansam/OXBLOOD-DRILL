@@ -166,12 +166,12 @@ async def hydrate_proxmox_from_db() -> None:
     import-safe (Phase 0 -- the API boots before Postgres is up).
     """
     try:
-        from app.db.session import session_scope
+        from app.db.session import get_sessionmaker
         from app.services.pve_config import get_config
     except ImportError:
         return
     try:
-        async with session_scope() as db:
+        async with get_sessionmaker()() as db:
             row = await get_config(db)
     except Exception:
         # Best-effort. If the DB is unreachable at boot, we still

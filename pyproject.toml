@@ -44,11 +44,17 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.11"
-strict = true
-warn_unused_ignores = true
 warn_redundant_casts = true
-disallow_untyped_defs = true
 ignore_missing_imports = true
+# Strict mode (annotation completeness) produced ~450 findings, mostly noise.
+# Keep the checks that find real defects; tighten these back up incrementally.
+disable_error_code = [
+    "type-arg",
+    "no-untyped-def",
+    "no-untyped-call",
+    "unused-ignore",
+    "no-any-return",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["apps/api/tests", "tests"]

@@ -574,3 +574,47 @@ class TestPveConfigEndpoints:
         )
         assert r.status_code == 200
         assert r.json()["deleted"] is False
+
+
+class TestHydrateProxmoxFromDb:
+    """API startup must install the stored PVE config as the overlay."""
+
+    def test_stored_config_becomes_overlay(self, client) -> None:
+        import asyncio
+
+        from app.db.session import get_sessionmaker
+        from app.services import proxmox as proxmox_svc
+        from app.services import pve_config as svc
+
+        async def _run() -> dict | None:
+            async with get_sessionmaker()() as db:
+                await svc.upsert_config(
+                    db,
+                    host="pve-hydrate.test",
+                    port=8006,
+                    user="root@pam",
+                    token_id="divide",
+                    token_secret="s3cret",
+                    verify_ssl=False,
+                    node="pve",
+                    updated_by="test",
+                )
+                await db.commit()
+            try:
+                proxmox_svc.set_db_overlay(None)
+                await proxmox_svc.hydrate_proxmox_from_db()
+                return proxmox_svc._DB_OVERLAY
+            finally:
+                async with get_sessionmaker()() as db:
+                    await svc.delete_config(db)
+                    await db.commit()
+                proxmox_svc.set_db_overlay(None)
+
+        loop = asyncio.new_event_loop()
+        try:
+            overlay = loop.run_until_complete(_run())
+        finally:
+            loop.close()
+        assert overlay is not None
+        assert overlay["host"] == "pve-hydrate.test"
+        assert overlay["node"] == "pve"
