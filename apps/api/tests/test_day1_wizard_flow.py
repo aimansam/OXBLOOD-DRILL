@@ -192,11 +192,11 @@ def pve_token(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], Any]:
         lambda: Runner(adapter=adapter),
     )
 
-    # Point settings.scenarios_dir at the repo'\''s examples/scenarios
+    # Point settings.scenarios_dir at the frozen test scenarios
     # and run an explicit sync so first-live-drill is in the DB.
     import pathlib
 
-    examples = pathlib.Path(__file__).resolve().parents[2] / "examples" / "scenarios"
+    examples = pathlib.Path(__file__).resolve().parent / "fixtures" / "scenarios"
     monkeypatch.setenv("DIVIDE_SCENARIOS_DIR", str(examples))
 
     async def _reseed() -> None:
@@ -241,8 +241,8 @@ def test_full_day1_wizard_flow(client: TestClient, pve_token: tuple[dict[str, An
         import pathlib
 
         yaml_path = (
-            pathlib.Path(__file__).resolve().parents[3]
-            / "examples"
+            pathlib.Path(__file__).resolve().parent
+            / "fixtures"
             / "scenarios"
             / "first-live-drill.scenario.yaml"
         )

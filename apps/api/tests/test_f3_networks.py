@@ -328,12 +328,26 @@ async def test_bridges_removed_on_failure(session: AsyncSession) -> None:
             networks_spec=[_network("red_vlan")],
             assets_spec=[
                 _asset("a", ["red_vlan"], template="tpl-x"),  # ok
-                _asset("b", ["red_vlan"], template="tpl-missing"),
-                # ^ spawn will fail: no template "tpl-missing"
+                _asset("b", ["red_vlan"], template="tpl-x"),
+                # ^ its clone fails below, after the bridge exists. (A missing
+                # template can't be used: range preflight rejects it before any
+                # bridge is created.)
             ],
         )
     )
     await session.commit()
+
+    real_clone = adapter.clone_vm
+    clone_calls = 0
+
+    async def flaky_clone(spec):
+        nonlocal clone_calls
+        clone_calls += 1
+        if clone_calls == 2:
+            raise RunnerError("simulated clone failure")
+        return await real_clone(spec)
+
+    adapter.clone_vm = flaky_clone
 
     with pytest.raises(RunnerError):
         await runner.start_run(RunRequest(scenario_id=1), session=session)
@@ -450,8 +464,8 @@ async def test_red_vs_blue_baseline_yaml_topology_runs(
     import yaml
 
     yaml_path = (
-        Path(__file__).resolve().parents[3]
-        / "examples"
+        Path(__file__).resolve().parent
+        / "fixtures"
         / "scenarios"
         / "red-vs-blue-baseline.scenario.yaml"
     )
@@ -670,8 +684,8 @@ async def test_red_vs_blue_baseline_with_count_gives_six_clones(
     import yaml
 
     yaml_path = (
-        Path(__file__).resolve().parents[3]
-        / "examples"
+        Path(__file__).resolve().parent
+        / "fixtures"
         / "scenarios"
         / "red-vs-blue-baseline.scenario.yaml"
     )
