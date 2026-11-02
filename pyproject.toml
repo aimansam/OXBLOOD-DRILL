@@ -39,7 +39,7 @@ ignore = [
 # Crypto helper keeps RFC-style single-letter names.
 "apps/api/app/services/vpn.py" = ["N806", "E702"]
 # Closures in these loops are awaited within the same iteration.
-"apps/api/app/runners/real_adapter.py" = ["B023"]
+"apps/api/app/runners/real_adapter*.py" = ["B023"]
 "apps/api/app/services/admin.py" = ["ASYNC230"]
 
 [tool.mypy]
