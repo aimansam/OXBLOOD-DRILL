@@ -10,6 +10,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatWhen } from '@/lib/utils';
+import { useWizard } from '../wizard/WizardProvider';
+import { ExerciseActions } from './ExerciseActions';
 import { type Drill, type View, filterDrills } from './filter';
 
 function Detail({ drill, onClose }: { drill: Drill; onClose: () => void }) {
@@ -43,8 +45,12 @@ function Detail({ drill, onClose }: { drill: Drill; onClose: () => void }) {
             </div>
           ))}
         </dl>
+        {drill.environment_config?.provision_status ? (
+          <p className="text-xs text-muted-foreground">Range: {String(drill.environment_config.provision_status).replace(/_/g, ' ')}</p>
+        ) : null}
+        <ExerciseActions drill={drill} onRemoved={onClose} />
         <Button variant="outline" className="w-full" asChild>
-          <a href="/drill/">Open in classic portal</a>
+          <a href="/drill/">Open run in classic portal</a>
         </Button>
       </CardContent>
     </Card>
@@ -52,6 +58,7 @@ function Detail({ drill, onClose }: { drill: Drill; onClose: () => void }) {
 }
 
 export function ExercisesPage() {
+  const wizard = useWizard();
   const [params, setParams] = useSearchParams();
   const { data, isLoading, isError, error, refetch } = useDrills();
   const view: View = params.get('view') === 'archive' ? 'archive' : 'operations';
@@ -76,9 +83,7 @@ export function ExercisesPage() {
         title="Exercises"
         description="Schedule, prepare and review exercises."
         actions={
-          <Button asChild>
-            <a href="/drill/">New exercise</a>
-          </Button>
+          <Button onClick={() => wizard.open()}>New exercise</Button>
         }
       />
 

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { WizardProvider } from '../wizard/WizardProvider';
 import { OverviewPage } from './OverviewPage';
 
 function mockApi(drills: unknown[], scenarios: unknown[]) {
@@ -20,7 +21,9 @@ function renderPage() {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <OverviewPage />
+        <WizardProvider>
+          <OverviewPage />
+        </WizardProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -42,6 +45,6 @@ describe('OverviewPage', () => {
     mockApi([], []);
     renderPage();
     expect(await screen.findByText('Nothing scheduled')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'New exercise' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'New exercise' }).length).toBeGreaterThan(0);
   });
 });

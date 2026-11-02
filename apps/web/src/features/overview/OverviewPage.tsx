@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatWhen } from '@/lib/utils';
+import { useWizard } from '../wizard/WizardProvider';
 import { nextDrill } from '../exercises/filter';
 
 function Stat({ label, value }: { label: string; value: number | undefined }) {
@@ -22,6 +23,7 @@ function Stat({ label, value }: { label: string; value: number | undefined }) {
 }
 
 export function OverviewPage() {
+  const wizard = useWizard();
   const drills = useDrills();
   const scenarios = useScenarios();
   const list = drills.data;
@@ -35,9 +37,7 @@ export function OverviewPage() {
         title="Overview"
         description="What is running, what is coming up, and what changed."
         actions={
-          <Button asChild>
-            <a href="/drill/">New exercise</a>
-          </Button>
+          <Button onClick={() => wizard.open()}>New exercise</Button>
         }
       />
 
@@ -79,11 +79,7 @@ export function OverviewPage() {
               <EmptyState
                 title="Nothing scheduled"
                 hint="Pick an organization and schedule an exercise to get started."
-                action={
-                  <Button asChild>
-                    <a href="/drill/">New exercise</a>
-                  </Button>
-                }
+                action={<Button onClick={() => wizard.open()}>New exercise</Button>}
               />
             )}
           </CardContent>
