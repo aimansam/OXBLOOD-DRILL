@@ -15,13 +15,13 @@ interface NavItem {
 const NAV: NavItem[] = [
   { label: 'Overview', to: '/' },
   { label: 'Exercises', to: '/exercises' },
-  { label: 'Mission Control' },
+  { label: 'Mission Control', to: '/mission-control' },
   { label: 'Organizations', to: '/organizations' },
   { label: 'Teams', to: '/teams' },
-  { label: 'Infrastructure' },
-  { label: 'Scoreboard' },
-  { label: 'Reports' },
-  { label: 'Settings' },
+  { label: 'Infrastructure', to: '/infrastructure' },
+  { label: 'Scoreboard', to: '/scoreboard' },
+  { label: 'Reports', to: '/reports' },
+  { label: 'Settings', to: '/settings' },
 ];
 
 const linkClass = 'flex items-center justify-between rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground';
