@@ -27,3 +27,6 @@ tools/*.vfd
 node_modules/
 backups/*.sql
 *.tsbuildinfo
+
+# Local assistant notes
+CLAUDE.md
