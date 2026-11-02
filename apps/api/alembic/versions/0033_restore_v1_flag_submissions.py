@@ -24,7 +24,7 @@ def upgrade() -> None:
         return
     op.create_table(
         "flag_submissions",
-        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("id", sa.Integer(), nullable=False),
         sa.Column(
             "run_id", sa.Integer(), sa.ForeignKey("runs.id", ondelete="CASCADE"), nullable=False
         ),
@@ -36,6 +36,10 @@ def upgrade() -> None:
         sa.Column("elapsed_seconds", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        # Not the convention name ``pk_flag_submissions``: on databases that
+        # renamed the v2 table to ``drill_flag_submissions`` that primary-key
+        # name is still taken, and Postgres index names are schema-wide.
+        sa.PrimaryKeyConstraint("id", name="pk_flag_submissions_v1"),
     )
     op.create_index("ix_flag_submissions_run_id", "flag_submissions", ["run_id"])
     op.create_index("ix_flag_submissions_team", "flag_submissions", ["team"])

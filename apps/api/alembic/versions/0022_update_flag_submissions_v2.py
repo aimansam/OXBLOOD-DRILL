@@ -11,12 +11,19 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0022_update_flag_submissions_v2"
-down_revision = "0021_audit_run_timeout"
+down_revision = "0021a_baseline_drill_tables"
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
+    # This rewrite targets databases that still carry the Learn-era lab_flags
+    # table. On a database built from the migration chain there is none, and
+    # the foreign key below could not be created (Postgres enforces it), so
+    # keep the v1 flag_submissions table as it is.
+    if "lab_flags" not in sa.inspect(op.get_bind()).get_table_names():
+        return
+
     # Drop the old flag_submissions table and recreate with new schema
     op.drop_table("flag_submissions")
 

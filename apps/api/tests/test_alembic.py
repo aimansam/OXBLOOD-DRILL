@@ -60,6 +60,46 @@ def test_alembic_upgrade_creates_all_tables(tmp_path) -> None:
     assert {"scenarios", "runs", "assets", "audit_log", "alembic_version"} <= tables
 
 
+def test_alembic_upgrade_creates_drill_and_v1_flag_tables(tmp_path) -> None:
+    """A database built only from migrations has every table the models use.
+
+    The drill tables used to exist only on hand-built databases, and the v1
+    ``flag_submissions`` table was lost by 0022/0023, so fresh installs lacked
+    them.
+    """
+    from app.db import models, models_drill  # noqa: F401
+    from app.db.base import Base
+
+    db_path = tmp_path / "test.sqlite"
+    env = dict(ENV)
+    env["DIVIDE_DB_URL"] = f"sqlite:///{db_path}"
+    r = subprocess.run(
+        [sys.executable, "-m", "alembic", "--config", str(ALEMBIC_INI), "upgrade", "head"],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=ROOT,
+    )
+    assert r.returncode == 0, f"upgrade failed:\n{r.stderr}\n{r.stdout}"
+
+    con = sqlite3.connect(str(db_path))
+    try:
+        tables = {
+            row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    finally:
+        con.close()
+
+    drill_tables = {
+        mapper.class_.__tablename__
+        for mapper in Base.registry.mappers
+        if mapper.class_.__module__.endswith("models_drill")
+    }
+    assert len(drill_tables) >= 20
+    assert drill_tables <= tables, f"missing drill tables: {sorted(drill_tables - tables)}"
+    assert "flag_submissions" in tables
+
+
 def test_alembic_current_reports_head(tmp_path) -> None:
     db_path = tmp_path / "test.sqlite"
     env = dict(ENV)
