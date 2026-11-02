@@ -58,7 +58,7 @@ from .access import (
 )
 from .health import _range_health, _refresh_drill_provision_state
 from .provisioning import _stop_drill_provision_run
-from .schemas import ConsoleRequest, DrillCreate, DrillUpdate
+from .schemas import ConsoleRequest, DrillCreate, DrillListOut, DrillOut, DrillUpdate
 
 router = APIRouter()
 log = logging.getLogger("app.routers.drills_v2")
@@ -69,7 +69,7 @@ log = logging.getLogger("app.routers.drills_v2")
 # ============================================================================
 
 
-@router.get("")
+@router.get("", response_model=DrillListOut)
 async def get_drills(
     status: DrillStatus | None = Query(None),
     skip: int = Query(0, ge=0),
@@ -161,7 +161,7 @@ async def remove_announcement(
     return {"message": "Announcement deleted"}
 
 
-@router.get("/{drill_id}")
+@router.get("/{drill_id}", response_model=DrillOut)
 async def get_drill_endpoint(
     drill_id: int,
     db: AsyncSession = Depends(get_session),

@@ -42,16 +42,26 @@ import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from app.core.auth import TokenData, current_token, require_token
 
 router = APIRouter()
 
 
+class MeOut(BaseModel):
+    sub: str
+    role: str
+    iat: int
+    exp: int
+    ttl_remaining_s: int
+
+
 @router.get(
     "",
     summary="Return the verified identity for the bearer token",
     dependencies=[Depends(require_token)],
+    response_model=MeOut,
 )
 async def whoami(
     token: Annotated[TokenData, Depends(current_token)],

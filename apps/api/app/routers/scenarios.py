@@ -11,11 +11,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, status
 from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import ValidationError
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,6 +47,33 @@ def _get_validator() -> Draft202012Validator:
 
 
 # --- DTOs ------------------------------------------------------------------
+
+
+class ScenarioOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    name: str
+    title: str
+    organization: str | None = None
+    summary: str | None = None
+    vulnerabilities: list[Any] = []
+    version: int
+    difficulty: str
+    duration_min: int | None = None
+    tags: list[Any] | None = None
+    authors: list[Any] | None = None
+    spec: dict[str, Any] | None = None
+    source_path: str | None = None
+    archived_at: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    run_count: int | None = None
+
+
+class ScenarioListOut(BaseModel):
+    items: list[ScenarioOut]
+    total: int
 
 
 def _row_to_dict(row: db_models.Scenario) -> dict:
@@ -83,7 +112,7 @@ def _row_to_dict(row: db_models.Scenario) -> dict:
 # --- GET / -----------------------------------------------------------------
 
 
-@router.get("", summary="List active scenarios")
+@router.get("", summary="List active scenarios", response_model=ScenarioListOut)
 async def list_scenarios(
     include_archived: bool = False,
     include_run_count: bool = False,

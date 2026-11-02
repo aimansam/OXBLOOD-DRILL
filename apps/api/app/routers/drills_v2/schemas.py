@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 log = logging.getLogger("app.routers.drills_v2")
 
@@ -76,3 +77,40 @@ class ScenarioStartRequest(BaseModel):
     scenario_id: int
     duration_limit_minutes: int | None = None
     max_participants: int | None = 10
+
+
+# ============================================================================
+# Response models (documented in OpenAPI so the web client can be generated).
+# ``extra="allow"`` keeps any additional fields, so serialization is unchanged.
+# ============================================================================
+
+
+class DrillOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    title: str
+    description: str | None = None
+    lab_id: int | None = None
+    scenario_id: int | None = None
+    drill_type: str
+    status: str
+    scheduled_start_at: str | None = None
+    scheduled_end_at: str | None = None
+    actual_start_at: str | None = None
+    actual_end_at: str | None = None
+    duration_limit_minutes: int | None = None
+    max_participants: int | None = None
+    rules: Any = None
+    environment_config: dict[str, Any] | None = None
+    run_owner: str | None = None
+    lifecycle: dict[str, Any] | None = None
+    created_by: int | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class DrillListOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    drills: list[DrillOut]
