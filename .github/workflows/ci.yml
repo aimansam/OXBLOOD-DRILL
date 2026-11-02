@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e "apps/api[dev]"
       - name: Ruff lint
         run: ruff check .
       - name: Ruff format check
@@ -113,8 +113,10 @@ jobs:
         run: python tools/gen_diagrams.py
       - name: Verify diagrams committed
         run: |
-          if [[ -n "$(git status --porcelain assets/diagrams/)" ]]; then
-            echo "::error::Architecture diagrams are out of date. Run 'python tools/gen_diagrams.py' locally."
+          # PNG bytes differ between matplotlib versions, so compare the set of files, not pixels:
+          # a diagram the generator now produces (or no longer produces) means the commit is stale.
+          if git status --porcelain assets/diagrams/ | grep -E '^(\?\?| D|D )'; then
+            echo "::error::Architecture diagrams are out of date. Run 'python tools/gen_diagrams.py' locally and commit the new files."
             exit 1
           fi
 
@@ -147,7 +149,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e "apps/api[dev]"
       - name: Apply alembic migrations
         env:
           DIVIDE_DB_URL: postgresql+asyncpg://divide:divide@localhost:5432/divide_test

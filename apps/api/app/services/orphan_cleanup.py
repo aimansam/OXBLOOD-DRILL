@@ -308,7 +308,7 @@ async def list_pve_unused_vms(
             role = parsed_role
             age = grace_minutes * 60
         else:
-            asset, run = asset_run
+            asset, owning_run = asset_run
             run_id = asset.run_id
             asset_id = asset.id
             role = asset.role
@@ -316,7 +316,10 @@ async def list_pve_unused_vms(
             if stamp is not None and stamp.tzinfo is None:
                 stamp = stamp.replace(tzinfo=UTC)
             age = int(now.timestamp() - stamp.timestamp()) if stamp else 0
-            if run is not None and run.status in (RunStatus.RUNNING, RunStatus.PENDING):
+            if owning_run is not None and owning_run.status in (
+                RunStatus.RUNNING,
+                RunStatus.PENDING,
+            ):
                 continue
             if stamp is not None and stamp.timestamp() > grace_cutoff:
                 continue
