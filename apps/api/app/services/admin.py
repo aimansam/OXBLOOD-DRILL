@@ -1,7 +1,7 @@
 """Setup/admin helpers for the PVE setup wizard.
 
 These functions back the ``/api/v1/admin/*`` endpoints exposed by the
-``div:ide`` setup portal. They exist so an operator can stand up a fresh
+``OxBlood`` setup portal. They exist so an operator can stand up a fresh
 PVE-backed deployment without SSH-ing into Proxmox to drive the installer:
 
   * probe_pve()                — one-shot PVE health/permissions snapshot

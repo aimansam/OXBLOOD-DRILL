@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import PveConfig
 
-# Singleton id. Same convention as the rest of div:ide's singleton
+# Singleton id. Same convention as the rest of OxBlood's singleton
 # tables: ``id`` is hard-coded to 1 and never reused.
 _SINGLETON_ID = 1
 

@@ -1,11 +1,11 @@
 [project]
 name = "divide-cyber-drill"
 version = "0.1.0"
-description = "div:ide — Proxmox-backed cyber drill platform"
+description = "OxBlood — Proxmox-backed cyber drill platform"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "div:ide team" }]
+authors = [{ name = "OxBlood team" }]
 
 [tool.ruff]
 line-length = 100

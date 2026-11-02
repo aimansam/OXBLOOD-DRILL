@@ -1,4 +1,4 @@
-"""Prometheus metrics for div:ide API.
+"""Prometheus metrics for OxBlood API.
 
 Single module that owns the metric registry and exposes named counters /
 gauges / histograms. Other modules import the named objects directly so

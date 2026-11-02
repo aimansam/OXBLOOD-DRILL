@@ -60,7 +60,7 @@ def test_grafana_dashboard_provider_loads() -> None:
 def test_starter_dashboard_loads_and_has_expected_panels() -> None:
     cfg_path = DEPLOY / "grafana" / "dashboards" / "divide-drill-platform.json"
     dash = json.loads(cfg_path.read_text())
-    assert dash["title"].startswith("div:ide")
+    assert dash["title"].startswith("OxBlood")
     assert dash["uid"] == "divide-drill-platform"
     panel_types = {p["type"] for p in dash["panels"]}
     # We expect at least one of each: timeseries, stat, piechart, heatmap.

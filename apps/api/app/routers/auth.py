@@ -487,7 +487,7 @@ async def create_user_endpoint(
       * 422 -- bad body (sub empty, role unknown, etc.).
 
     Why an admin endpoint rather than a self-signup:
-      div:ide is a closed cyber-range. New users are added by
+      OxBlood is a closed cyber-range. New users are added by
       the operator (admin) before a drill starts -- they don't
       self-register. Mirrors the auth model in TryHackMe /
       HackTheBox / RangeForce.

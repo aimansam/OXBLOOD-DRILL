@@ -1,4 +1,4 @@
-# div:ide Cyber Drill Platform
+# OxBlood Cyber Drill Platform
 
 A comprehensive cyber drill platform for managing training labs, exercises, and Proxmox VE infrastructure.
 
@@ -9,7 +9,7 @@ A comprehensive cyber drill platform for managing training labs, exercises, and 
 
 ## What It Does
 
-div:ide Cyber Drill Platform lets you run structured cybersecurity training — labs, exercises, team competitions, and progress tracking — on your own Proxmox VE infrastructure. Two products share one portal:
+OxBlood Cyber Drill Platform lets you run structured cybersecurity training — labs, exercises, team competitions, and progress tracking — on your own Proxmox VE infrastructure. Two products share one portal:
 
 - **OxBlood Drill** — the active training platform: dashboards, labs, drills, teams, scoring.
 - **OxBlood Learn** — coming soon: learning paths and content management.

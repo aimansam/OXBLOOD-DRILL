@@ -14,7 +14,7 @@ metadata:
     - topology-demo
   authors:
     - handle: divide-team
-      name: div:ide core
+      name: OxBlood core
 
 spec:
   objectives:

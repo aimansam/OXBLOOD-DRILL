@@ -61,9 +61,10 @@ PROBE_INTERVAL_S: float = 1.0
 
 # --- direct-bridge constants (PVE 9 happy path) ---------------------------
 
-#: Marker PVE uses in the comments field for div:ide-created bridges.
-#: Lets ``list_node_ifaces`` distinguish div:ide bridges from operator-
-#: maintained ones without an SDN zone to anchor on.
+#: Marker PVE uses in the comments field for OxBlood-created bridges.
+#: Lets ``list_node_ifaces`` distinguish OxBlood bridges from operator-
+#: maintained ones without an SDN zone to anchor on. The value stays
+#: "div:ide" so bridges created before the rename are still recognised.
 DIVIDE_COMMENT_TAG: str = "div:ide"
 
 
@@ -387,7 +388,7 @@ async def create_zone(
     *,
     zone: str = DEFAULT_ZONE,
 ) -> None:
-    """Create the div:ide SDN zone if it doesn't already exist.
+    """Create the OxBlood SDN zone if it doesn't already exist.
 
     Idempotent: PVE returns 500 with a "Zone already exists" message
     on duplicate POSTs; we treat that as a no-op so apply_sdn_plan can

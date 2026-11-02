@@ -1,3 +1,3 @@
-"""div:ide control-plane API."""
+"""OxBlood control-plane API."""
 
 __version__ = "0.1.0"

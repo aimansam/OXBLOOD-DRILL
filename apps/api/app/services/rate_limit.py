@@ -63,7 +63,7 @@ DEFAULT_LIMIT: int = 1  # max drill starts per window per sub
 #      a negligible delay during verification of Q-bugs.
 # * Tradeoff: this is a weaker safety net against sustained
 #   misuse (~12/hour ceiling) than the original 5/hour. Acceptable
-#   because div:ide is a dev-tool with single-operator usage
+#   because OxBlood is a dev-tool with single-operator usage
 #   today. Revisit if the deployment grows to multi-user.
 DEFAULT_WINDOW_SECONDS: int = 5  # 5 seconds
 

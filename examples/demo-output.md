@@ -1,4 +1,4 @@
-# div:ide demo walkthrough
+# OxBlood demo walkthrough
 
 > _Sample output from `tools/demo.sh --record`._
 >

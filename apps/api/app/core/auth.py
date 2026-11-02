@@ -1,4 +1,4 @@
-"""Token auth for div:ide.
+"""Token auth for OxBlood.
 
 Token format: HMAC-SHA256-signed compact JWS-ish token::
 
@@ -69,7 +69,7 @@ from app.core.config import settings
 
 
 class Role(str, Enum):
-    """The five persona roles on the div:ide control plane.
+    """The five persona roles on the OxBlood control plane.
 
     The string values are the wire format — they appear in token
     payloads, in ``X-Divide-Token`` claim, in audit rows, and in
@@ -86,7 +86,7 @@ class Role(str, Enum):
 
     The wizard's PVE-side ACL role (``PVEDatastoreAdmin``) is a
     different concept — it's a Proxmox-side RBAC string, not a
-    div:ide role. Don't conflate them.
+    OxBlood role. Don't conflate them.
     """
 
     ADMIN = "admin"
@@ -324,7 +324,7 @@ async def require_token(
     """Hard-gate dependency: ``Depend`` on this if a route MUST be
     authenticated. Returns 401 if no valid token.
 
-    Today the div:ide control plane only uses this for the future
+    Today the OxBlood control plane only uses this for the future
     L2 work (rate-limit attribution, audit attribution); L1 routes
     remain open because the entire API is on a LAN. L2 will mark
     individual routes with this dependency.

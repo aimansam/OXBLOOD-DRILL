@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# div:ide demo runner.
+# OxBlood demo runner.
 #
-# One-command bootstrap for "show off div:ide to a colleague":
+# One-command bootstrap for "show off OxBlood to a colleague":
 #   * Verifies the API is up
 #   * Prints the portal URL + admin sign-in hints
 #   * Lists the scenarios the demo will load
@@ -75,7 +75,7 @@ warn() { printf "  \033[33m!\033[0m %s\n" "$*"; }
 err()  { printf "  \033[31mx\033[0m %s\n" "$*"; }
 
 echo
-bold "div:ide demo runner"
+bold "OxBlood demo runner"
 echo
 
 # --- 1. Verify the API is up ------------------------------------------
@@ -189,7 +189,7 @@ if [[ "${RECORD}" == "1" ]]; then
   }
 
   {
-    echo "# div:ide demo walkthrough"
+    echo "# OxBlood demo walkthrough"
     echo
     echo "_Captured by \`tools/demo.sh --record\` at $(date -u +'%Y-%m-%dT%H:%M:%SZ')._"
     echo

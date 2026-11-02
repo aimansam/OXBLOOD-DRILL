@@ -14,7 +14,7 @@ metadata:
     - phishing
   authors:
     - handle: divide-team
-      name: div:ide core
+      name: OxBlood core
 
 spec:
   attack_path:

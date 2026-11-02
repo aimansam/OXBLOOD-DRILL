@@ -1,4 +1,4 @@
-"""ORM models for div:ide.
+"""ORM models for OxBlood.
 
 Design notes
 ------------
@@ -410,7 +410,7 @@ class FlagSubmission(Base, TimestampMixin):
 
 
 class User(Base, TimestampMixin):
-    """A login-capable div:ide user (F3-prep credential login).
+    """A login-capable OxBlood user (F3-prep credential login).
 
     Replaces the bare ``tools/issue_token.py`` paste-your-token UX
     with a real username + password flow. The token issued by

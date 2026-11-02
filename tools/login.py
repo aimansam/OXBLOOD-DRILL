@@ -83,7 +83,7 @@ def _post_login(api: str, sub: str, password: str) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        description="Sign in to div:ide and print an X-Divide-Token.",
+        description="Sign in to OxBlood and print an X-Divide-Token.",
     )
     ap.add_argument(
         "--user",

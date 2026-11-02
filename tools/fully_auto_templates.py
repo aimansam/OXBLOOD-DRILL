@@ -259,7 +259,7 @@ def main():
     print()
 
     print("=" * 70)
-    print("  div:ide Fully Automated Template Creation")
+    print("  OxBlood Fully Automated Template Creation")
     print("  Zero manual steps required!")
     print("=" * 70)
 

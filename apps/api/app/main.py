@@ -432,7 +432,7 @@ async def lifespan(app: FastAPI):
                                             if all_stopped:
                                                 run.status = RunStatus.FAILED
                                                 run.ended_at = datetime.now(UTC)
-                                                run.error = "VM deleted or stopped outside of div:ide control"
+                                                run.error = "VM deleted or stopped outside of OxBlood control"
                                                 await session.flush()
 
                                                 fail_audit = models.AuditLog(
@@ -518,9 +518,9 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="div:ide API",
+        title="OxBlood API",
         version=__version__,
-        description="div:ide — Cyber Drill Platform control-plane API",
+        description="OxBlood — Cyber Drill Platform control-plane API",
         docs_url="/docs" if settings.env != "production" else None,
         redoc_url=None,
         lifespan=lifespan,

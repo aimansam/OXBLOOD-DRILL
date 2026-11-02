@@ -1,6 +1,6 @@
 name: divide-cyber-drill-prod
 
-# F12.3: production-grade deployment for div:ide.
+# F12.3: production-grade deployment for OxBlood.
 #
 # Key differences from deploy/docker-compose.yml:
 #

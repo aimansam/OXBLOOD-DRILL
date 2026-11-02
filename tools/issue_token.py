@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Issue a div:ide token for a user.
+"""Issue a OxBlood token for a user.
 
 Tokens are HMAC-SHA256-signed compact JWS-ish strings. They go in the
 ``X-Divide-Token`` request header on API calls that need a known
@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     from app.core.auth import Role
 
     ap = argparse.ArgumentParser(
-        description="Issue a div:ide X-Divide-Token for a user.",
+        description="Issue a OxBlood X-Divide-Token for a user.",
     )
     ap.add_argument(
         "--user",

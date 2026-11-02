@@ -101,7 +101,7 @@ def _prom_targets_up(r):
 
 
 def _grafana_ok(r):
-    return httpx.Response(200, json={"dashboard": {"title": "div:ide", "panels": [{}] * 6}})
+    return httpx.Response(200, json={"dashboard": {"title": "OxBlood", "panels": [{}] * 6}})
 
 
 # --- happy path ---------------------------------------------------------

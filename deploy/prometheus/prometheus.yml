@@ -1,4 +1,4 @@
-# div:ide Prometheus scrape configuration.
+# OxBlood Prometheus scrape configuration.
 #
 # Scrapes the API's /metrics endpoint every 15s. Prometheus itself is
 # only exposed on localhost:9090 — same dev-friendly pattern as the
