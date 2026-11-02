@@ -340,7 +340,7 @@ def test_scenarios_and_topology_page_are_wired() -> None:
     styles = _read("styles.css")
 
     header_html = _read("components/header.html")
-    assert "Hub" in header_html
+    assert "app.openHome()" in header_html
     assert 'data-component="header"' in index_html
     assert "scenario-atlas" in scenarios_html
     assert "loadScenariosPage" in app_js
