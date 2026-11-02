@@ -38,3 +38,25 @@ export async function firstScenarioId(request: APIRequestContext): Promise<numbe
   const res = await request.get('/api/v1/scenarios');
   return (await res.json()).items[0].id;
 }
+
+/** Create a player account and return its id and a login helper. */
+export async function createPlayer(request: APIRequestContext, side: 'red' | 'blue') {
+  const sub = `${side}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  const password = 'Player12345!';
+  const token = await adminToken(request);
+  const created = await request.post('/api/v1/auth/users', { headers: { 'X-Divide-Token': token }, data: { sub, password, role: side } });
+  expect(created.ok()).toBeTruthy();
+  const id = (await created.json()).id as number;
+  return { sub, password, id, side };
+}
+
+export async function playerToken(request: APIRequestContext, user: { sub: string; password: string }): Promise<string> {
+  const res = await request.post('/api/v1/auth/login', { data: { sub: user.sub, password: user.password } });
+  return (await res.json()).token;
+}
+
+export async function enroll(request: APIRequestContext, drillId: number, userId: number, role: 'red' | 'blue') {
+  const token = await adminToken(request);
+  const res = await request.post(`/api/v2/drills/${drillId}/participants`, { headers: { 'X-Divide-Token': token }, data: { user_id: userId, role } });
+  expect(res.ok()).toBeTruthy();
+}

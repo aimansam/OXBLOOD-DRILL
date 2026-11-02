@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { availableActions } from '../exercises/actions';
+import { CompetitionBadge } from '../competition/CompetitionBadge';
 import { FlagPanel } from './FlagPanel';
 import { openAssetConsole } from './console';
 import { ThreatMapEngine } from './legacy/engine.js';
@@ -119,6 +120,7 @@ function LiveRange({ drill, user }: { drill: Drill; user: { sub: string; role: s
           <div className="threat-map-loading"><span className="threat-loading-pulse" /><strong>Loading range graph</strong><small>Waiting for machines and VLAN telemetry.</small></div>
         </main>
       </div>
+      {!operator && <CompetitionBadge drillId={drill.id} className="absolute bottom-20 right-4 z-30 max-w-[calc(100%-2rem)] flex-wrap" />}
       {!operator && status === 'active' && <FlagPanel drillId={drill.id} />}
       <ReadinessDialog drillId={drill.id} open={readiness} onOpenChange={setReadiness} />
     </div>

@@ -4,6 +4,7 @@ import { ParticipantShell } from '@/components/ParticipantShell';
 import { RequireAuth, RequireOperator, RequireParticipant } from '@/components/RequireAuth';
 import { MyMissionPage } from '@/features/mission/MyMissionPage';
 import { ExercisesPage } from '@/features/exercises/ExercisesPage';
+import { CompetitionPage } from '@/features/competition/CompetitionPage';
 import { InfrastructurePage } from '@/features/infrastructure/InfrastructurePage';
 import { MissionControlPage } from '@/features/mission/MissionControlPage';
 import { ReportDetail, ReportsPage } from '@/features/reports/ReportsPage';
@@ -47,6 +48,7 @@ export function App() {
             <Route path="reports/:id" element={<ReportDetail />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="teams" element={<TeamsPage />} />
+            <Route path="competition" element={<CompetitionPage />} />
             <Route path="organizations" element={<OrganizationsPage />} />
             <Route path="organizations/:id" element={<OrganizationDetail />} />
             <Route path="*" element={<OverviewPage />} />

@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select } from '@/components/ui/field';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScoreboardView } from '../competition/ScoreboardView';
+import { useScoreboard } from '../competition/api';
 import { useLeaderboard } from './api';
 
 export function ScoreboardPage() {
@@ -13,6 +15,8 @@ export function ScoreboardPage() {
   const list = drills.data ?? [];
   const drillId = Number(params.get('drill')) || list[0]?.id || null;
   const board = useLeaderboard(drillId);
+  const team = useScoreboard(drillId);
+  const competing = (team.data?.teams.length ?? 0) > 0;
   if (drills.isLoading) return <Skeleton className="h-48 w-full" />;
   if (!list.length) return <EmptyState title="No exercises are available yet" />;
   const rows = board.data ?? [];
@@ -24,7 +28,9 @@ export function ScoreboardPage() {
           {list.map((d) => <option key={d.id} value={d.id}>{d.title} #{d.id}</option>)}
         </Select>
       </div>
-      {board.isLoading ? <Skeleton className="h-40 w-full" /> : board.isError ? (
+      {competing && team.data ? (
+        <ScoreboardView board={team.data} />
+      ) : board.isLoading ? <Skeleton className="h-40 w-full" /> : board.isError ? (
         <p role="alert" className="text-danger">Scores are unavailable. {(board.error as Error).message}</p>
       ) : rows.length === 0 ? (
         <EmptyState title="No scores have been recorded for this exercise" />
