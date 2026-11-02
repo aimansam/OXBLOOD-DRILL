@@ -29,6 +29,8 @@ jobs:
         run: pip install jsonschema pyyaml
       - name: Validate scenario YAML
         run: python tools/validate_scenario.py examples/scenarios/
+      - name: Install portal deps
+        run: pip install -r apps/portal/requirements.txt
       - name: Pytest (API)
         run: pytest apps/api/tests tests
         env:

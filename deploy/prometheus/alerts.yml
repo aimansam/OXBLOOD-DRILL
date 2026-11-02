@@ -1,0 +1,43 @@
+# Alert rules. There is no Alertmanager in this stack yet, so these show up
+# under Alerts in the Prometheus UI (127.0.0.1:9090) and can be wired to
+# notifications later (Alertmanager, or a Grafana contact point).
+groups:
+  - name: oxblood-availability
+    rules:
+      - alert: ApiDown
+        expr: up{job="divide-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "OxBlood API is not answering Prometheus scrapes"
+          description: "No successful scrape of api:8000/metrics for 1 minute."
+
+      - alert: ApiHighErrorRate
+        expr: |
+          sum(rate(divide_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(divide_http_requests_total[5m])), 0.001) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 5% of API requests are failing with 5xx"
+
+  - name: oxblood-ranges
+    rules:
+      - alert: RangeRunFailed
+        expr: increase(divide_runs_total{outcome=~"failed|timeout"}[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "A range run failed or timed out in the last 15 minutes"
+          description: "outcome={{ $labels.outcome }} adapter={{ $labels.adapter }}"
+
+      - alert: RunActiveForTooLong
+        expr: divide_runs_active > 0
+        for: 6h
+        labels:
+          severity: info
+        annotations:
+          summary: "A run has been active for more than 6 hours"
+          description: "Check whether a finished drill was left RUNNING and stop it."

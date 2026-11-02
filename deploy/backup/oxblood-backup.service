@@ -1,0 +1,8 @@
+[Unit]
+Description=OxBlood Postgres backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/DATA/Storage/docker/divide-cyber-drill/scripts/backup_db.sh

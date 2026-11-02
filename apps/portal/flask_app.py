@@ -147,7 +147,19 @@ def proxy_api(path):
 
 @app.route("/healthz")
 def health():
-    """Health check endpoint."""
+    """Liveness plus a check that the files we serve are really there.
+
+    A bind mount that went stale (the host directory was replaced) leaves this
+    process running with an empty APP_DIR, so every page 404s while a bare
+    liveness check keeps saying "ok". Report that as unhealthy instead.
+    """
+    index = os.path.join(APP_DIR, "index.html")
+    try:
+        served = os.path.getsize(index) > 0
+    except OSError:
+        served = False
+    if not served:
+        return {"status": "degraded", "service": "portal", "reason": "index.html missing"}, 503
     return {"status": "ok", "service": "portal"}
 
 

@@ -13,6 +13,9 @@ global:
   external_labels:
     monitor: "divide-cyber-drill"
 
+rule_files:
+  - /etc/prometheus/alerts.yml
+
 scrape_configs:
   - job_name: divide-api
     metrics_path: /metrics

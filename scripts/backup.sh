@@ -33,9 +33,11 @@ echo "   ✓ API routers backed up"
 
 # 4. Export current drills
 echo "4. Exporting current drills..."
+# Credentials come from the environment; do not hard-code them in this script.
+: "${DIVIDE_ADMIN_PASSWORD:?set DIVIDE_ADMIN_PASSWORD (and optionally DIVIDE_ADMIN_SUB)}"
 TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"sub":"admin","password":"adminpass123"}' | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])")
+  -d "{\"sub\":\"${DIVIDE_ADMIN_SUB:-admin}\",\"password\":\"${DIVIDE_ADMIN_PASSWORD}\"}" | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])")
 curl -s http://localhost:8000/api/v2/drills -H "X-Divide-Token: $TOKEN" > "$BACKUP_PATH/drills.json"
 echo "   ✓ Drills exported"
 
