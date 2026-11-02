@@ -6,7 +6,9 @@
  * - auth.js: Authentication and session management
  * - api.js: HTTP client for backend API
  * - ui-utils.js: Utility functions (sanitize, markdown, toast)
- * - ui-drills.js: Drill play/edit/delete/announcements
+ * - ui-drills.js: live drill view (play, lobby, HUD, polling)
+ * - ui-drill-data.js: drill objectives/flags/scores/submissions loaders
+ * - ui-drill-admin.js: drill lifecycle, edit/delete, announcements
  * - ui-advanced.js: Teams, progress, reports, participants, hints, export
  * - ui-threat-graph / ui-range-hub / ui-dashboard / ui-drill-catalog / ui-reports /
  *   ui-scenarios / ui-infrastructure / ui-setup / ui-create-wizard: page modules

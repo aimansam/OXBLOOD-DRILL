@@ -24,6 +24,9 @@ APP_JS_PARTS = (
     "ui-create-wizard.js",
 )
 
+# ui-drills.js was split by concern; tests treat the three files as one module.
+DRILL_JS_PARTS = ("ui-drills.js", "ui-drill-data.js", "ui-drill-admin.js")
+
 
 def _style_parts() -> list[str]:
     """styles-*.css in the order index.html links them (one stylesheet, split in order)."""
@@ -34,6 +37,8 @@ def _style_parts() -> list[str]:
 def _read(relpath: str) -> str:
     if relpath == "app.js":
         return "\n".join((PORTAL / part).read_text() for part in APP_JS_PARTS)
+    if relpath == "ui-drills.js":
+        return "\n".join((PORTAL / part).read_text() for part in DRILL_JS_PARTS)
     if relpath == "styles.css":
         return "\n".join((PORTAL / part).read_text() for part in _style_parts())
     return (PORTAL / relpath).read_text()
