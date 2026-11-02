@@ -118,6 +118,11 @@ def _create_tables():
 
     # Point the running app at the same DB.
     os.environ["DIVIDE_DB_URL"] = f"sqlite+aiosqlite:///{db_path}"
+    # Test modules that import app.main at collection time populate the
+    # cached settings with whatever DIVIDE_DB_URL was set back then.
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
     # Reset the cached engine / sessionmaker so tests pick up the new URL.
     from app.services import db as db_module
 

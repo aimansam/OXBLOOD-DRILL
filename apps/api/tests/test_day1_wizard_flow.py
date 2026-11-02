@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterator
 from typing import Any
 
 import httpx
@@ -48,7 +49,7 @@ from app.runners.runner import Runner
 from app.services import proxmox as proxmox_svc
 from app.services import pve_sdn
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, delete, select
 
 
 def _sync_engine():
@@ -77,7 +78,7 @@ class _StubAsyncClient(httpx.AsyncClient):
 
 
 @pytest.fixture
-def pve_token(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], Any]:
+def pve_token(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[dict[str, Any], Any]]:
     """Stub the four PVE endpoints the wizard + the runner hit."""
     store: dict[str, Any] = {
         "zones": [],
@@ -211,7 +212,32 @@ def pve_token(monkeypatch: pytest.MonkeyPatch) -> tuple[dict[str, Any], Any]:
             session_factory=get_sessionmaker(),
         )
 
-    return store, _reseed
+    yield store, _reseed
+
+    # The flow creates users, a stored PVE config, scenarios, runs and
+    # templates in the session-shared test DB; remove them so later tests
+    # (e.g. /auth/setup, empty PveConfig) start clean.
+    engine = _sync_engine()
+    try:
+        with engine.begin() as conn:
+            for model in (
+                db_models.TeamMembership,
+                db_models.Team,
+                db_models.Exercise,
+                db_models.TelemetryEvent,
+                db_models.FlagSubmission,
+                db_models.AuditLog,
+                db_models.Asset,
+                db_models.Template,
+                db_models.SnapshotBaseline,
+                db_models.Run,
+                db_models.Scenario,
+                db_models.User,
+                db_models.PveConfig,
+            ):
+                conn.execute(delete(model))
+    finally:
+        engine.dispose()
 
 
 def test_full_day1_wizard_flow(client: TestClient, pve_token: tuple[dict[str, Any], Any]) -> None:
