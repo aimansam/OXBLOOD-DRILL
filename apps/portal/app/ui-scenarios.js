@@ -499,7 +499,6 @@ Object.assign(UI.prototype, {
     const topologyLegend = options.activeDrillMap ? '' : '<div class="topology-legend packet-legend"><span class="legend-red">Threat path</span><span class="legend-shared">Transit</span><span class="legend-blue">Defense</span><span class="legend-neutral">VLAN links</span></div>';
     return '<div class="threat-map-shell' + autoplay + intro + '" data-map-id="' + mapId + '" data-filter="all">'
       + '<div class="threat-map-toolbar"><div class="threat-map-controls">'
-      + (options.activeDrillMap && options.drillId ? '<button type="button" class="threat-map-control" onclick="window.location.assign(\'/drill/three/?drill_id=' + encodeURIComponent(String(options.drillId)) + '\')" title="Open the experimental three-dimensional range">3D range</button>' : '')
       + '<button type="button" class="threat-map-control threat-map-replay" onclick="app.replayThreatMapIntro(\'' + mapId + '\')" title="Replay cinematic map reveal">Replay reveal</button>'
       + '<button type="button" class="threat-map-control" onclick="app.resetThreatMapCamera(\'' + mapId + '\')" title="Fit the complete range">Fit range</button>'
       + '<button type="button" class="threat-map-control operator-only" aria-expanded="false" onclick="app.toggleThreatTimeline(\'' + mapId + '\',this)">Story feed</button>'

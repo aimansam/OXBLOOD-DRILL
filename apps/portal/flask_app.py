@@ -73,12 +73,6 @@ def drill_index():
     return response
 
 
-@app.route("/drill/three/")
-def three_map_index():
-    """Serve the isolated React/Three live-range client."""
-    return send_from_directory(os.path.join(APP_DIR, "three"), "index.html")
-
-
 def _is_asset_path(path):
     """True for file-like URLs that must 404 (not SPA-fallback to HTML)."""
     name = path.rsplit("/", 1)[-1]
