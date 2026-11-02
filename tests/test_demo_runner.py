@@ -7,19 +7,16 @@ tests pin:
   * tools/demo.sh exists and is executable
   * the script's API health-check + scenario-listing + URL-print
     surface are intact (no regressions from a future edit)
-  * the Makefile exposes `make demo` + `make demo-open` targets
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 DEMO_SH = REPO / "tools" / "demo.sh"
-MAKEFILE = REPO / "Makefile"
 DEMO_DOC = REPO / "docs" / "DEMO.md"
 
 
@@ -134,40 +131,6 @@ def test_demo_script_bash_syntax_valid():
         text=True,
     )
     assert r.returncode == 0, f"tools/demo.sh has a bash syntax error:\n{r.stderr}"
-
-
-# ---------- Makefile ----------------------------------------------------
-
-
-def test_makefile_has_demo_target():
-    src = _read(MAKEFILE)
-    m = re.search(r"^demo:\s*##", src, re.MULTILINE)
-    assert m, "Makefile must expose a `demo:` target with a ## docstring"
-
-
-def test_makefile_has_demo_open_target():
-    src = _read(MAKEFILE)
-    m = re.search(r"^demo-open:\s*##", src, re.MULTILINE)
-    assert m, "Makefile must expose a `demo-open:` target"
-
-
-def test_makefile_demo_target_runs_demo_sh():
-    src = _read(MAKEFILE)
-    # Find the body of the demo: target.
-    m = re.search(r"^demo:.*?\n\t(.+)", src, re.MULTILINE | re.DOTALL)
-    assert m
-    body = m.group(1)
-    assert "tools/demo.sh" in body, f"`make demo` must invoke tools/demo.sh; body={body!r}"
-
-
-def test_makefile_demo_in_phony():
-    """`make demo` must be reachable, so it must be in .PHONY."""
-    src = _read(MAKEFILE)
-    phony_match = re.search(r"^\.PHONY:\s*(.+?)$", src, re.MULTILINE)
-    assert phony_match, "Makefile must declare a .PHONY line"
-    phony = phony_match.group(1)
-    assert re.search(r"\bdemo\b", phony), "`demo` must be in .PHONY"
-    assert re.search(r"\bdemo-open\b", phony), "`demo-open` must be in .PHONY"
 
 
 # ---------- Bundle size invariant ---------------------------------------

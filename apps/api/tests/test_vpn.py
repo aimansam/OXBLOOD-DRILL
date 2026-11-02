@@ -126,6 +126,32 @@ class TestVpnConfigEndpoint:
     additional users via POST /auth/users (admin-only endpoint).
     """
 
+    @pytest.fixture(autouse=True)
+    def _empty_users_table(self):
+        """/auth/setup only works on an empty users table; the DB is shared."""
+        import asyncio
+
+        from app.db import models as db_models
+        from app.db.session import get_sessionmaker
+        from sqlalchemy import delete
+
+        async def _truncate() -> None:
+            async with get_sessionmaker()() as s:
+                await s.execute(delete(db_models.TeamMembership))
+                await s.execute(delete(db_models.User))
+                await s.commit()
+
+        def _run() -> None:
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(_truncate())
+            finally:
+                loop.close()
+
+        _run()
+        yield
+        _run()
+
     def _setup_admin(self, client: TestClient, sub: str = "vpn-setup-admin") -> str:
         """Create first admin via /auth/setup, return token."""
         r = client.post("/api/v1/auth/setup", json={"sub": sub, "password": "adminpw1234"})
