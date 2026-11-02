@@ -29,6 +29,8 @@ jobs:
         run: pip install jsonschema pyyaml
       - name: Validate scenario YAML
         run: python tools/validate_scenario.py examples/scenarios/
+      - name: OpenAPI snapshot is current
+        run: python tools/export_openapi.py --check
       - name: Install portal deps
         run: pip install -r apps/portal/requirements.txt
       - name: Pytest (API)
@@ -36,6 +38,26 @@ jobs:
         env:
           DIVIDE_DB_URL: sqlite+aiosqlite:///./test.sqlite
           DIVIDE_REDIS_URL: redis://localhost:6379/0
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - name: API types are current
+        run: npm run gen:api && git diff --exit-code src/api/schema.d.ts
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
 
   diagrams:
     runs-on: ubuntu-latest

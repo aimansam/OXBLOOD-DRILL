@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens (HSL triplets). Dark is the default theme; a light theme is a
+   second block, not a component change. Primary is the OxBlood red. */
+@layer base {
+  :root {
+    --background: 240 10% 5%;
+    --foreground: 240 10% 96%;
+    --card: 240 8% 8%;
+    --card-foreground: 240 10% 96%;
+    --muted: 240 6% 13%;
+    --muted-foreground: 240 6% 64%;
+    --border: 240 6% 17%;
+    --primary: 352 68% 46%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 352 68% 56%;
+    --success: 152 52% 48%;
+    --warning: 38 92% 56%;
+    --danger: 0 72% 58%;
+    --info: 215 82% 64%;
+  }
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background font-sans text-sm text-foreground antialiased;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}

@@ -1,0 +1,8 @@
+.git
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.venv
+*.sqlite
+apps/web/dist
+backups

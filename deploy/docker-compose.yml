@@ -7,8 +7,9 @@ services:
   # Flask portal - serves frontend and proxies API requests
   portal:
     build:
-      context: ../apps/portal
-      dockerfile: Dockerfile
+      # Repository root, so the image can build apps/web (React UI) as well as the portal.
+      context: ..
+      dockerfile: apps/portal/Dockerfile
     image: divide/portal:dev
     container_name: divide-portal
     restart: unless-stopped

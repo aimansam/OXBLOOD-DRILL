@@ -21,6 +21,16 @@ app = Flask(__name__)
 APP_DIR = os.path.join(os.path.dirname(__file__), "app")
 API_BACKEND = os.environ.get("API_BACKEND", "http://api:8000")
 
+# The React UI (apps/web) is built into this directory at image build time and served at /app/.
+# In a checkout it lives in apps/web/dist.
+_WEB_CANDIDATES = (
+    os.path.join(os.path.dirname(__file__), "web"),
+    os.path.join(os.path.dirname(__file__), "..", "web", "dist"),
+)
+WEB_DIR = os.environ.get("WEB_DIR") or next(
+    (path for path in _WEB_CANDIDATES if os.path.isdir(path)), _WEB_CANDIDATES[0]
+)
+
 # Timeout for API proxy requests (in seconds)
 PROXY_TIMEOUT = 30
 
@@ -88,6 +98,26 @@ def drill_platform(path):
     if _is_asset_path(path):
         abort(404)
     return send_from_directory(APP_DIR, "index.html")
+
+
+@app.route("/app/")
+@app.route("/app/<path:path>")
+def web_app(path=""):
+    """Serve the React UI. Unknown extensionless paths fall back to index.html (client routing)."""
+    full = os.path.join(WEB_DIR, path)
+    if path and os.path.isfile(full):
+        response = send_from_directory(WEB_DIR, path)
+        if path.startswith("assets/"):
+            # Vite fingerprints these files, so they never change under the same name.
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+    if path and _is_asset_path(path):
+        abort(404)
+    if not os.path.isfile(os.path.join(WEB_DIR, "index.html")):
+        return Response("The web app is not built", 503, mimetype="text/plain")
+    response = send_from_directory(WEB_DIR, "index.html")
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])

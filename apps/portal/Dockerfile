@@ -1,7 +1,16 @@
-# Portal Flask service
-# Serves the static frontend (plain HTML/CSS/JS, no build step) and
-# proxies API requests to the FastAPI backend
+# Portal service: Flask serves the classic portal (/drill/) and the React UI (/app/),
+# and proxies /api/* to the FastAPI backend.
+# Build context is the repository root (see deploy/docker-compose.yml).
 
+# --- build the React UI ---
+FROM node:22-alpine AS web
+WORKDIR /web
+COPY apps/web/package.json apps/web/package-lock.json ./
+RUN npm ci
+COPY apps/web/ ./
+RUN npm run build
+
+# --- runtime ---
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -10,14 +19,17 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
-COPY requirements.txt .
+COPY apps/portal/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy Flask app
-COPY flask_app.py .
+COPY apps/portal/flask_app.py .
 
-# Copy the static frontend (single source of truth: app/*.html, *.css, *.js, pages/)
-COPY app/ ./app/
+# Classic portal (plain HTML/CSS/JS, no build step): app/*.html, *.css, *.js, pages/
+COPY apps/portal/app/ ./app/
+
+# React UI build output, served at /app/ (baked into the image, never bind-mounted)
+COPY --from=web /web/dist ./web/
 
 # Expose port 80
 EXPOSE 80
