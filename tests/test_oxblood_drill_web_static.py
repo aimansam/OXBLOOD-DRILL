@@ -10,7 +10,24 @@ PORTAL = ROOT / "apps" / "portal" / "app"
 API = ROOT / "apps" / "api" / "app"
 
 
+# app.js is the UI core; the rest of the UI class lives in these modules.
+APP_JS_PARTS = (
+    "app.js",
+    "ui-threat-graph.js",
+    "ui-range-hub.js",
+    "ui-dashboard.js",
+    "ui-drill-catalog.js",
+    "ui-reports.js",
+    "ui-scenarios.js",
+    "ui-infrastructure.js",
+    "ui-setup.js",
+    "ui-create-wizard.js",
+)
+
+
 def _read(relpath: str) -> str:
+    if relpath == "app.js":
+        return "\n".join((PORTAL / part).read_text() for part in APP_JS_PARTS)
     return (PORTAL / relpath).read_text()
 
 
