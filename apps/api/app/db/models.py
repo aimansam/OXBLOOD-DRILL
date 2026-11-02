@@ -229,7 +229,14 @@ class Run(Base, TimestampMixin):
     def duration_sec(self) -> int | None:
         if self.started_at is None or self.ended_at is None:
             return None
-        return int((self.ended_at - self.started_at).total_seconds())
+        # SQLite hands back naive datetimes while a just-set value is aware.
+        started = self.started_at
+        ended = self.ended_at
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=UTC)
+        if ended.tzinfo is None:
+            ended = ended.replace(tzinfo=UTC)
+        return int((ended - started).total_seconds())
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Run id={self.id} scenario_id={self.scenario_id} {self.status.value}>"

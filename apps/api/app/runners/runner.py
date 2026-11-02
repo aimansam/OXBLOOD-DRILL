@@ -685,13 +685,11 @@ class Runner:
         await _telemetry.dispatch(
             sinks,
             {
-                "type": "run.completed",
+                "type": "run.started",
                 "run_id": run.id,
                 "scenario_id": scenario.id,
                 "started_by": run.started_by,
                 "started_at": run.started_at.isoformat() if run.started_at else None,
-                "ended_at": run.ended_at.isoformat() if run.ended_at else None,
-                "duration_sec": run.duration_sec,
                 "asset_count": len(assets_spec),
             },
         )
@@ -937,6 +935,7 @@ class Runner:
             return run
 
         run.status = RunStatus.SUCCEEDED
+        run.ended_at = datetime.now(UTC)
         inc_run_terminal(outcome="succeeded", adapter=_adapter_label(self._adapter))
         # Q17: distinguish operator-initiated stop from trainee
         # cancel. ``/stop`` writes RUN_STOPPED; ``/cancel`` still
@@ -962,6 +961,22 @@ class Runner:
         )
         await session.commit()
         await session.refresh(run, attribute_names=["assets"])
+        scenario = await session.get(models.Scenario, run.scenario_id)
+        if scenario is not None:
+            await _telemetry.dispatch(
+                _telemetry.build_sinks_from_spec(scenario.spec),
+                {
+                    "type": "run.completed",
+                    "run_id": run.id,
+                    "scenario_id": scenario.id,
+                    "started_by": run.started_by,
+                    "started_at": run.started_at.isoformat() if run.started_at else None,
+                    "ended_at": run.ended_at.isoformat() if run.ended_at else None,
+                    "duration_sec": run.duration_sec,
+                    "asset_count": len(assets),
+                    "reason": reason,
+                },
+            )
         self._windows_setup_secrets.pop(run.id, None)
         return run
 

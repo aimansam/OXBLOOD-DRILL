@@ -337,6 +337,10 @@ async def test_stop_run_tears_down_assets(session: AsyncSession) -> None:
     stopped = await runner.stop_run(result.run_id, reason="end of smoke", session=session)
 
     assert stopped.status == RunStatus.SUCCEEDED  # we left it SUCCEEDED
+    # An operator stop is a terminal transition like cancel/fail/timeout, so
+    # it records when the run ended (and therefore its duration).
+    assert stopped.ended_at is not None
+    assert stopped.duration_sec is not None
     for a in stopped.assets:
         assert a.status == AssetStatus.STOPPED
     # Q17: pre-fix this asserted ``len(stopped) == 2``. With
@@ -345,6 +349,39 @@ async def test_stop_run_tears_down_assets(session: AsyncSession) -> None:
     # counts at each stage.
     assert len(adapter.stopped) >= 2
     assert len(adapter.destroyed) >= 2
+
+
+@pytest.mark.asyncio
+async def test_telemetry_sinks_see_started_then_completed(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Sinks get run.started when the drill starts and run.completed when it is stopped."""
+    from app.runners import runner as runner_module
+
+    sent: list[dict] = []
+
+    async def _capture(sinks, event):
+        sent.append(event)
+
+    monkeypatch.setattr(runner_module._telemetry, "dispatch", _capture)
+
+    s = _scenario_with("sink-events", [_asset("red_attacker")])
+    session.add(s)
+    await session.commit()
+    adapter = MockProxmoxAdapter()
+    adapter.seed_template("tpl-x", 9000)
+    runner = Runner(adapter=adapter)
+    result = await runner.start_run(RunRequest(scenario_id=s.id), session)
+
+    assert [e["type"] for e in sent] == ["run.started"]
+    assert "ended_at" not in sent[0]
+
+    await runner.stop_run(result.run_id, reason="done", session=session)
+
+    assert [e["type"] for e in sent] == ["run.started", "run.completed"]
+    assert sent[1]["ended_at"] is not None
+    assert sent[1]["duration_sec"] is not None
+    assert sent[1]["reason"] == "done"
 
 
 @pytest.mark.asyncio
