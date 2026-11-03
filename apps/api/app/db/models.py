@@ -309,7 +309,13 @@ class SnapshotBaseline(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_snapshot_baselines_scenario_id", "scenario_id"),
         Index("ix_snapshot_baselines_status", "status"),
-        Index("uq_snapshot_baselines_scenario_role", "scenario_id", "role", unique=True),
+        Index(
+            "uq_snapshot_baselines_scenario_instance_role",
+            "scenario_id",
+            "instance",
+            "role",
+            unique=True,
+        ),
         Index("uq_snapshot_baselines_vmid", "pve_vmid", unique=True),
     )
 
@@ -318,6 +324,8 @@ class SnapshotBaseline(Base, TimestampMixin):
         ForeignKey("scenarios.id", ondelete="RESTRICT"), nullable=False
     )
     scenario_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Copy number of the range this VM belongs to (1 = the original; a match copy is 2, 3, ...).
+    instance: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     role: Mapped[str] = mapped_column(String(64), nullable=False)
     template: Mapped[str] = mapped_column(String(64), nullable=False)
     pve_vmid: Mapped[int] = mapped_column(BigInteger, nullable=False)

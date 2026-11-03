@@ -60,6 +60,13 @@ before the pilot; if it runs hot, cut the Kali to 2 GiB or run the matches in tw
 4. **Reproducible image builds** from scripts (the templates are hand-made today).
 5. **Deeper reset check**: guest agent answers and the portal responds, not only "VM running".
 
+Done so far: the runner can run **range copies** (`RunRequest.instance`). Copy N shifts every VLAN by
+20 x (N-1), prefixes the short VM names with `M<N>-`, and has its own baselines (`snapshot_baselines.instance`).
+Subnets and addresses stay the same because the VLANs keep copies apart. A scenario whose router is an
+OPNsense image cannot make copies, since that image has its VLANs baked in; Ledger Leak therefore uses a
+Linux router configured at seed time. Still to do: the drill-level team-to-match mapping and
+provisioning one run per match.
+
 Already in place: the range memory check in preflight (counts running guests plus a host reserve),
 snapshot baselines built automatically on first prepare, and range reset between rounds.
 

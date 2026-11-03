@@ -24,7 +24,14 @@ from app.db.base import Base
 from app.db.models import AssetStatus, AuditAction, RunStatus
 from app.runners.adapter import CloneSpec
 from app.runners.mock_adapter import MockProxmoxAdapter
-from app.runners.runner import Runner, RunnerError, RunRequest, _static_ip_configs, _vm_name
+from app.runners.runner import (
+    Runner,
+    RunnerError,
+    RunRequest,
+    _static_ip_configs,
+    _vm_name,
+    instance_spec,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -190,6 +197,50 @@ async def test_reset_run_to_baselines_refuses_machines_without_a_baseline(
     with pytest.raises(RunnerError, match="no snapshot baseline for: dc01"):
         await runner.reset_run_to_baselines(result.run_id, session)
     assert adapter.snapshots_restored == []
+
+
+def test_instance_spec_shifts_vlans_and_names_and_leaves_copy_one_alone() -> None:
+    spec = {
+        "networks": [{"name": "a", "vlan_id": 230}, {"name": "b"}],
+        "assets": [{"role": "web", "template": "tpl-x", "vm_name": "WEB01"}, {"role": "db"}],
+    }
+    assert instance_spec(spec, 1) is spec
+    copy = instance_spec(spec, 3)
+    assert [n.get("vlan_id") for n in copy["networks"]] == [270, None]
+    assert [a.get("vm_name") for a in copy["assets"]] == ["M3-WEB01", None]
+    assert spec["networks"][0]["vlan_id"] == 230  # the original is untouched
+
+    with pytest.raises(RunnerError, match="OPNsense"):
+        instance_spec({"assets": [{"role": "fw", "template": "tpl-opnsense"}]}, 2)
+
+
+@pytest.mark.asyncio
+async def test_range_copies_have_their_own_baselines_vlans_and_names(session: AsyncSession) -> None:
+    asset = {**_asset("web"), "vm_name": "WEB01"}
+    scenario = _scenario_with("copies", [asset])
+    scenario.spec["spec"]["networks"] = [{"name": "n", "cidr": "10.10.0.0/24", "vlan_id": 230}]
+    session.add(scenario)
+    await session.commit()
+    adapter = MockProxmoxAdapter()
+    adapter.seed_template("tpl-x", 9000)
+    runner = Runner(adapter=adapter)
+
+    one = await runner.build_snapshot_baselines(scenario.id, session, instance=1)
+    two = await runner.build_snapshot_baselines(scenario.id, session, instance=2)
+    assert one[0].pve_vmid != two[0].pve_vmid
+    assert (one[0].instance, two[0].instance) == (1, 2)
+    assert await runner.ready_baseline_roles(scenario, session, 2) == {"web"}
+    assert await runner.build_snapshot_baselines(scenario.id, session, instance=2) == []
+
+    vlans = {vlan for (_vm, _bridge, _nic, vlan) in adapter.nic_attached_vlan}
+    assert {230, 250} <= vlans
+
+    result = await runner.start_run(RunRequest(scenario_id=scenario.id, instance=2), session)
+    assert result.status == RunStatus.RUNNING
+    restored = [vmid for (vmid, _node, _name) in adapter.snapshots_restored]
+    assert restored == [two[0].pve_vmid]  # copy 2 restored its own VM, not copy 1's
+    state = await adapter.get_vm_state(two[0].pve_vmid, two[0].pve_node)
+    assert state.name == "M2-WEB01"
 
 
 # --- fixtures ---------------------------------------------------------------

@@ -18,6 +18,7 @@ from app.runners.runner_base import (
     RunnerBase,
     RunnerError,
     _vm_name,
+    instance_spec,
 )
 
 log = logging.getLogger("app.runners.runner")
@@ -27,15 +28,16 @@ class BaselineMixin(RunnerBase):
     """Snapshot-baseline promotion and restore for the run orchestrator."""
 
     async def ready_baseline_roles(
-        self, scenario: models.Scenario, session: AsyncSession
+        self, scenario: models.Scenario, session: AsyncSession, instance: int = 1
     ) -> set[str]:
-        """Roles that already have a ready baseline for this scenario version."""
+        """Roles that already have a ready baseline for this scenario version and copy."""
         rows = (
             (
                 await session.execute(
                     select(models.SnapshotBaseline).where(
                         models.SnapshotBaseline.scenario_id == scenario.id,
                         models.SnapshotBaseline.scenario_version == scenario.version,
+                        models.SnapshotBaseline.instance == instance,
                         models.SnapshotBaseline.status == "ready",
                     )
                 )
@@ -72,7 +74,8 @@ class BaselineMixin(RunnerBase):
                 + (", ".join(missing) or "any machine")
             )
         document = run.scenario.spec if isinstance(run.scenario.spec, dict) else {}
-        spec = document.get("spec") or document
+        copy = next(iter(baselines.values())).instance  # type: ignore[union-attr]
+        spec = instance_spec(document.get("spec") or document, copy)
         specs = {str(a.get("role")): a for a in spec.get("assets", [])}
         for asset in assets:
             await self._restore_baseline_asset(
@@ -93,6 +96,7 @@ class BaselineMixin(RunnerBase):
         session: AsyncSession,
         actor: str | None = None,
         snapshot_name: str = "clean-baseline",
+        instance: int = 1,
     ) -> list[models.SnapshotBaseline]:
         """Clone, boot and seed a scenario once, check it, then snapshot it.
 
@@ -113,7 +117,7 @@ class BaselineMixin(RunnerBase):
             for a in spec.get("assets", [])
             for i in range(max(1, min(int(a.get("count") or 1), 64)))
         }
-        have = await self.ready_baseline_roles(scenario, session)
+        have = await self.ready_baseline_roles(scenario, session, instance)
         if expected and expected <= have:
             return []
         if (
@@ -121,7 +125,8 @@ class BaselineMixin(RunnerBase):
             or (
                 await session.execute(
                     select(models.SnapshotBaseline.id).where(
-                        models.SnapshotBaseline.scenario_id == scenario.id
+                        models.SnapshotBaseline.scenario_id == scenario.id,
+                        models.SnapshotBaseline.instance == instance,
                     )
                 )
             ).first()
@@ -132,7 +137,10 @@ class BaselineMixin(RunnerBase):
             )
 
         result = await self.start_run(  # type: ignore[attr-defined]
-            RunRequest(scenario_id=scenario.id, started_by=actor, timeout_min=-1), session
+            RunRequest(
+                scenario_id=scenario.id, started_by=actor, timeout_min=-1, instance=instance
+            ),
+            session,
         )
         run = (
             await session.execute(
@@ -156,7 +164,7 @@ class BaselineMixin(RunnerBase):
             )
             raise RunnerError("Baseline build failed, clones removed: " + "; ".join(problems))
         return await self.promote_run_to_snapshot_baseline(
-            run.id, session, actor=actor, snapshot_name=snapshot_name
+            run.id, session, actor=actor, snapshot_name=snapshot_name, instance=instance
         )
 
     async def promote_run_to_snapshot_baseline(
@@ -165,6 +173,7 @@ class BaselineMixin(RunnerBase):
         session: AsyncSession,
         actor: str | None = None,
         snapshot_name: str = "clean-baseline",
+        instance: int = 1,
     ) -> list[models.SnapshotBaseline]:
         """Turn a verified, running scenario run into persistent baselines.
 
@@ -203,7 +212,8 @@ class BaselineMixin(RunnerBase):
             (
                 await session.execute(
                     select(models.SnapshotBaseline).where(
-                        models.SnapshotBaseline.scenario_id == scenario.id
+                        models.SnapshotBaseline.scenario_id == scenario.id,
+                        models.SnapshotBaseline.instance == instance,
                     )
                 )
             )
@@ -250,6 +260,7 @@ class BaselineMixin(RunnerBase):
             baseline = models.SnapshotBaseline(
                 scenario_id=scenario.id,
                 scenario_version=scenario.version,
+                instance=instance,
                 role=asset.role,
                 template=asset.template,
                 pve_vmid=asset.pve_vmid,
@@ -300,7 +311,7 @@ class BaselineMixin(RunnerBase):
         if scenario is None:
             return
         document = scenario.spec if isinstance(scenario.spec, dict) else {}
-        spec = document.get("spec") or document
+        spec = instance_spec(document.get("spec") or document, baseline.instance)
         base_role = re.sub(r"_\d+$", "", asset.role)
         asset_spec = next(
             (row for row in spec.get("assets", []) if row.get("role") == base_role),

@@ -61,6 +61,7 @@ from app.runners.runner_base import (
 from app.runners.runner_base import (
     _vm_name as _vm_name,
 )
+from app.runners.runner_base import instance_spec
 from app.runners.runner_baselines import BaselineMixin
 from app.runners.runner_watchdog import WatchdogMixin
 from app.services import telemetry as _telemetry
@@ -90,6 +91,8 @@ class RunRequest:
     # declared duration is used before falling back to the legacy setting.
     timeout_min: int | None = None
     cancel_event: asyncio.Event | None = None
+    # Range copy number: 1 is the scenario as declared; 2, 3, ... run beside it (match copies).
+    instance: int = 1
 
 
 @dataclass(frozen=True)
@@ -147,7 +150,7 @@ class Runner(AssetSeedingMixin, BaselineMixin, WatchdogMixin):
             assets_spec = []
 
         # Load scenario spec for networks/flags if not overridden by template
-        spec = scenario.spec.get("spec") or scenario.spec
+        spec = instance_spec(scenario.spec.get("spec") or scenario.spec, req.instance)
         if not assets_spec:
             assets_spec = spec.get("assets") or []
         if not assets_spec:
@@ -168,6 +171,7 @@ class Runner(AssetSeedingMixin, BaselineMixin, WatchdogMixin):
                         select(models.SnapshotBaseline).where(
                             models.SnapshotBaseline.scenario_id == scenario.id,
                             models.SnapshotBaseline.scenario_version == scenario.version,
+                            models.SnapshotBaseline.instance == req.instance,
                             models.SnapshotBaseline.status == "ready",
                         )
                     )

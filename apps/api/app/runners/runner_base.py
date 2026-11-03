@@ -30,6 +30,41 @@ def _vm_name(asset_spec: dict, role: str) -> str | None:
     return stem
 
 
+# VLAN numbers a range copy moves by. Copies keep the same subnets and addresses: VLANs keep them apart.
+INSTANCE_VLAN_STRIDE = 20
+
+
+def instance_spec(spec: dict, instance: int) -> dict:
+    """The scenario spec as range copy ``instance`` sees it (copy 1 is the spec unchanged).
+
+    Shifts every ``vlan_id`` and prefixes the short VM names, so two copies of one scenario can
+    run side by side on the shared bridge. A router image with its VLANs baked in (OPNsense)
+    cannot follow the shift, so such scenarios refuse copies above 1.
+    """
+    if instance <= 1:
+        return spec
+    for asset in spec.get("assets") or []:
+        if "opnsense" in str(asset.get("template") or "").lower():
+            raise RunnerError(
+                f"Range copy {instance} is not possible: {asset.get('role')!r} uses an OPNsense "
+                "image whose VLANs are fixed. Use a router image configured at seed time."
+            )
+    shifted = {**spec}
+    shifted["networks"] = [
+        {**net, "vlan_id": int(net["vlan_id"]) + (instance - 1) * INSTANCE_VLAN_STRIDE}
+        if net.get("vlan_id") is not None
+        else dict(net)
+        for net in spec.get("networks") or []
+    ]
+    shifted["assets"] = [
+        {**asset, "vm_name": f"M{instance}-{asset['vm_name']}"}
+        if asset.get("vm_name")
+        else dict(asset)
+        for asset in spec.get("assets") or []
+    ]
+    return shifted
+
+
 def _static_ip_configs(asset: dict, scenario_spec: dict) -> dict[int, str]:
     """Build deterministic PVE cloud-init addresses for a scenario asset.
 
