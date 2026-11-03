@@ -15,6 +15,7 @@ export const competitionApi = {
   renameTeam: (drillId: number, teamId: number, name: string) => http.put<unknown>(`${base(drillId)}/teams/${teamId}`, { name }),
   assign: (drillId: number, teamId: number, userId: number) => http.put<unknown>(`${base(drillId)}/teams/${teamId}/members/${userId}`),
   unassign: (drillId: number, teamId: number, userId: number) => http.delete<unknown>(`${base(drillId)}/teams/${teamId}/members/${userId}`),
+  setCaptain: (drillId: number, teamId: number, userId: number) => http.put<unknown>(`${base(drillId)}/teams/${teamId}/captain`, { user_id: userId }),
   planRounds: (drillId: number, rounds = 2) => http.post<{ rounds: Round[] }>(`${base(drillId)}/rounds/plan`, { rounds }),
   startRound: (drillId: number, n: number) => http.post<Round>(`${base(drillId)}/rounds/${n}/start`),
   finishRound: (drillId: number, n: number) => http.post<Round>(`${base(drillId)}/rounds/${n}/finish`),

@@ -19,6 +19,7 @@ from app.services.drill_service import get_drill
 from .access import _participant_is_enrolled
 from .provisioning import _reset_range_background, _set_range_reset
 from .schemas import (
+    CaptainUpdate,
     FreezeUpdate,
     MyTeamOut,
     RoundListOut,
@@ -59,6 +60,7 @@ def _team_out(team: DrillTeam, members: list[dict], show_members: bool) -> dict:
         "name": team.name,
         "color": team.color,
         "position": team.position,
+        "captain_user_id": team.captain_user_id,
         "member_count": len(members),
         "members": members if show_members else [],
     }
@@ -166,6 +168,22 @@ async def put_team_member(
     except svc.TeamError as exc:
         raise _fail(exc) from exc
     return {"ok": True}
+
+
+@router.put("/{drill_id}/teams/{team_id}/captain")
+async def put_team_captain(
+    drill_id: int,
+    team_id: int,
+    body: CaptainUpdate,
+    db: AsyncSession = Depends(get_session),
+    token: TokenData = Depends(require_role(*_OPERATORS)),
+):
+    await _drill_or_404(db, drill_id)
+    try:
+        team = await svc.set_captain(db, drill_id, team_id, body.user_id)
+    except svc.TeamError as exc:
+        raise _fail(exc) from exc
+    return {"team_id": team.id, "captain_user_id": team.captain_user_id}
 
 
 @router.delete("/{drill_id}/teams/{team_id}/members/{user_id}")

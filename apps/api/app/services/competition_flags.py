@@ -100,6 +100,11 @@ async def submit_team_flag(
     db: AsyncSession, ctx: TeamContext, *, flag_value: str, hints_used: int = 0
 ) -> dict[str, Any]:
     now = datetime.now(UTC)
+    if ctx.side == "blue":
+        team = await db.get(DrillTeam, ctx.team_id)
+        captain = await team_service.team_captain(db, team) if team else None
+        if captain is not None and captain != ctx.user_id:
+            raise CompetitionError(403, "Only your team captain submits for Blue.")
     if await _recent_attempts(db, ctx.drill_id, ctx.user_id, now) >= ATTEMPTS_PER_MINUTE:
         raise CompetitionError(429, "Too many attempts. Wait a moment before trying again.")
 

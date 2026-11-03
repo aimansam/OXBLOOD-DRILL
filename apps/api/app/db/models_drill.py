@@ -214,6 +214,10 @@ class DrillTeam(Base):
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     color: Mapped[str | None] = mapped_column(String(16))
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # The one member who submits Blue evidence answers. Elected automatically, changed by a referee.
+    captain_user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

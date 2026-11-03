@@ -253,6 +253,7 @@ class TeamOut(BaseModel):
     name: str
     color: str | None = None
     position: int
+    captain_user_id: int | None = None
     members: list[TeamMemberOut] = []
     member_count: int = 0
 
@@ -316,6 +317,10 @@ class MyTeamOut(BaseModel):
     team: TeamOut | None = None
     round: RoundOut | None = None
     side: str | None = None
+
+
+class CaptainUpdate(BaseModel):
+    user_id: int
 
 
 class TeamCreate(BaseModel):

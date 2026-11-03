@@ -113,9 +113,53 @@ async def assign_member(
     participant = row.scalar_one_or_none()
     if participant is None or participant.status in {"removed", "left"}:
         raise TeamError("That player is not enrolled in this drill.")
+    previous = participant.drill_team_id
     participant.drill_team_id = team_id
+    await db.flush()
+    for tid in {previous, team_id} - {None}:
+        team = await db.get(DrillTeam, tid)
+        if team is not None and await team_captain(db, team) is None:
+            await elect_captain(db, team)
     await db.commit()
     return participant
+
+
+async def _active_member_ids(db: AsyncSession, team: DrillTeam) -> list[int]:
+    rows = await db.execute(
+        select(DrillParticipant.user_id)
+        .where(
+            DrillParticipant.drill_id == team.drill_id,
+            DrillParticipant.drill_team_id == team.id,
+            DrillParticipant.status.notin_(["removed", "left"]),
+        )
+        .order_by(DrillParticipant.user_id)
+    )
+    return list(rows.scalars().all())
+
+
+async def team_captain(db: AsyncSession, team: DrillTeam) -> int | None:
+    """The captain, only while they are still an active member (a stale one counts as none)."""
+    if team.captain_user_id is None:
+        return None
+    return (
+        team.captain_user_id if team.captain_user_id in await _active_member_ids(db, team) else None
+    )
+
+
+async def elect_captain(db: AsyncSession, team: DrillTeam) -> int | None:
+    """Make the lowest-numbered active member captain, or clear it when the team is empty."""
+    members = await _active_member_ids(db, team)
+    team.captain_user_id = members[0] if members else None
+    return team.captain_user_id
+
+
+async def set_captain(db: AsyncSession, drill_id: int, team_id: int, user_id: int) -> DrillTeam:
+    team = await get_team(db, drill_id, team_id)
+    if user_id not in await _active_member_ids(db, team):
+        raise TeamError("The captain must be a member of the team.")
+    team.captain_user_id = user_id
+    await db.commit()
+    return team
 
 
 async def members_by_team(db: AsyncSession, drill_id: int) -> dict[int, list[dict[str, Any]]]:

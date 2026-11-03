@@ -137,6 +137,19 @@
         "title": "CandidateOut",
         "type": "object"
       },
+      "CaptainUpdate": {
+        "properties": {
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "CaptainUpdate",
+        "type": "object"
+      },
       "CleanupFailureItem": {
         "properties": {
           "asset_id": {
@@ -3750,6 +3763,17 @@
       "TeamOut": {
         "additionalProperties": true,
         "properties": {
+          "captain_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captain User Id"
+          },
           "color": {
             "anyOf": [
               {
@@ -11532,6 +11556,81 @@
           }
         },
         "summary": "Update Team",
+        "tags": [
+          "Drills v2"
+        ]
+      }
+    },
+    "/api/v2/drills/{drill_id}/teams/{team_id}/captain": {
+      "put": {
+        "operationId": "put_team_captain_api_v2_drills__drill_id__teams__team_id__captain_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "drill_id",
+            "required": true,
+            "schema": {
+              "title": "Drill Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Divide-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Divide-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptainUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Team Captain",
         "tags": [
           "Drills v2"
         ]

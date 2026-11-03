@@ -113,10 +113,26 @@ export function TeamsTab({ drillId, scheduled }: { drillId: number; scheduled: b
                 <ul className="divide-y divide-border">
                   {team.members.map((m) => (
                     <li key={m.user_id} className="flex items-center justify-between py-1.5">
-                      <span>{m.sub}</span>
-                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => competitionApi.unassign(drillId, team.id, m.user_id), 'Player removed')}>
-                        Remove
-                      </Button>
+                      <span className="flex items-center gap-2">
+                        {m.sub}
+                        {team.captain_user_id === m.user_id && <span className="rounded border border-border px-1.5 text-xs uppercase text-muted-foreground">Captain</span>}
+                      </span>
+                      <span className="flex gap-1">
+                        {team.captain_user_id !== m.user_id && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label={`Make ${m.sub} captain of ${team.name}`}
+                            disabled={busy}
+                            onClick={() => act(() => competitionApi.setCaptain(drillId, team.id, m.user_id), `${m.sub} is captain`)}
+                          >
+                            Make captain
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => competitionApi.unassign(drillId, team.id, m.user_id), 'Player removed')}>
+                          Remove
+                        </Button>
+                      </span>
                     </li>
                   ))}
                 </ul>

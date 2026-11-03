@@ -20,6 +20,7 @@ export function MyMissionPage() {
   const mine = useMyTeam(drillId);
   const board = useScoreboard(drillId);
   const team = mine.data?.team;
+  const captainSub = team?.members.find((m) => m.user_id === team.captain_user_id)?.sub;
 
   if (drills.isLoading) return <div className="mx-auto max-w-xl p-8"><Skeleton className="h-48 w-full" /></div>;
   const scenario = catalog.data?.find((s) => s.id === mission.drill?.scenario_id);
@@ -61,7 +62,10 @@ export function MyMissionPage() {
               <span className="text-xs text-muted-foreground">No round is running yet</span>
             )}
           </div>
-          {team.members.length > 0 && <p className="text-muted-foreground">Team: {team.members.map((m) => m.sub).join(', ')}</p>}
+          {team.members.length > 0 && <p className="text-muted-foreground">Team: {team.members.map((m) => (m.user_id === team.captain_user_id ? `${m.sub} (captain)` : m.sub)).join(', ')}</p>}
+          {mine.data?.side === 'blue' && captainSub && captainSub !== me?.sub && (
+            <p className="text-muted-foreground">Blue answers are submitted by your captain, {captainSub}.</p>
+          )}
           {board.data && board.data.teams.length > 0 && <ScoreboardView board={board.data} highlightTeamId={team.id} />}
         </div>
       )}

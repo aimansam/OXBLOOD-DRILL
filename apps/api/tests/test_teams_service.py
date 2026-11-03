@@ -262,3 +262,31 @@ def test_freeze_hides_late_points_from_the_public_until_the_round_ends(db_factor
     assert public["frozen"] is True and public["teams"][0]["total"] == 100
     assert referee["frozen"] is False and referee["teams"][0]["total"] == 150
     assert revealed["frozen"] is False and revealed["teams"][0]["total"] == 150
+
+
+def test_captain_is_elected_moved_and_must_be_a_member(db_factory):
+    async def go():
+        async with db_factory() as db:
+            alpha, bravo = (await svc.ensure_teams(db, 1, 2))[:2]
+            await svc.assign_member(db, 1, 2, alpha.id)
+            await svc.assign_member(db, 1, 3, alpha.id)
+            assert (
+                alpha.captain_user_id == 2
+            )  # first member is elected, a later one does not change it
+
+            await svc.assign_member(
+                db, 1, 2, bravo.id
+            )  # the captain leaves: the next member takes over
+            assert alpha.captain_user_id == 3 and bravo.captain_user_id == 2
+
+            with pytest.raises(svc.TeamError):
+                await svc.set_captain(db, 1, alpha.id, 2)  # not in Alpha any more
+            await svc.assign_member(db, 1, 1, alpha.id)
+            await svc.set_captain(db, 1, alpha.id, 1)
+            assert alpha.captain_user_id == 1
+
+            await svc.assign_member(db, 1, 1, None)
+            await svc.assign_member(db, 1, 3, None)
+            assert alpha.captain_user_id is None  # an empty team has no captain
+
+    run(go())

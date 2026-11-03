@@ -22,6 +22,13 @@ team attacks once and defends once; points from all rounds are added up.
   always see live points. Finishing the round reveals everything.
 - Ties are broken by whichever team reached its score first.
 
+## Captains
+Each team has one captain: the first player added is elected automatically, and a referee can change
+it on the Teams tab ("Make captain"). When the captain leaves the team, the next member takes over;
+an empty team has none. While a team plays **Blue**, only its captain can submit answers; the others
+see who the captain is. **Red** submissions are open to every member (the per-minute limit still
+applies). A team without a valid captain has no restriction.
+
 ## Between rounds
 Finish the round, then press **Reset range** on the Rounds tab (or `POST /api/v2/drills/{id}/range/reset`).
 Every machine rolls back to its `clean-baseline` snapshot, boots, and is checked; the drill stays as it

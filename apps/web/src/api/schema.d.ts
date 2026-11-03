@@ -2596,6 +2596,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/drills/{drill_id}/teams/{team_id}/captain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Team Captain */
+        put: operations["put_team_captain_api_v2_drills__drill_id__teams__team_id__captain_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/drills/{drill_id}/teams/{team_id}/members/{user_id}": {
         parameters: {
             query?: never;
@@ -3250,6 +3267,11 @@ export interface components {
             sub: string;
         } & {
             [key: string]: unknown;
+        };
+        /** CaptainUpdate */
+        CaptainUpdate: {
+            /** User Id */
+            user_id: number;
         };
         /** CleanupFailureItem */
         CleanupFailureItem: {
@@ -4532,6 +4554,8 @@ export interface components {
         };
         /** TeamOut */
         TeamOut: {
+            /** Captain User Id */
+            captain_user_id?: number | null;
             /** Color */
             color?: string | null;
             /** Id */
@@ -9067,6 +9091,44 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TeamUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_team_captain_api_v2_drills__drill_id__teams__team_id__captain_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+                team_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaptainUpdate"];
             };
         };
         responses: {

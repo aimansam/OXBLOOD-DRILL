@@ -258,7 +258,15 @@ def test_responses_do_not_grow_spurious_null_fields(api):
     client, _ = api
     setup_four_teams(client)
     team = client.get("/api/v2/drills/1/teams", headers=ref()).json()["teams"][0]
-    assert set(team) == {"id", "name", "color", "position", "member_count", "members"}
+    assert set(team) == {
+        "id",
+        "name",
+        "color",
+        "position",
+        "captain_user_id",
+        "member_count",
+        "members",
+    }
 
 
 def _set_env(maker, **env):

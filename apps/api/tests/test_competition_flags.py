@@ -194,3 +194,28 @@ def test_a_player_without_a_team_keeps_the_classic_path(world):
     assert teams  # teams exist, but nobody is in one
     result = submit(client, ANA, RED_FLAG).json()
     assert result["is_correct"] is True and "team" not in result
+
+
+def test_only_the_blue_captain_submits_and_a_referee_can_change_it(world):
+    client, maker = world
+    teams = start_competition(client, maker)
+    charlie = teams[2]["id"]
+    client.put(f"/api/v2/drills/1/teams/{charlie}/members/4", headers=REF())  # dee joins Charlie
+    client.post("/api/v2/drills/1/rounds/1/start", headers=REF())  # Charlie is blue
+
+    assert submit(client, DEE, BLUE_FLAG).status_code == 403  # ben was elected first
+    assert submit(client, BEN, BLUE_FLAG).json()["points_earned"] == 80
+
+    swap = client.put(
+        f"/api/v2/drills/1/teams/{charlie}/captain", json={"user_id": 4}, headers=REF()
+    )
+    assert swap.status_code == 200
+    assert submit(client, BEN, "FLAG{any}").status_code == 403
+    assert submit(client, DEE, "FLAG{any}").status_code == 200
+    bad = client.put(
+        f"/api/v2/drills/1/teams/{charlie}/captain", json={"user_id": 1}, headers=REF()
+    )
+    assert bad.status_code == 409
+
+    # Red is not restricted: every member of Alpha may submit.
+    assert submit(client, CY, RED_FLAG).status_code == 200
