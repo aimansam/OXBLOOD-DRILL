@@ -2359,6 +2359,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/drills/{drill_id}/rounds/{number}/rotate-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Flags
+         * @description Retry planting this round's flags (for example after a guest agent was slow).
+         */
+        post: operations["rotate_flags_api_v2_drills__drill_id__rounds__number__rotate_flags_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/drills/{drill_id}/rounds/{number}/start": {
         parameters: {
             query?: never;
@@ -8585,6 +8605,40 @@ export interface operations {
                 "application/json": components["schemas"]["FreezeUpdate"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_flags_api_v2_drills__drill_id__rounds__number__rotate_flags_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

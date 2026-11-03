@@ -17,8 +17,9 @@ export const competitionApi = {
   unassign: (drillId: number, teamId: number, userId: number) => http.delete<unknown>(`${base(drillId)}/teams/${teamId}/members/${userId}`),
   setCaptain: (drillId: number, teamId: number, userId: number) => http.put<unknown>(`${base(drillId)}/teams/${teamId}/captain`, { user_id: userId }),
   planRounds: (drillId: number, rounds = 2) => http.post<{ rounds: Round[] }>(`${base(drillId)}/rounds/plan`, { rounds }),
-  startRound: (drillId: number, n: number) => http.post<Round>(`${base(drillId)}/rounds/${n}/start`),
+  startRound: (drillId: number, n: number) => http.post<Round & { flag_rotation?: FlagRotation }>(`${base(drillId)}/rounds/${n}/start`),
   finishRound: (drillId: number, n: number) => http.post<Round>(`${base(drillId)}/rounds/${n}/finish`),
+  rotateFlags: (drillId: number, n: number) => http.post<FlagRotation>(`${base(drillId)}/rounds/${n}/rotate-flags`),
   resetRange: (drillId: number) => http.post<{ status: string }>(`${base(drillId)}/range/reset`),
   freeze: (drillId: number, n: number, at: string | null) => http.put<Round>(`${base(drillId)}/rounds/${n}/freeze`, { freeze_at: at }),
   scoreEvent: (drillId: number, body: { team_id: number; points: number; reason: string; kind: string }) =>
@@ -42,6 +43,13 @@ export const useRounds = (drillId: number | null) =>
     queryFn: async () => api.GET('/api/v2/drills/{drill_id}/rounds', { params: { path: { drill_id: drillId as number } } }).then(unwrap),
     select: (data) => data.rounds,
   });
+
+export interface FlagRotation {
+  status: 'rotated' | 'partial' | 'failed' | 'skipped';
+  rotated: string[];
+  failed: { flag: string; error: string }[];
+  detail?: string;
+}
 
 export interface RangeReset {
   status: 'resetting' | 'ready' | 'failed';

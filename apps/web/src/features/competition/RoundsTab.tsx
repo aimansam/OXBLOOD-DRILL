@@ -6,9 +6,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatWhen } from '@/lib/utils';
-import { competitionApi, describeAssignments, useRangeReset, useRounds, useTeams } from './api';
+import { type FlagRotation, competitionApi, describeAssignments, useRangeReset, useRounds, useTeams } from './api';
 
 const tone = (status: string) => (status === 'active' ? 'text-success' : status === 'finished' ? 'text-muted-foreground' : 'text-warning');
+
+/** The round starts either way; say loudly when its flags could not be refreshed on the machines. */
+function warnIfNotRotated(started: { flag_rotation?: FlagRotation }) {
+  const rotation = started.flag_rotation;
+  if (rotation && (rotation.status === 'partial' || rotation.status === 'failed')) {
+    toast.warning(`New flags were not planted for: ${rotation.failed.map((f) => f.flag).join(', ') || 'all flags'}. Those keep their old value. Retry from the round card.`);
+  }
+  return started;
+}
 
 export function RoundsTab({ drillId }: { drillId: number }) {
   const qc = useQueryClient();
@@ -68,8 +77,13 @@ export function RoundsTab({ drillId }: { drillId: number }) {
                       <div className="flex items-center gap-3">
                         <span className={cn('text-xs font-semibold uppercase', tone(r.status))}>{r.status}</span>
                         {canStart && (
-                          <Button size="sm" disabled={busy} onClick={() => act(() => competitionApi.startRound(drillId, r.number), `${r.name} started`)}>
+                          <Button size="sm" disabled={busy} onClick={() => act(async () => warnIfNotRotated(await competitionApi.startRound(drillId, r.number)), `${r.name} started`)}>
                             Start round
+                          </Button>
+                        )}
+                        {r.status === 'active' && (
+                          <Button size="sm" variant="outline" disabled={busy} onClick={() => act(async () => warnIfNotRotated({ flag_rotation: await competitionApi.rotateFlags(drillId, r.number) }), 'Flags planted again')}>
+                            Re-plant flags
                           </Button>
                         )}
                         {r.status === 'active' && (

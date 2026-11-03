@@ -219,3 +219,28 @@ def test_only_the_blue_captain_submits_and_a_referee_can_change_it(world):
 
     # Red is not restricted: every member of Alpha may submit.
     assert submit(client, CY, RED_FLAG).status_code == 200
+
+
+def test_an_earlier_rounds_flag_is_named_as_such(world):
+    import asyncio
+
+    from app.db.models_drill import Drill
+    from app.services.flag_rotation import derive_flag_value
+
+    client, maker = world
+    start_competition(client, maker)
+
+    async def set_seed():
+        async with maker() as db:
+            drill = await db.get(Drill, 1)
+            drill.environment_config = {"flag_seed": "s3cret"}
+            await db.commit()
+
+    asyncio.run(set_seed())
+    client.post("/api/v2/drills/1/rounds/1/start", headers=REF())
+    client.post("/api/v2/drills/1/rounds/1/finish", headers=REF())
+    client.post("/api/v2/drills/1/rounds/2/start", headers=REF())
+
+    old = derive_flag_value("s3cret", 1, "red-foothold")
+    result = submit(client, BEN, old).json()  # Charlie is red in round 2
+    assert result["is_correct"] is False and "earlier round" in result["message"]

@@ -22,6 +22,14 @@ team attacks once and defends once; points from all rounds are added up.
   always see live points. Finishing the round reveals everything.
 - Ties are broken by whichever team reached its score first.
 
+## Flags per round
+Starting a round gives every flag that lives on a machine a new value, `FLAG{<name>_r<round>_<hex>}`,
+derived from a per-drill secret. The value is written to the machine first and saved only when that
+worked, so a flag whose planting failed keeps its old value (the card then offers **Re-plant flags**).
+Flags with no machine, or drills with no prepared range, are left alone. Run **Reset range** before the
+round: a reset rolls the machines back to their baseline, which holds the scenario's original files.
+A player who submits a previous round's value is told it is from an earlier round.
+
 ## Captains
 Each team has one captain: the first player added is elected automatically, and a referee can change
 it on the Teams tab ("Make captain"). When the captain leaves the team, the next member takes over;
@@ -40,7 +48,9 @@ scenario and the first prepare builds them (see `examples/scenarios/README.md`).
 without baselines cannot be reset in place; the reset refuses and names the machines.
 
 ## What is not automatic yet
-- **Reset does not rotate flags.** Teams that learned a flag in round 1 can reuse it in round 2.
+- **Flags are per round, not per team.** Starting a round plants fresh values on the machines (guest
+  agent) and saves them; round 1's values stop scoring. Teams that attack the same machine in the same
+  round still share its value. Per-team values need one range copy per match.
 - **The reset check is shallow:** it confirms each VM is running, not that its services answer.
 - **Blue-team detection points** are awarded by a referee ("Detection" in the referee form); nothing
   scores blue automatically from alerts.

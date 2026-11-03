@@ -15,8 +15,9 @@ from app.db.session import get_session
 from app.modules.drills.lifecycle import provision_run_id
 from app.services import teams as svc
 from app.services.drill_service import get_drill
+from app.services.flag_rotation import rotate_round_flags
 
-from .access import _participant_is_enrolled
+from .access import _get_runner, _participant_is_enrolled
 from .provisioning import _reset_range_background, _set_range_reset
 from .schemas import (
     CaptainUpdate,
@@ -47,6 +48,11 @@ async def _drill_or_404(db: AsyncSession, drill_id: int):
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
     return drill
+
+
+def _adapter_for(drill):
+    """The Proxmox adapter, only when the drill has a range to plant flags on."""
+    return _get_runner()._adapter if provision_run_id(drill) is not None else None
 
 
 def _fail(exc: svc.TeamError) -> HTTPException:
@@ -289,9 +295,29 @@ async def start_round(
             detail=f"The last range reset failed ({reset.get('error')}). Reset it again first.",
         )
     try:
-        return _round_out(await svc.start_round(db, drill_id, number))
+        started = _round_out(await svc.start_round(db, drill_id, number))
     except svc.TeamError as exc:
         raise _fail(exc) from exc
+    await db.refresh(drill)
+    started["flag_rotation"] = await rotate_round_flags(db, drill, number, _adapter_for(drill))
+    return started
+
+
+@router.post("/{drill_id}/rounds/{number}/rotate-flags")
+async def rotate_flags(
+    drill_id: int,
+    number: int,
+    db: AsyncSession = Depends(get_session),
+    token: TokenData = Depends(require_role(*_OPERATORS)),
+):
+    """Retry planting this round's flags (for example after a guest agent was slow)."""
+    drill = await _drill_or_404(db, drill_id)
+    current = await svc.active_round(db, drill_id)
+    if current is None or current.number != number:
+        raise HTTPException(
+            status_code=409, detail="Only the running round's flags can be rotated."
+        )
+    return await rotate_round_flags(db, drill, number, _adapter_for(drill))
 
 
 @router.post("/{drill_id}/rounds/{number}/finish")

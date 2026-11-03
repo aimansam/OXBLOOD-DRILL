@@ -145,7 +145,9 @@ def test_rounds_flow_and_the_swap_shows_in_my_team(api):
     plan = client.post("/api/v2/drills/1/rounds/plan", json={"rounds": 2}, headers=ref())
     assert [r["status"] for r in plan.json()["rounds"]] == ["pending", "pending"]
     assert client.post("/api/v2/drills/1/rounds/2/start", headers=ref()).status_code == 409
-    assert client.post("/api/v2/drills/1/rounds/1/start", headers=ref()).status_code == 200
+    started = client.post("/api/v2/drills/1/rounds/1/start", headers=ref())
+    assert started.status_code == 200
+    assert started.json()["flag_rotation"]["status"] == "skipped"  # no range prepared in this test
     assert client.post("/api/v2/drills/1/rounds/2/start", headers=ref()).status_code == 409
     mine = client.get("/api/v2/drills/1/my-team", headers=ana()).json()
     assert (

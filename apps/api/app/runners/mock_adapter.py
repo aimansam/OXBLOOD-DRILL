@@ -158,6 +158,9 @@ class MockProxmoxAdapter(ProxmoxAdapter):
 
     async def apply_guest_seed(self, vmid: int, node: str, seed: SeedSpec) -> None:
         self._require_vm(vmid, node)
+        if not hasattr(self, "seeds_applied"):
+            self.seeds_applied: list[tuple[int, str, SeedSpec]] = []
+        self.seeds_applied.append((vmid, node, seed))
 
     async def verify_windows_role(
         self,

@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_drill import (
+    Drill,
     DrillFlag,
     DrillFlagSubmission,
     DrillParticipant,
@@ -27,6 +28,7 @@ from app.db.models_drill import (
     SubmissionStatus,
 )
 from app.services import teams as team_service
+from app.services.flag_rotation import earlier_round_values
 from app.services.submission_service import calculate_flag_points, calculate_time_decay
 
 ATTEMPTS_PER_MINUTE = 10
@@ -131,6 +133,13 @@ async def submit_team_flag(
         if owner is not None and owner != ctx.side:
             scoring = None
             message = f"That is a {owner} flag; your team plays {ctx.side} this round."
+    if matched is None:
+        env = (await db.get(Drill, ctx.drill_id)).environment_config or {}  # type: ignore[union-attr]
+        seed = env.get("flag_seed")
+        if seed and any(
+            submitted in earlier_round_values(seed, ctx.round.number, f.name) for f in flags
+        ):
+            message = "That flag is from an earlier round and no longer scores."
     attach_to = matched or flags[0]  # a wrong guess is recorded against some flag for the audit
 
     already = None

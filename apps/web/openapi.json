@@ -10698,6 +10698,72 @@
         ]
       }
     },
+    "/api/v2/drills/{drill_id}/rounds/{number}/rotate-flags": {
+      "post": {
+        "description": "Retry planting this round's flags (for example after a guest agent was slow).",
+        "operationId": "rotate_flags_api_v2_drills__drill_id__rounds__number__rotate_flags_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "drill_id",
+            "required": true,
+            "schema": {
+              "title": "Drill Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "title": "Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Divide-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Divide-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rotate Flags",
+        "tags": [
+          "Drills v2"
+        ]
+      }
+    },
     "/api/v2/drills/{drill_id}/rounds/{number}/start": {
       "post": {
         "operationId": "start_round_api_v2_drills__drill_id__rounds__number__start_post",
