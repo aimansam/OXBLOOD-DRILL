@@ -26,6 +26,97 @@ log = logging.getLogger("app.runners.runner")
 class BaselineMixin(RunnerBase):
     """Snapshot-baseline promotion and restore for the run orchestrator."""
 
+    async def ready_baseline_roles(
+        self, scenario: models.Scenario, session: AsyncSession
+    ) -> set[str]:
+        """Roles that already have a ready baseline for this scenario version."""
+        rows = (
+            (
+                await session.execute(
+                    select(models.SnapshotBaseline).where(
+                        models.SnapshotBaseline.scenario_id == scenario.id,
+                        models.SnapshotBaseline.scenario_version == scenario.version,
+                        models.SnapshotBaseline.status == "ready",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return {row.role for row in rows}
+
+    async def build_snapshot_baselines(
+        self,
+        scenario_id: int,
+        session: AsyncSession,
+        actor: str | None = None,
+        snapshot_name: str = "clean-baseline",
+    ) -> list[models.SnapshotBaseline]:
+        """Clone, boot and seed a scenario once, check it, then snapshot it.
+
+        Replaces the manual "prepare a range, verify it, capture it" sequence.
+        Does nothing when every role already has a ready baseline for the
+        current scenario version. A failed build destroys its clones; stale
+        baselines from an older scenario version are never deleted here.
+        """
+        from app.runners.runner import RunRequest  # circular at import time
+
+        scenario = await session.get(models.Scenario, scenario_id)
+        if scenario is None:
+            raise RunnerError(f"scenario id={scenario_id} not found")
+        document = scenario.spec if isinstance(scenario.spec, dict) else {}
+        spec = document.get("spec") or document
+        expected = {
+            f"{a['role']}_{i + 1}" if int(a.get("count") or 1) > 1 else str(a["role"])
+            for a in spec.get("assets", [])
+            for i in range(max(1, min(int(a.get("count") or 1), 64)))
+        }
+        have = await self.ready_baseline_roles(scenario, session)
+        if expected and expected <= have:
+            return []
+        if (
+            have
+            or (
+                await session.execute(
+                    select(models.SnapshotBaseline.id).where(
+                        models.SnapshotBaseline.scenario_id == scenario.id
+                    )
+                )
+            ).first()
+        ):
+            raise RunnerError(
+                f"Scenario {scenario.name!r} has baselines from another version or an "
+                "incomplete set. Retire them before building new ones."
+            )
+
+        result = await self.start_run(  # type: ignore[attr-defined]
+            RunRequest(scenario_id=scenario.id, started_by=actor, timeout_min=-1), session
+        )
+        run = (
+            await session.execute(
+                select(models.Run)
+                .where(models.Run.id == result.run_id)
+                .options(selectinload(models.Run.assets))
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        problems = []
+        for asset in run.assets:
+            if asset.pve_vmid is None or not asset.pve_node:
+                problems.append(f"{asset.role}: no VM")
+                continue
+            state = await self._adapter.get_vm_state(asset.pve_vmid, asset.pve_node)
+            if state.status != "running":
+                problems.append(f"{asset.role}: {state.status}")
+        if problems:
+            await self.stop_run(  # type: ignore[attr-defined]
+                run.id, reason="baseline build failed verification", session=session, actor=actor
+            )
+            raise RunnerError("Baseline build failed, clones removed: " + "; ".join(problems))
+        return await self.promote_run_to_snapshot_baseline(
+            run.id, session, actor=actor, snapshot_name=snapshot_name
+        )
+
     async def promote_run_to_snapshot_baseline(
         self,
         run_id: int,

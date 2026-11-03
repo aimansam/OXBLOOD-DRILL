@@ -15,6 +15,7 @@ We exercise:
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 from datetime import UTC
 
 import pytest
@@ -73,6 +74,87 @@ async def test_stop_reapplies_short_name_after_snapshot_rollback(session: AsyncS
     state = await adapter.get_vm_state(asset.pve_vmid, asset.pve_node)
     assert state.status == "stopped"
     assert state.name == "DC01"
+
+
+@pytest.mark.asyncio
+async def test_build_snapshot_baselines_is_automatic_and_idempotent(session: AsyncSession) -> None:
+    scenario = _scenario_with("auto-baseline", [_asset("dc01"), _asset("web")])
+    session.add(scenario)
+    await session.commit()
+    adapter = MockProxmoxAdapter()
+    adapter.seed_template("tpl-x", 9000)
+    runner = Runner(adapter=adapter)
+
+    built = await runner.build_snapshot_baselines(scenario.id, session, actor="t")
+    assert {b.role for b in built} == {"dc01", "web"}
+    assert len(adapter.snapshots_created) == 2
+    assert await runner.ready_baseline_roles(scenario, session) == {"dc01", "web"}
+
+    assert await runner.build_snapshot_baselines(scenario.id, session, actor="t") == []
+    assert len(adapter.snapshots_created) == 2
+
+    # The next prepare restores the snapshots instead of cloning.
+    result = await runner.start_run(RunRequest(scenario_id=scenario.id), session)
+    assert result.status == RunStatus.RUNNING
+    assert len(adapter.snapshots_restored) == 2
+
+
+@pytest.mark.asyncio
+async def test_build_snapshot_baselines_removes_clones_when_a_vm_is_down(
+    session: AsyncSession,
+) -> None:
+    class DownAdapter(MockProxmoxAdapter):
+        down = False
+
+        async def get_vm_state(self, vmid: int, node: str):
+            state = await super().get_vm_state(vmid, node)
+            return dataclasses.replace(state, status="stopped") if self.down else state
+
+    scenario = _scenario_with("auto-baseline-fail", [_asset("dc01")])
+    session.add(scenario)
+    await session.commit()
+    adapter = DownAdapter()
+    adapter.seed_template("tpl-x", 9000)
+    runner = Runner(adapter=adapter)
+    real_start = runner.start_run
+
+    async def start_then_go_down(req, sess):
+        result = await real_start(req, sess)
+        adapter.down = True
+        return result
+
+    runner.start_run = start_then_go_down  # type: ignore[method-assign]
+
+    with pytest.raises(RunnerError, match="clones removed"):
+        await runner.build_snapshot_baselines(scenario.id, session)
+    assert adapter.snapshots_created == []
+    rows = (await session.execute(select(models.SnapshotBaseline))).scalars().all()
+    assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_build_snapshot_baselines_refuses_an_incomplete_set(session: AsyncSession) -> None:
+    scenario = _scenario_with("auto-baseline-stale", [_asset("dc01"), _asset("web")])
+    session.add(scenario)
+    await session.commit()
+    session.add(
+        models.SnapshotBaseline(
+            scenario_id=scenario.id,
+            scenario_version=1,
+            role="dc01",
+            template="tpl-x",
+            pve_vmid=777,
+            pve_node="pve",
+            snapshot_name="clean-baseline",
+            status="ready",
+        )
+    )
+    await session.commit()
+    adapter = MockProxmoxAdapter()
+    adapter.seed_template("tpl-x", 9000)
+    with pytest.raises(RunnerError, match="Retire them"):
+        await Runner(adapter=adapter).build_snapshot_baselines(scenario.id, session)
+    assert adapter.snapshots_created == []
 
 
 # --- fixtures ---------------------------------------------------------------

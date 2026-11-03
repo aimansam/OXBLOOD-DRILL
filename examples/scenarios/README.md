@@ -47,6 +47,12 @@ a stem such as `PC` to display PC01–PC03.
 Use `restore_commands` only for commands needed after a snapshot rollback;
 the Enterprise File Breach RED01 baseline reapplies its existing netplan file
 so its guest interface receives the declared address.
+Set `provisioning.auto_baseline: true` to skip building snapshots by hand: the
+first prepare of a scenario version clones, boots and checks every VM, takes
+the `clean-baseline` snapshots, and then restores from them. Later prepares
+and cleanups roll back instead of cloning. If baselines from another version
+exist, the prepare fails and asks you to retire them; nothing is deleted
+automatically. The VMs become persistent, so this trades disk for speed.
 The path's setup line is derived from declared asset networks, routing rules,
 and validation probes. It does not attest that the service is live; record
 dated PVE and guest checks separately before calling a path verified.

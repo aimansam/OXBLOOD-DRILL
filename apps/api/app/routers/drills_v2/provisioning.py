@@ -163,6 +163,15 @@ async def _provision_drill_background(
             drill = await get_drill(db, drill_id)
             if not drill:
                 return
+            scenario = await db.get(catalog_models.Scenario, scenario_id)
+            doc = (scenario.spec if scenario else None) or {}
+            if ((doc.get("spec") or doc).get("provisioning") or {}).get("auto_baseline"):
+                await _set_drill_provision_status(
+                    drill_id,
+                    "starting",
+                    error="Checking clean snapshots; building them on the first prepare.",
+                )
+                await runner.build_snapshot_baselines(scenario_id, db, actor="oxblood")
             run_task = asyncio.create_task(
                 runner.start_run(
                     RunRequest(

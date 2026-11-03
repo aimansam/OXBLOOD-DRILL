@@ -192,6 +192,11 @@
               "minimum": 128,
               "maximum": 32768,
               "default": 1024
+            },
+            "auto_baseline": {
+              "description": "Build clean snapshots on the first prepare, then restore from them on later prepares.",
+              "type": "boolean",
+              "default": false
             }
           }
         },
