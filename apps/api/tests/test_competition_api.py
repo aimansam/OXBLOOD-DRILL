@@ -259,3 +259,78 @@ def test_responses_do_not_grow_spurious_null_fields(api):
     setup_four_teams(client)
     team = client.get("/api/v2/drills/1/teams", headers=ref()).json()["teams"][0]
     assert set(team) == {"id", "name", "color", "position", "member_count", "members"}
+
+
+def _set_env(maker, **env):
+    async def go():
+        async with maker() as db:
+            drill = await db.get(Drill, 1)
+            drill.environment_config = {**(drill.environment_config or {}), **env}
+            await db.commit()
+
+    run(go())
+
+
+@pytest.fixture
+def reset_calls(monkeypatch, api):
+    """Replace the background reset (it uses the global sessionmaker) with a recorder."""
+    from app.routers.drills_v2 import competition
+
+    _, maker = api
+    calls = []
+
+    async def fake_set(drill_id, status, error=None):
+        async with maker() as db:
+            drill = await db.get(Drill, drill_id)
+            drill.environment_config = {
+                **(drill.environment_config or {}),
+                "range_reset": {"status": status, "error": error},
+            }
+            await db.commit()
+
+    async def fake_background(drill_id, run_id):
+        calls.append((drill_id, run_id))
+
+    monkeypatch.setattr(competition, "_set_range_reset", fake_set)
+    monkeypatch.setattr(competition, "_reset_range_background", fake_background)
+    return calls
+
+
+def test_range_reset_needs_a_prepared_range_and_no_running_round(api, reset_calls):
+    client, maker = api
+    assert client.post("/api/v2/drills/1/range/reset", headers=ana()).status_code == 403
+    assert client.post("/api/v2/drills/1/range/reset", headers=ref()).status_code == 409
+
+    _set_env(maker, provision_run_id=7)
+    for name in ("A", "B"):
+        client.post("/api/v2/drills/1/teams", json={"name": name}, headers=ref())
+    client.post("/api/v2/drills/1/rounds/plan", json={"rounds": 2}, headers=ref())
+    client.post("/api/v2/drills/1/rounds/1/start", headers=ref())
+    assert client.post("/api/v2/drills/1/range/reset", headers=ref()).status_code == 409
+    assert reset_calls == []
+
+
+def test_next_round_waits_for_a_healthy_range(api, reset_calls):
+    client, maker = api
+    _set_env(maker, provision_run_id=7)
+    for name in ("A", "B"):
+        client.post("/api/v2/drills/1/teams", json={"name": name}, headers=ref())
+    client.post("/api/v2/drills/1/rounds/plan", json={"rounds": 2}, headers=ref())
+    client.post("/api/v2/drills/1/rounds/1/start", headers=ref())
+    client.post("/api/v2/drills/1/rounds/1/finish", headers=ref())
+
+    reset = client.post("/api/v2/drills/1/range/reset", headers=ref())
+    assert reset.status_code == 202
+    assert reset_calls == [(1, 7)]
+    assert client.get("/api/v2/drills/1/rounds", headers=ref()).json()["range_reset"]["status"] == (
+        "resetting"
+    )
+    assert client.post("/api/v2/drills/1/range/reset", headers=ref()).status_code == 409
+    assert client.post("/api/v2/drills/1/rounds/2/start", headers=ref()).status_code == 409
+
+    _set_env(maker, range_reset={"status": "failed", "error": "RED01 not running"})
+    blocked = client.post("/api/v2/drills/1/rounds/2/start", headers=ref())
+    assert blocked.status_code == 409 and "RED01 not running" in blocked.json()["detail"]
+
+    _set_env(maker, range_reset={"status": "ready", "error": None})
+    assert client.post("/api/v2/drills/1/rounds/2/start", headers=ref()).status_code == 200

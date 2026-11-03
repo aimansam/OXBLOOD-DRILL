@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatWhen } from '@/lib/utils';
-import { competitionApi, describeAssignments, useRounds, useTeams } from './api';
+import { competitionApi, describeAssignments, useRangeReset, useRounds, useTeams } from './api';
 
 const tone = (status: string) => (status === 'active' ? 'text-success' : status === 'finished' ? 'text-muted-foreground' : 'text-warning');
 
@@ -14,6 +14,7 @@ export function RoundsTab({ drillId }: { drillId: number }) {
   const qc = useQueryClient();
   const rounds = useRounds(drillId);
   const teams = useTeams(drillId);
+  const reset = useRangeReset(drillId).data;
   const [busy, setBusy] = useState(false);
   const [freeze, setFreeze] = useState<Record<number, string>>({});
 
@@ -52,7 +53,7 @@ export function RoundsTab({ drillId }: { drillId: number }) {
         <ul className="space-y-3">
           {list.map((r) => {
             const sides = describeAssignments(r, teamList);
-            const canStart = r.status === 'pending' && !running && nextPending?.id === r.id;
+            const canStart = r.status === 'pending' && !running && nextPending?.id === r.id && reset?.status !== 'resetting' && reset?.status !== 'failed';
             return (
               <li key={r.id}>
                 <Card>
@@ -115,8 +116,29 @@ export function RoundsTab({ drillId }: { drillId: number }) {
           })}
         </ul>
       )}
+      {list.length > 0 && (
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-semibold">Range</div>
+              <p className="text-muted-foreground" aria-live="polite">
+                {reset?.status === 'resetting'
+                  ? 'Restoring every machine to its clean snapshot…'
+                  : reset?.status === 'failed'
+                    ? `Last reset failed: ${reset.error ?? 'unknown error'}. Reset again before the next round.`
+                    : reset?.status === 'ready'
+                      ? `Reset ${formatWhen(reset.at)}. Machines are running.`
+                      : 'Reset the machines to their clean snapshot between rounds. Needs snapshot baselines.'}
+              </p>
+            </div>
+            <Button variant="outline" disabled={busy || !!running || reset?.status === 'resetting'} onClick={() => act(() => competitionApi.resetRange(drillId), 'Range reset started')}>
+              Reset range
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       <p className="text-xs text-muted-foreground">
-        Between rounds, restore the range from its baseline (stop and prepare it again) before you start the next round. Referees always see live points; players see them after the freeze ends.
+        Referees always see live points; players see them after the freeze ends. The next round cannot start while the range is resetting or the last reset failed.
       </p>
     </div>
   );

@@ -407,3 +407,42 @@ async def _stop_drill_provision_run(db: AsyncSession, drill) -> str | None:
     await db.refresh(drill)
     await release_environment_lock(db, drill_id=drill.id)
     return "stopped"
+
+
+async def _set_range_reset(drill_id: int, status: str, error: str | None = None) -> None:
+    async with get_sessionmaker()() as db:
+        drill = (
+            await db.execute(select(Drill).where(Drill.id == drill_id).with_for_update())
+        ).scalar_one_or_none()
+        if drill is None:
+            return
+        env = dict(drill.environment_config or {})
+        env["range_reset"] = {
+            "status": status,
+            "error": error,
+            "at": datetime.now(UTC).isoformat(),
+        }
+        drill.environment_config = env
+        db.add(
+            DrillEvent(
+                drill_id=drill_id,
+                kind="lifecycle",
+                title={
+                    "resetting": "Range reset started",
+                    "ready": "Range reset completed",
+                    "failed": "Range reset failed",
+                }[status],
+                detail=error,
+            )
+        )
+        await db.commit()
+
+
+async def _reset_range_background(drill_id: int, run_id: int) -> None:
+    try:
+        async with get_sessionmaker()() as db:
+            await _get_runner().reset_run_to_baselines(run_id, db, actor="oxblood")
+        await _set_range_reset(drill_id, "ready")
+    except Exception as exc:  # noqa: BLE001
+        log.exception("oxblood.range_reset_failed drill_id=%s", drill_id)
+        await _set_range_reset(drill_id, "failed", _provision_error_message(exc))

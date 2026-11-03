@@ -45,6 +45,48 @@ class BaselineMixin(RunnerBase):
         )
         return {row.role for row in rows}
 
+    async def reset_run_to_baselines(
+        self, run_id: int, session: AsyncSession, actor: str | None = None
+    ) -> int:
+        """Roll a live run's VMs back to their clean snapshots, boot and check them.
+
+        The run and drill stay as they are; only the machines return to the
+        baseline. Refuses up front when any VM has no baseline, since those
+        cannot be reset in place.
+        """
+        run = (
+            await session.execute(
+                select(models.Run)
+                .where(models.Run.id == run_id)
+                .options(selectinload(models.Run.scenario), selectinload(models.Run.assets))
+            )
+        ).scalar_one_or_none()
+        if run is None:
+            raise RunnerError(f"run id={run_id} not found")
+        assets = list(run.assets)
+        baselines = {a.id: await self._baseline_for_asset(session, a) for a in assets}
+        missing = sorted(a.role for a in assets if baselines[a.id] is None)
+        if not assets or missing:
+            raise RunnerError(
+                "Cannot reset in place; no snapshot baseline for: "
+                + (", ".join(missing) or "any machine")
+            )
+        document = run.scenario.spec if isinstance(run.scenario.spec, dict) else {}
+        spec = document.get("spec") or document
+        specs = {str(a.get("role")): a for a in spec.get("assets", [])}
+        for asset in assets:
+            await self._restore_baseline_asset(
+                session=session,
+                asset=asset,
+                asset_spec=specs.get(re.sub(r"_\d+$", "", asset.role), {}),
+                baseline=baselines[asset.id],  # type: ignore[arg-type]
+                actor=actor,
+            )
+        down = [a.role for a in assets if a.status != AssetStatus.RUNNING]
+        if down:
+            raise RunnerError("Range reset incomplete, not running: " + ", ".join(sorted(down)))
+        return len(assets)
+
     async def build_snapshot_baselines(
         self,
         scenario_id: int,

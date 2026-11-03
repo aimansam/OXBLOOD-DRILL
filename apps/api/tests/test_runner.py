@@ -157,6 +157,41 @@ async def test_build_snapshot_baselines_refuses_an_incomplete_set(session: Async
     assert adapter.snapshots_created == []
 
 
+@pytest.mark.asyncio
+async def test_reset_run_to_baselines_restores_every_vm_in_place(session: AsyncSession) -> None:
+    scenario = _scenario_with("reset-in-place", [_asset("dc01"), _asset("web")])
+    session.add(scenario)
+    await session.commit()
+    adapter = MockProxmoxAdapter()
+    adapter.seed_template("tpl-x", 9000)
+    runner = Runner(adapter=adapter)
+    await runner.build_snapshot_baselines(scenario.id, session)
+    result = await runner.start_run(RunRequest(scenario_id=scenario.id), session)
+    restored_before = len(adapter.snapshots_restored)
+
+    assert await runner.reset_run_to_baselines(result.run_id, session) == 2
+    assert len(adapter.snapshots_restored) == restored_before + 2
+    run = await session.get(models.Run, result.run_id)
+    assert run.status == RunStatus.RUNNING
+
+
+@pytest.mark.asyncio
+async def test_reset_run_to_baselines_refuses_machines_without_a_baseline(
+    session: AsyncSession,
+) -> None:
+    scenario = _scenario_with("reset-no-baseline", [_asset("dc01")])
+    session.add(scenario)
+    await session.commit()
+    adapter = MockProxmoxAdapter()
+    adapter.seed_template("tpl-x", 9000)
+    runner = Runner(adapter=adapter)
+    result = await runner.start_run(RunRequest(scenario_id=scenario.id), session)
+
+    with pytest.raises(RunnerError, match="no snapshot baseline for: dc01"):
+        await runner.reset_run_to_baselines(result.run_id, session)
+    assert adapter.snapshots_restored == []
+
+
 # --- fixtures ---------------------------------------------------------------
 
 

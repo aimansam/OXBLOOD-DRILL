@@ -276,6 +276,7 @@ class RoundOut(BaseModel):
 
 class RoundListOut(BaseModel):
     rounds: list[RoundOut]
+    range_reset: dict | None = None
 
 
 class ScoreboardTeamOut(BaseModel):

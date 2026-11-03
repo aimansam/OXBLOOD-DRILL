@@ -23,11 +23,18 @@ team attacks once and defends once; points from all rounds are added up.
 - Ties are broken by whichever team reached its score first.
 
 ## Between rounds
-Finish the round, then restore the range from its baseline (stop and prepare it again) before
-starting the next one. Starting a round requires the earlier ones to be finished.
+Finish the round, then press **Reset range** on the Rounds tab (or `POST /api/v2/drills/{id}/range/reset`).
+Every machine rolls back to its `clean-baseline` snapshot, boots, and is checked; the drill stays as it
+is. The next round cannot start while the reset is running or after it failed. Starting a round also
+requires the earlier ones to be finished.
+
+Reset needs snapshot baselines for every machine. Set `provisioning.auto_baseline: true` in the
+scenario and the first prepare builds them (see `examples/scenarios/README.md`). A range cloned
+without baselines cannot be reset in place; the reset refuses and names the machines.
 
 ## What is not automatic yet
-- **Resetting the range between rounds** is a manual step.
+- **Reset does not rotate flags.** Teams that learned a flag in round 1 can reuse it in round 2.
+- **The reset check is shallow:** it confirms each VM is running, not that its services answer.
 - **Blue-team detection points** are awarded by a referee ("Detection" in the referee form); nothing
   scores blue automatically from alerts.
 - **Flags are fixed strings**, the same for every team. Teams that share a flag will both score it;

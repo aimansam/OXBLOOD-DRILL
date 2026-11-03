@@ -3015,6 +3015,18 @@
       },
       "RoundListOut": {
         "properties": {
+          "range_reset": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range Reset"
+          },
           "rounds": {
             "items": {
               "$ref": "#/components/schemas/RoundOut"
@@ -10218,6 +10230,63 @@
           }
         },
         "summary": "Get Drill Range Health",
+        "tags": [
+          "Drills v2"
+        ]
+      }
+    },
+    "/api/v2/drills/{drill_id}/range/reset": {
+      "post": {
+        "description": "Roll every range VM back to its clean snapshot, between rounds.",
+        "operationId": "reset_range_api_v2_drills__drill_id__range_reset_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "drill_id",
+            "required": true,
+            "schema": {
+              "title": "Drill Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Divide-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Divide-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reset Range",
         "tags": [
           "Drills v2"
         ]

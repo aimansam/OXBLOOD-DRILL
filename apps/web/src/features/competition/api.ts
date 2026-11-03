@@ -18,6 +18,7 @@ export const competitionApi = {
   planRounds: (drillId: number, rounds = 2) => http.post<{ rounds: Round[] }>(`${base(drillId)}/rounds/plan`, { rounds }),
   startRound: (drillId: number, n: number) => http.post<Round>(`${base(drillId)}/rounds/${n}/start`),
   finishRound: (drillId: number, n: number) => http.post<Round>(`${base(drillId)}/rounds/${n}/finish`),
+  resetRange: (drillId: number) => http.post<{ status: string }>(`${base(drillId)}/range/reset`),
   freeze: (drillId: number, n: number, at: string | null) => http.put<Round>(`${base(drillId)}/rounds/${n}/freeze`, { freeze_at: at }),
   scoreEvent: (drillId: number, body: { team_id: number; points: number; reason: string; kind: string }) =>
     http.post<{ id: number }>(`${base(drillId)}/score-events`, body),
@@ -37,7 +38,24 @@ export const useRounds = (drillId: number | null) =>
     queryKey: ['rounds', drillId],
     enabled: drillId !== null,
     refetchInterval: 5_000,
-    queryFn: async () => (await api.GET('/api/v2/drills/{drill_id}/rounds', { params: { path: { drill_id: drillId as number } } }).then(unwrap)).rounds,
+    queryFn: async () => api.GET('/api/v2/drills/{drill_id}/rounds', { params: { path: { drill_id: drillId as number } } }).then(unwrap),
+    select: (data) => data.rounds,
+  });
+
+export interface RangeReset {
+  status: 'resetting' | 'ready' | 'failed';
+  error: string | null;
+  at: string;
+}
+
+/** Same cached request as useRounds; the reset state rides along with the schedule. */
+export const useRangeReset = (drillId: number | null) =>
+  useQuery({
+    queryKey: ['rounds', drillId],
+    enabled: drillId !== null,
+    refetchInterval: 5_000,
+    queryFn: async () => api.GET('/api/v2/drills/{drill_id}/rounds', { params: { path: { drill_id: drillId as number } } }).then(unwrap),
+    select: (data) => (data.range_reset ?? null) as RangeReset | null,
   });
 
 /** Polled: the board is the thing everyone watches during a round. */

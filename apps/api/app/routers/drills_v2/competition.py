@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,10 +12,12 @@ from app.core.auth import Role, TokenData, current_token, require_role
 from app.db.models import User
 from app.db.models_drill import DrillParticipant, DrillRound, DrillTeam
 from app.db.session import get_session
+from app.modules.drills.lifecycle import provision_run_id
 from app.services import teams as svc
 from app.services.drill_service import get_drill
 
 from .access import _participant_is_enrolled
+from .provisioning import _reset_range_background, _set_range_reset
 from .schemas import (
     FreezeUpdate,
     MyTeamOut,
@@ -227,9 +229,12 @@ async def get_rounds(
     db: AsyncSession = Depends(get_session),
     token: TokenData | None = Depends(current_token),
 ):
-    await _drill_or_404(db, drill_id)
     await _require_viewer(db, drill_id, token)
-    return {"rounds": [_round_out(r) for r in await svc.list_rounds(db, drill_id)]}
+    drill = await _drill_or_404(db, drill_id)
+    return {
+        "rounds": [_round_out(r) for r in await svc.list_rounds(db, drill_id)],
+        "range_reset": (drill.environment_config or {}).get("range_reset"),
+    }
 
 
 @router.post(
@@ -256,7 +261,15 @@ async def start_round(
     db: AsyncSession = Depends(get_session),
     token: TokenData = Depends(require_role(*_OPERATORS)),
 ):
-    await _drill_or_404(db, drill_id)
+    drill = await _drill_or_404(db, drill_id)
+    reset = (drill.environment_config or {}).get("range_reset") or {}
+    if reset.get("status") == "resetting":
+        raise HTTPException(status_code=409, detail="The range is still being reset.")
+    if reset.get("status") == "failed":
+        raise HTTPException(
+            status_code=409,
+            detail=f"The last range reset failed ({reset.get('error')}). Reset it again first.",
+        )
     try:
         return _round_out(await svc.start_round(db, drill_id, number))
     except svc.TeamError as exc:
@@ -275,6 +288,27 @@ async def finish_round(
         return _round_out(await svc.finish_round(db, drill_id, number))
     except svc.TeamError as exc:
         raise _fail(exc) from exc
+
+
+@router.post("/{drill_id}/range/reset", status_code=202)
+async def reset_range(
+    drill_id: int,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_session),
+    token: TokenData = Depends(require_role(*_OPERATORS)),
+):
+    """Roll every range VM back to its clean snapshot, between rounds."""
+    drill = await _drill_or_404(db, drill_id)
+    run_id = provision_run_id(drill)
+    if run_id is None:
+        raise HTTPException(status_code=409, detail="This drill has no prepared range to reset.")
+    if await svc.active_round(db, drill_id) is not None:
+        raise HTTPException(status_code=409, detail="Finish the running round before resetting.")
+    if ((drill.environment_config or {}).get("range_reset") or {}).get("status") == "resetting":
+        raise HTTPException(status_code=409, detail="A range reset is already running.")
+    await _set_range_reset(drill_id, "resetting")
+    background_tasks.add_task(_reset_range_background, drill_id, run_id)
+    return {"status": "resetting"}
 
 
 @router.put("/{drill_id}/rounds/{number}/freeze")
