@@ -3,9 +3,9 @@ import { activeRound, describeAssignments } from './api';
 import type { Round, Team } from './api';
 
 const teams = [
-  { id: 1, name: 'Alpha', position: 1, member_count: 0, members: [] },
-  { id: 2, name: 'Bravo', position: 2, member_count: 0, members: [] },
-  { id: 3, name: 'Charlie', position: 3, member_count: 0, members: [] },
+  { id: 1, name: 'Alpha', position: 1, match_number: 1, member_count: 0, members: [] },
+  { id: 2, name: 'Bravo', position: 2, match_number: 1, member_count: 0, members: [] },
+  { id: 3, name: 'Charlie', position: 3, match_number: 1, member_count: 0, members: [] },
 ] as Team[];
 
 const round = (n: number, status: string, assignments: Record<string, { side: string }>) =>

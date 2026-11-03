@@ -261,6 +261,7 @@ class TeamOut(BaseModel):
 
 class TeamListOut(BaseModel):
     teams: list[TeamOut]
+    match_mode: str | None = None
 
 
 class RoundOut(BaseModel):
@@ -279,6 +280,7 @@ class RoundOut(BaseModel):
 class RoundListOut(BaseModel):
     rounds: list[RoundOut]
     range_reset: dict | None = None
+    flag_rotation: dict | None = None
 
 
 class ScoreboardTeamOut(BaseModel):

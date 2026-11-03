@@ -64,8 +64,8 @@ Done so far: the runner can run **range copies** (`RunRequest.instance`). Copy N
 20 x (N-1), prefixes the short VM names with `M<N>-`, and has its own baselines (`snapshot_baselines.instance`).
 Subnets and addresses stay the same because the VLANs keep copies apart. A scenario whose router is an
 OPNsense image cannot make copies, since that image has its VLANs baked in; Ledger Leak therefore uses a
-Linux router configured at seed time. Still to do: the drill-level team-to-match mapping and
-provisioning one run per match.
+Linux router configured at seed time. Matches are built too (`docs/competition.md`, "One range per match"): team pairs, one run per copy, per-team flags, access
+that follows the team's copy. Still to do: the scenario content itself and the Linux router image.
 
 Already in place: the range memory check in preflight (counts running guests plus a host reserve),
 snapshot baselines built automatically on first prepare, and range reset between rounds.

@@ -365,3 +365,28 @@ def test_teams_are_paired_into_matches_and_the_mode_is_chosen_before_a_range_exi
     _set_env(maker, provision_run_id=5)
     late = client.put("/api/v2/drills/1/matches", json={"mode": "shared"}, headers=ref())
     assert late.status_code == 409  # a range already exists
+
+
+def test_players_see_their_matchs_range_and_operators_can_pick_one(api):
+    from app.core.auth import TokenData
+    from app.services.matches import run_id_for_viewer
+
+    client, maker = api
+    teams = setup_four_teams(client)  # match numbers: Alpha 1, Bravo 2, Charlie 1, Delta 2
+    client.put(f"/api/v2/drills/1/teams/{teams[1]['id']}/members/1", headers=ref())  # ana: Bravo
+    client.put(f"/api/v2/drills/1/teams/{teams[0]['id']}/members/2", headers=ref())  # ben: Alpha
+    _set_env(maker, match_mode="separate", provision_run_id=5, match_runs={"2": 6})
+
+    async def pick(sub, role, requested=None):
+        async with maker() as db:
+            drill = await db.get(Drill, 1)
+            token = TokenData(sub=sub, role=role, iat=0, exp=0)
+            return await run_id_for_viewer(db, drill, token, requested)
+
+    assert run(pick("ana", "red")) == 6
+    assert run(pick("ben", "blue")) == 5
+    assert run(pick("referee", "lead")) == 5
+    assert run(pick("referee", "lead", 2)) == 6
+
+    _set_env(maker, match_mode="shared")
+    assert run(pick("ana", "red")) == 5  # one shared range: everybody sees the primary run

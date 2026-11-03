@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatWhen } from '@/lib/utils';
-import { type FlagRotation, competitionApi, describeAssignments, useRangeReset, useRounds, useTeams } from './api';
+import { type FlagRotation, competitionApi, describeAssignments, useFlagRotation, useRangeReset, useRounds, useTeams } from './api';
 
 const tone = (status: string) => (status === 'active' ? 'text-success' : status === 'finished' ? 'text-muted-foreground' : 'text-warning');
 
@@ -24,6 +24,7 @@ export function RoundsTab({ drillId }: { drillId: number }) {
   const rounds = useRounds(drillId);
   const teams = useTeams(drillId);
   const reset = useRangeReset(drillId).data;
+  const rotation = useFlagRotation(drillId).data;
   const [busy, setBusy] = useState(false);
   const [freeze, setFreeze] = useState<Record<number, string>>({});
 
@@ -129,6 +130,14 @@ export function RoundsTab({ drillId }: { drillId: number }) {
             );
           })}
         </ul>
+      )}
+      {rotation && (rotation.status === 'partial' || rotation.status === 'failed') && (
+        <Card role="alert">
+          <CardContent className="space-y-1">
+            <div className="font-semibold text-warning">Some flags were not planted for round {rotation.round}</div>
+            <p className="text-muted-foreground">These keep their previous value: {rotation.failed.map((f) => f.flag).join(', ')}. Use “Re-plant flags” on the running round.</p>
+          </CardContent>
+        </Card>
       )}
       {list.length > 0 && (
         <Card>

@@ -44,6 +44,7 @@ from app.services.drill_service import (
     timeout_overdue_drills,
     update_drill,
 )
+from app.services.matches import run_id_for_viewer, run_ids
 from app.services.proxmox import ProxmoxAPIError
 
 from .access import (
@@ -263,6 +264,7 @@ async def get_drill_range_health(
 @router.get("/{drill_id}/access")
 async def get_drill_access(
     drill_id: int,
+    match: int | None = Query(None, description="Operators: which match's range copy to list"),
     db: AsyncSession = Depends(get_session),
     token: TokenData | None = Depends(current_token),
 ):
@@ -271,7 +273,7 @@ async def get_drill_access(
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
     env = drill.environment_config or {}
-    run_id = _drill_provision_run_id(drill)
+    run_id = await run_id_for_viewer(db, drill, token, match)
     if run_id is None:
         return {
             "run_id": None,
@@ -388,7 +390,7 @@ async def get_drill_threat_map(
         raise HTTPException(status_code=404, detail="Drill not found")
     await _require_participant_workspace_access(db, drill, token)
 
-    access = await get_drill_access(drill_id, db, token)
+    access = await get_drill_access(drill_id, None, db, token)
     scenario = None
     if drill.scenario_id:
         scenario = (
@@ -458,15 +460,22 @@ async def create_drill_console(
     drill = await get_drill(db, drill_id)
     if not drill:
         raise HTTPException(status_code=404, detail="Drill not found")
-    run_id = _drill_provision_run_id(drill)
+    run_id = await run_id_for_viewer(db, drill, token)
     if run_id is None:
         raise HTTPException(status_code=409, detail="Drill has no provision run")
 
+    # Operators may open a machine in any match; players only in their own team's range copy.
+    is_operator = token is not None and str(token.role or "").lower() in {
+        "admin",
+        "lead",
+        "observer",
+    }
+    allowed_runs = list(run_ids(drill).values()) if is_operator else [run_id]
     asset = (
         await db.execute(
             select(catalog_models.Asset).where(
                 catalog_models.Asset.id == asset_id,
-                catalog_models.Asset.run_id == run_id,
+                catalog_models.Asset.run_id.in_(allowed_runs),
             )
         )
     ).scalar_one_or_none()

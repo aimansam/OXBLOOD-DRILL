@@ -2043,6 +2043,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/drills/{drill_id}/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Match Mode
+         * @description Choose one shared range or one range copy per match. Only before a range is prepared.
+         */
+        put: operations["put_match_mode_api_v2_drills__drill_id__matches_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/drills/{drill_id}/milestones": {
         parameters: {
             query?: never;
@@ -3840,6 +3860,11 @@ export interface components {
             /** Ttl Remaining S */
             ttl_remaining_s: number;
         };
+        /** MatchModeUpdate */
+        MatchModeUpdate: {
+            /** Mode */
+            mode: string;
+        };
         /** MeOut */
         MeOut: {
             /** Exp */
@@ -4285,6 +4310,10 @@ export interface components {
         };
         /** RoundListOut */
         RoundListOut: {
+            /** Flag Rotation */
+            flag_rotation?: {
+                [key: string]: unknown;
+            } | null;
             /** Range Reset */
             range_reset?: {
                 [key: string]: unknown;
@@ -4562,6 +4591,8 @@ export interface components {
         };
         /** TeamListOut */
         TeamListOut: {
+            /** Match Mode */
+            match_mode?: string | null;
             /** Teams */
             teams: components["schemas"]["TeamOut"][];
         };
@@ -4580,6 +4611,11 @@ export interface components {
             color?: string | null;
             /** Id */
             id: number;
+            /**
+             * Match Number
+             * @default 1
+             */
+            match_number: number;
             /**
              * Member Count
              * @default 0
@@ -7608,7 +7644,10 @@ export interface operations {
     };
     get_drill_access_api_v2_drills__drill_id__access_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Operators: which match's range copy to list */
+                match?: number | null;
+            };
             header?: {
                 "X-Divide-Token"?: string | null;
             };
@@ -7987,6 +8026,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_match_mode_api_v2_drills__drill_id__matches_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Divide-Token"?: string | null;
+            };
+            path: {
+                drill_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchModeUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

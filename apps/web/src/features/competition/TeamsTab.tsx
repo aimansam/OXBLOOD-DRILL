@@ -8,13 +8,14 @@ import { Select } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { inviteUrl, useRoster } from '../teams/api';
-import { competitionApi, useTeams } from './api';
+import { competitionApi, useMatchMode, useTeams } from './api';
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : 'Request failed');
 
 export function TeamsTab({ drillId, scheduled }: { drillId: number; scheduled: boolean }) {
   const qc = useQueryClient();
   const teams = useTeams(drillId);
+  const matchMode = useMatchMode(drillId).data ?? 'shared';
   const roster = useRoster(drillId);
   const [count, setCount] = useState('4');
   const [pick, setPick] = useState<Record<number, string>>({});
@@ -93,6 +94,30 @@ export function TeamsTab({ drillId, scheduled }: { drillId: number; scheduled: b
 
   return (
     <div className="space-y-4">
+      {list.length >= 4 && list.length % 2 === 0 && (
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-semibold">Range</div>
+              <p className="text-muted-foreground">
+                {matchMode === 'separate'
+                  ? `Each pair of teams plays on its own copy of the range (${list.length / 2} matches), so one team's flags and changes cannot help another match.`
+                  : 'All teams share one range.'}
+              </p>
+            </div>
+            <Select
+              aria-label="Range layout"
+              className="w-60"
+              value={matchMode}
+              disabled={busy || !scheduled}
+              onChange={(e) => act(() => competitionApi.setMatchMode(drillId, e.target.value as 'shared' | 'separate'), 'Range layout saved')}
+            >
+              <option value="shared">One shared range</option>
+              <option value="separate">One range per match</option>
+            </Select>
+          </CardContent>
+        </Card>
+      )}
       <p className="text-muted-foreground">
         {inTeam.size} of {list.reduce((n, t) => n + t.member_count, 0) + enrolledFree.length} enrolled players are in a team.
       </p>
@@ -104,7 +129,10 @@ export function TeamsTab({ drillId, scheduled }: { drillId: number; scheduled: b
                 <span className="h-3 w-3 rounded-full" style={{ background: team.color ?? 'currentColor' }} aria-hidden />
                 <TeamName name={team.name} disabled={busy} onSave={(name) => act(() => competitionApi.renameTeam(drillId, team.id, name), 'Team renamed')} />
               </CardTitle>
-              <span className="text-xs text-muted-foreground">{team.member_count} players</span>
+              <span className="text-xs text-muted-foreground">
+                {matchMode === 'separate' && <>Match {team.match_number} · </>}
+                {team.member_count} players
+              </span>
             </CardHeader>
             <CardContent className="space-y-3">
               {team.members.length === 0 ? (

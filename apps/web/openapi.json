@@ -1790,6 +1790,19 @@
         "title": "LoginResponse",
         "type": "object"
       },
+      "MatchModeUpdate": {
+        "properties": {
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "MatchModeUpdate",
+        "type": "object"
+      },
       "MeOut": {
         "properties": {
           "exp": {
@@ -3028,6 +3041,18 @@
       },
       "RoundListOut": {
         "properties": {
+          "flag_rotation": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flag Rotation"
+          },
           "range_reset": {
             "anyOf": [
               {
@@ -3722,6 +3747,17 @@
       },
       "TeamListOut": {
         "properties": {
+          "match_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Mode"
+          },
           "teams": {
             "items": {
               "$ref": "#/components/schemas/TeamOut"
@@ -3787,6 +3823,11 @@
           },
           "id": {
             "title": "Id",
+            "type": "integer"
+          },
+          "match_number": {
+            "default": 1,
+            "title": "Match Number",
             "type": "integer"
           },
           "member_count": {
@@ -8977,6 +9018,24 @@
             }
           },
           {
+            "description": "Operators: which match's range copy to list",
+            "in": "query",
+            "name": "match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Operators: which match's range copy to list",
+              "title": "Match"
+            }
+          },
+          {
             "in": "header",
             "name": "X-Divide-Token",
             "required": false,
@@ -9607,6 +9666,73 @@
         "summary": "Revoke Invitation",
         "tags": [
           "Drill invitations"
+        ]
+      }
+    },
+    "/api/v2/drills/{drill_id}/matches": {
+      "put": {
+        "description": "Choose one shared range or one range copy per match. Only before a range is prepared.",
+        "operationId": "put_match_mode_api_v2_drills__drill_id__matches_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "drill_id",
+            "required": true,
+            "schema": {
+              "title": "Drill Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Divide-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Divide-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchModeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Match Mode",
+        "tags": [
+          "Drills v2"
         ]
       }
     },

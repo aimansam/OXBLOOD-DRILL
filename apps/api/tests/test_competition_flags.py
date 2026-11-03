@@ -244,3 +244,56 @@ def test_an_earlier_rounds_flag_is_named_as_such(world):
     old = derive_flag_value("s3cret", 1, "red-foothold")
     result = submit(client, BEN, old).json()  # Charlie is red in round 2
     assert result["is_correct"] is False and "earlier round" in result["message"]
+
+
+def test_separate_matches_score_only_the_teams_own_value_and_report_sharing(world):
+    import asyncio
+
+    from app.db.models_drill import Drill, DrillTeamFlag
+
+    client, maker = world
+    start_competition(client, maker)  # Alpha+Charlie are match 1, Bravo is match 2
+
+    async def configure():
+        async with maker() as db:
+            drill = await db.get(Drill, 1)
+            drill.environment_config = {"match_mode": "separate"}
+            db.add_all(
+                [
+                    DrillTeamFlag(
+                        drill_id=1,
+                        round_number=1,
+                        team_id=1,
+                        flag_name="red-foothold",
+                        value="FLAG{alpha}",
+                    ),
+                    DrillTeamFlag(
+                        drill_id=1,
+                        round_number=1,
+                        team_id=2,
+                        flag_name="red-foothold",
+                        value="FLAG{bravo}",
+                    ),
+                ]
+            )
+            await db.commit()
+
+    asyncio.run(configure())
+    client.post("/api/v2/drills/1/rounds/1/start", headers=REF())
+
+    # The scenario's original value no longer works for a team that has its own.
+    assert submit(client, ANA, RED_FLAG).json()["is_correct"] is False
+    own = submit(client, ANA, "FLAG{alpha}").json()
+    assert own["is_correct"] and own["points_earned"] == 100
+
+    # Bravo hands in Alpha's value: no points, and the referees get a ledger note.
+    shared = submit(client, DEE, "FLAG{alpha}").json()
+    assert shared["is_correct"] is False and "another team" in shared["message"]
+    ledger = client.get("/api/v2/drills/1/score-events", headers=REF()).json()["events"]
+    assert any(
+        e["kind"] == "report" and "sharing" in e["reason"] and e["points"] == 0 for e in ledger
+    )
+
+    assert submit(client, DEE, "FLAG{bravo}").json()["is_correct"] is True
+    # Open flags (no machine, no per-team value) still work from the scenario value.
+    assert submit(client, ANA, OPEN_FLAG).json()["is_correct"] is True

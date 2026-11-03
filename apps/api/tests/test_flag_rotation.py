@@ -146,3 +146,54 @@ async def test_no_range_means_no_rotation(world) -> None:
     report = await rotate_round_flags(session, drill, 1, None)
     assert report["status"] == "skipped"
     assert (await _values(session, drill))["red-web"] == "FLAG{old0}"
+
+
+@pytest.mark.asyncio
+async def test_separate_matches_get_a_value_per_team_planted_only_on_their_own_copy(world) -> None:
+    from app.db.models_drill import DrillRound, DrillTeam, DrillTeamFlag
+    from sqlalchemy import select
+
+    session, drill, adapter = world
+    runner = Runner(adapter=adapter)
+    second = await runner.start_run(RunRequest(scenario_id=drill.scenario_id, instance=2), session)
+    drill.environment_config = {
+        **drill.environment_config,
+        "match_mode": "separate",
+        "match_runs": {"2": second.run_id},
+    }
+    for position, match in enumerate((1, 2, 1, 2), start=1):
+        session.add(
+            DrillTeam(drill_id=drill.id, name=f"T{position}", position=position, match_number=match)
+        )
+    await session.flush()
+    teams = (await session.execute(select(DrillTeam).order_by(DrillTeam.position))).scalars().all()
+    session.add(
+        DrillRound(
+            drill_id=drill.id,
+            number=1,
+            name="Round 1",
+            status="active",
+            assignments={str(t.id): {"side": "red" if t.position <= 2 else "blue"} for t in teams},
+        )
+    )
+    await session.commit()
+
+    before = len(adapter.seeds_applied)
+    report = await rotate_round_flags(session, drill, 1, adapter)
+    assert report["status"] == "rotated"
+    rows = (await session.execute(select(DrillTeamFlag))).scalars().all()
+    web = {r.team_id: r.value for r in rows if r.flag_name == "red-web"}
+    # Red teams are T1 (match 1) and T2 (match 2): one value each, and they differ.
+    assert set(web) == {teams[0].id, teams[1].id} and len(set(web.values())) == 2
+
+    from app.db.models import Asset
+
+    owner = {}
+    for asset in (await session.execute(select(Asset))).scalars():
+        owner[asset.pve_vmid] = asset.run_id
+    first_run = drill.environment_config["provision_run_id"]
+    planted = {}
+    for vmid, _node, spec in adapter.seeds_applied[before:]:
+        if spec.files and "/opt/divide/flags/red-web.txt" in spec.files:
+            planted[owner[vmid]] = spec.files["/opt/divide/flags/red-web.txt"].strip()
+    assert planted == {first_run: web[teams[0].id], second.run_id: web[teams[1].id]}

@@ -22,6 +22,22 @@ team attacks once and defends once; points from all rounds are added up.
   always see live points. Finishing the round reveals everything.
 - Ties are broken by whichever team reached its score first.
 
+## One range per match
+By default every team shares one range. With 4 or 6 teams the Teams tab offers **One range per match**
+(choose it before preparing; it cannot change once a range exists). Teams are paired as the side swap
+pairs them (Alpha with Charlie, Bravo with Delta, ...) and each pair gets its own copy of the range:
+VLANs shifted by 20 per copy, VM names prefixed `M2-`, `M3-`, and its own snapshot baselines. Preparing
+builds the copies one after another, stopping the drill stops all of them, and **Reset range** resets all
+of them. A player's machine list and console follow their team's copy; referees can open any copy.
+
+Memory scales with the number of matches, so check the scenario's RAM times the match count against the
+node before preparing. A scenario whose router is an OPNsense image cannot make copies (its VLANs are
+fixed inside the image) and preparation fails with that message.
+
+Flags then become **per team**: each team's value is planted only on its own copy. Submitting another
+team's value scores nothing and adds a zero-point "possible flag sharing" note to the ledger. Flags with
+no machine, and flags that are not red/blue, keep one value for everyone.
+
 ## Flags per round
 Starting a round gives every flag that lives on a machine a new value, `FLAG{<name>_r<round>_<hex>}`,
 derived from a per-drill secret. The value is written to the machine first and saved only when that

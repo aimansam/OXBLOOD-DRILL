@@ -117,7 +117,7 @@ async def get_teams(
     db: AsyncSession = Depends(get_session),
     token: TokenData | None = Depends(current_token),
 ):
-    await _drill_or_404(db, drill_id)
+    drill = await _drill_or_404(db, drill_id)
     await _require_viewer(db, drill_id, token)
     operator = _is_operator(token)
     teams = await svc.list_teams(db, drill_id)
@@ -128,7 +128,10 @@ async def get_teams(
         own = next(
             (tid for tid, rows in members.items() if any(m["user_id"] == uid for m in rows)), None
         )
-    return {"teams": [_team_out(t, members.get(t.id, []), operator or t.id == own) for t in teams]}
+    return {
+        "teams": [_team_out(t, members.get(t.id, []), operator or t.id == own) for t in teams],
+        "match_mode": "separate" if matches.is_separate(drill) else "shared",
+    }
 
 
 @router.post("/{drill_id}/teams", response_model=TeamListOut, response_model_exclude_unset=True)
@@ -286,6 +289,7 @@ async def get_rounds(
     return {
         "rounds": [_round_out(r) for r in await svc.list_rounds(db, drill_id)],
         "range_reset": (drill.environment_config or {}).get("range_reset"),
+        "flag_rotation": (drill.environment_config or {}).get("flag_rotation"),
     }
 
 

@@ -24,9 +24,11 @@ from app.db.models_drill import (
     DrillRound,
     DrillScoreEvent,
     DrillTeam,
+    DrillTeamFlag,
     Submission,
     SubmissionStatus,
 )
+from app.services import matches as match_svc
 from app.services import teams as team_service
 from app.services.flag_rotation import earlier_round_values
 from app.services.submission_service import calculate_flag_points, calculate_time_decay
@@ -124,22 +126,51 @@ async def submit_team_flag(
     if not flags:
         raise CompetitionError(409, "This drill has no flags yet.")
     submitted = flag_value.strip()
-    matched = next((f for f in flags if f.value.strip() == submitted), None)
+    drill = await db.get(Drill, ctx.drill_id)
+    separate = drill is not None and match_svc.is_separate(drill)
+    team_rows = []
+    if separate:
+        team_rows = list(
+            (await db.execute(select(DrillTeamFlag).where(DrillTeamFlag.drill_id == ctx.drill_id)))
+            .scalars()
+            .all()
+        )
+    this_round = [r for r in team_rows if r.round_number == ctx.round.number]
+    own_names = {r.flag_name for r in this_round if r.team_id == ctx.team_id}
+    row = next((r for r in this_round if r.value == submitted), None)
 
+    matched = None
+    foreign_team: int | None = None
     message = None
+    if row is not None and row.team_id == ctx.team_id:
+        matched = next((f for f in flags if f.name == row.flag_name), None)
+    elif row is not None:
+        foreign_team = row.team_id
+        message = "That value was planted for another team's machines and does not score for you."
+    else:
+        # A flag that has its own value for this team is no longer valid in its scenario form.
+        matched = next(
+            (f for f in flags if f.value.strip() == submitted and f.name not in own_names), None
+        )
+        if matched is None:
+            earlier = any(
+                r.round_number < ctx.round.number and r.value == submitted for r in team_rows
+            )
+            seed = (drill.environment_config or {}).get("flag_seed") if drill else None
+            if earlier or (
+                seed
+                and any(
+                    submitted in earlier_round_values(seed, ctx.round.number, f.name) for f in flags
+                )
+            ):
+                message = "That flag is from an earlier round and no longer scores."
+
     scoring = matched
     if matched is not None:
         owner = flag_side(matched)
         if owner is not None and owner != ctx.side:
             scoring = None
             message = f"That is a {owner} flag; your team plays {ctx.side} this round."
-    if matched is None:
-        env = (await db.get(Drill, ctx.drill_id)).environment_config or {}  # type: ignore[union-attr]
-        seed = env.get("flag_seed")
-        if seed and any(
-            submitted in earlier_round_values(seed, ctx.round.number, f.name) for f in flags
-        ):
-            message = "That flag is from an earlier round and no longer scores."
     attach_to = matched or flags[0]  # a wrong guess is recorded against some flag for the audit
 
     already = None
@@ -194,6 +225,20 @@ async def submit_team_flag(
             hints_used=hints_used,
         )
     )
+
+    if foreign_team is not None:
+        # Zero points, but the referees see who handed a flag to whom.
+        await team_service.add_score_event(
+            db,
+            ctx.drill_id,
+            kind="report",
+            points=0,
+            reason=f"Possible flag sharing: submitted the value planted for team {foreign_team}",
+            team_id=ctx.team_id,
+            user_id=ctx.user_id,
+            round_id=ctx.round.id,
+            commit=False,
+        )
 
     first_blood = False
     bonus = 0

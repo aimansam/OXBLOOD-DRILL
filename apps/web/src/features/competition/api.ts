@@ -16,6 +16,7 @@ export const competitionApi = {
   assign: (drillId: number, teamId: number, userId: number) => http.put<unknown>(`${base(drillId)}/teams/${teamId}/members/${userId}`),
   unassign: (drillId: number, teamId: number, userId: number) => http.delete<unknown>(`${base(drillId)}/teams/${teamId}/members/${userId}`),
   setCaptain: (drillId: number, teamId: number, userId: number) => http.put<unknown>(`${base(drillId)}/teams/${teamId}/captain`, { user_id: userId }),
+  setMatchMode: (drillId: number, mode: 'shared' | 'separate') => http.put<{ mode: string; matches: number }>(`${base(drillId)}/matches`, { mode }),
   planRounds: (drillId: number, rounds = 2) => http.post<{ rounds: Round[] }>(`${base(drillId)}/rounds/plan`, { rounds }),
   startRound: (drillId: number, n: number) => http.post<Round & { flag_rotation?: FlagRotation }>(`${base(drillId)}/rounds/${n}/start`),
   finishRound: (drillId: number, n: number) => http.post<Round>(`${base(drillId)}/rounds/${n}/finish`),
@@ -32,7 +33,17 @@ export const useTeams = (drillId: number | null) =>
   useQuery({
     queryKey: ['teams', drillId],
     enabled: drillId !== null,
-    queryFn: async () => (await api.GET('/api/v2/drills/{drill_id}/teams', { params: { path: { drill_id: drillId as number } } }).then(unwrap)).teams,
+    queryFn: async () => api.GET('/api/v2/drills/{drill_id}/teams', { params: { path: { drill_id: drillId as number } } }).then(unwrap),
+    select: (data) => data.teams,
+  });
+
+/** "shared": one range for every team. "separate": one range copy per match (teams are paired). */
+export const useMatchMode = (drillId: number | null) =>
+  useQuery({
+    queryKey: ['teams', drillId],
+    enabled: drillId !== null,
+    queryFn: async () => api.GET('/api/v2/drills/{drill_id}/teams', { params: { path: { drill_id: drillId as number } } }).then(unwrap),
+    select: (data) => (data.match_mode === 'separate' ? 'separate' : 'shared') as 'shared' | 'separate',
   });
 
 export const useRounds = (drillId: number | null) =>
@@ -45,6 +56,7 @@ export const useRounds = (drillId: number | null) =>
   });
 
 export interface FlagRotation {
+  round: number;
   status: 'rotated' | 'partial' | 'failed' | 'skipped';
   rotated: string[];
   failed: { flag: string; error: string }[];
@@ -56,6 +68,15 @@ export interface RangeReset {
   error: string | null;
   at: string;
 }
+
+export const useFlagRotation = (drillId: number | null) =>
+  useQuery({
+    queryKey: ['rounds', drillId],
+    enabled: drillId !== null,
+    refetchInterval: 5_000,
+    queryFn: async () => api.GET('/api/v2/drills/{drill_id}/rounds', { params: { path: { drill_id: drillId as number } } }).then(unwrap),
+    select: (data) => (data.flag_rotation ?? null) as FlagRotation | null,
+  });
 
 /** Same cached request as useRounds; the reset state rides along with the schedule. */
 export const useRangeReset = (drillId: number | null) =>

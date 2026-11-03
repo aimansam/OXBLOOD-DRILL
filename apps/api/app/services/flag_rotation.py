@@ -16,13 +16,14 @@ import re
 import secrets
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import models as catalog_models
-from app.db.models_drill import Drill, DrillFlag
+from app.db.models_drill import Drill, DrillFlag, DrillRound, DrillTeam, DrillTeamFlag
 from app.modules.drills.lifecycle import provision_run_id
 from app.runners.adapter import SeedSpec
+from app.services import matches as match_svc
 
 log = logging.getLogger("app.services.flag_rotation")
 
@@ -30,9 +31,10 @@ FLAG_DIR = "/opt/divide/flags"
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9_.-]")
 
 
-def derive_flag_value(seed: str, round_number: int, name: str) -> str:
-    """``FLAG{<name>_r<round>_<10 hex>}``, stable for a (drill secret, round, flag)."""
-    digest = hmac.new(seed.encode(), f"{round_number}:{name}".encode(), hashlib.sha256).hexdigest()
+def derive_flag_value(seed: str, round_number: int, name: str, team_id: int | None = None) -> str:
+    """``FLAG{<name>_r<round>_<10 hex>}``, stable for a (drill secret, round, flag[, team])."""
+    message = f"{round_number}:{name}" + (f":{team_id}" if team_id is not None else "")
+    digest = hmac.new(seed.encode(), message.encode(), hashlib.sha256).hexdigest()
     slug = _SAFE_NAME.sub("_", name)
     return f"FLAG{{{slug}_r{round_number}_{digest[:10]}}}"
 
@@ -53,6 +55,41 @@ def _targets(assets: list[Any], planted_on_role: str) -> list[Any]:
             or re.sub(r"_\d+$", "", a.role) == planted_on_role
         )
     ]
+
+
+def _name_side(name: str) -> str | None:
+    lowered = name.lower()
+    return "red" if lowered.startswith("red-") else "blue" if lowered.startswith("blue-") else None
+
+
+async def _plant(adapter: Any, machines: list[Any], name: str, value: str, old: str) -> str | None:
+    """Write ``value`` on every machine. On failure put ``old`` back where the new one landed."""
+    done: list[Any] = []
+    try:
+        for asset in machines:
+            await adapter.apply_guest_seed(
+                asset.pve_vmid,
+                asset.pve_node,
+                SeedSpec(
+                    role=asset.role,
+                    files={f"{FLAG_DIR}/{name}.txt": value + "\n"},
+                    runcmd=[f"chmod -R 700 {FLAG_DIR.rsplit('/', 1)[0]}"],
+                ),
+            )
+            done.append(asset)
+    except Exception as exc:  # noqa: BLE001 - guest agent errors vary
+        log.warning("flag_rotation.plant_failed flag=%s err=%s", name, exc)
+        for asset in done:
+            try:
+                await adapter.apply_guest_seed(
+                    asset.pve_vmid,
+                    asset.pve_node,
+                    SeedSpec(role=asset.role, files={f"{FLAG_DIR}/{name}.txt": old + "\n"}),
+                )
+            except Exception:  # noqa: BLE001
+                pass
+        return str(exc)
+    return None
 
 
 async def rotate_round_flags(
@@ -77,15 +114,21 @@ async def rotate_round_flags(
             for f in (doc.get("spec") or doc).get("flags") or []
             if isinstance(f, dict)
         }
-        assets = list(
+        runs = match_svc.run_ids(drill)
+        separate = match_svc.is_separate(drill)
+        assets_by_run: dict[int, list[Any]] = {rid: [] for rid in runs.values()}
+        for asset in (
             (
                 await db.execute(
-                    select(catalog_models.Asset).where(catalog_models.Asset.run_id == run_id)
+                    select(catalog_models.Asset).where(
+                        catalog_models.Asset.run_id.in_(list(runs.values()) or [-1])
+                    )
                 )
             )
             .scalars()
             .all()
-        )
+        ):
+            assets_by_run[asset.run_id].append(asset)
         env = dict(drill.environment_config or {})
         seed = str(env.get("flag_seed") or secrets.token_hex(16))
         flags = (
@@ -93,40 +136,77 @@ async def rotate_round_flags(
             .scalars()
             .all()
         )
+        teams: list[DrillTeam] = []
+        sides: dict[str, str] = {}
+        if separate:
+            teams = list(
+                (await db.execute(select(DrillTeam).where(DrillTeam.drill_id == drill.id)))
+                .scalars()
+                .all()
+            )
+            current = (
+                await db.execute(
+                    select(DrillRound).where(
+                        DrillRound.drill_id == drill.id, DrillRound.number == round_number
+                    )
+                )
+            ).scalar_one_or_none()
+            sides = {
+                tid: str((info or {}).get("side"))
+                for tid, info in ((current.assignments if current else None) or {}).items()
+            }
         for flag in flags:
             role = planted_on.get(flag.name, "")
-            machines = _targets(assets, role) if role else []
+            if not role:
+                continue
+            side = _name_side(flag.name)
+            if separate and side is not None:
+                # One value per team, planted only on that team's own range copy.
+                for copy, run_id in sorted(runs.items()):
+                    owner = next(
+                        (
+                            t
+                            for t in teams
+                            if t.match_number == copy and sides.get(str(t.id)) == side
+                        ),
+                        None,
+                    )
+                    machines = _targets(assets_by_run.get(run_id, []), role)
+                    if owner is None or not machines:
+                        continue
+                    label = f"{flag.name} (match {copy})"
+                    value = derive_flag_value(seed, round_number, flag.name, owner.id)
+                    error = await _plant(adapter, machines, flag.name, value, flag.value)
+                    if error:
+                        report["failed"].append({"flag": label, "error": error})
+                        continue
+                    await db.execute(
+                        delete(DrillTeamFlag).where(
+                            DrillTeamFlag.drill_id == drill.id,
+                            DrillTeamFlag.round_number == round_number,
+                            DrillTeamFlag.team_id == owner.id,
+                            DrillTeamFlag.flag_name == flag.name,
+                        )
+                    )
+                    db.add(
+                        DrillTeamFlag(
+                            drill_id=drill.id,
+                            round_number=round_number,
+                            team_id=owner.id,
+                            flag_name=flag.name,
+                            value=value,
+                        )
+                    )
+                    report["rotated"].append(label)
+                continue
+            # A value shared by everyone who can reach the machine(s), on every range copy.
+            machines = [m for rid in runs.values() for m in _targets(assets_by_run[rid], role)]
             if not machines:
                 continue  # nothing to plant on: leave the value alone
             new_value = derive_flag_value(seed, round_number, flag.name)
-            done: list[Any] = []
-            try:
-                for asset in machines:
-                    await adapter.apply_guest_seed(
-                        asset.pve_vmid,
-                        asset.pve_node,
-                        SeedSpec(
-                            role=asset.role,
-                            files={f"{FLAG_DIR}/{flag.name}.txt": new_value + "\n"},
-                            runcmd=[f"chmod -R 700 {FLAG_DIR.rsplit('/', 1)[0]}"],
-                        ),
-                    )
-                    done.append(asset)
-            except Exception as exc:  # noqa: BLE001 - guest agent errors vary
-                log.warning("flag_rotation.plant_failed flag=%s err=%s", flag.name, exc)
-                for asset in done:  # put the old value back where the new one landed
-                    try:
-                        await adapter.apply_guest_seed(
-                            asset.pve_vmid,
-                            asset.pve_node,
-                            SeedSpec(
-                                role=asset.role,
-                                files={f"{FLAG_DIR}/{flag.name}.txt": flag.value + "\n"},
-                            ),
-                        )
-                    except Exception:  # noqa: BLE001
-                        pass
-                report["failed"].append({"flag": flag.name, "error": str(exc)})
+            error = await _plant(adapter, machines, flag.name, new_value, flag.value)
+            if error:
+                report["failed"].append({"flag": flag.name, "error": error})
                 continue
             flag.value = new_value
             report["rotated"].append(flag.name)
