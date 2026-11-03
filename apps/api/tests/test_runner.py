@@ -166,10 +166,10 @@ async def test_build_snapshot_baselines_refuses_an_incomplete_set(session: Async
 
 @pytest.mark.asyncio
 async def test_reset_run_to_baselines_restores_every_vm_in_place(session: AsyncSession) -> None:
-    scenario = _scenario_with("reset-in-place", [_asset("dc01"), _asset("web")])
+    scenario = _scenario_with("reset-in-place", [_asset("app1"), _asset("app2")])
     session.add(scenario)
     await session.commit()
-    adapter = MockProxmoxAdapter()
+    adapter = MockProxmoxAdapter(ip_template="10.10.0.40")
     adapter.seed_template("tpl-x", 9000)
     runner = Runner(adapter=adapter)
     await runner.build_snapshot_baselines(scenario.id, session)
@@ -241,6 +241,61 @@ async def test_range_copies_have_their_own_baselines_vlans_and_names(session: As
     assert restored == [two[0].pve_vmid]  # copy 2 restored its own VM, not copy 1's
     state = await adapter.get_vm_state(two[0].pve_vmid, two[0].pve_node)
     assert state.name == "M2-WEB01"
+
+
+async def _range_with_baselines(session, adapter_cls, name, assets, ip="10.10.0.40"):
+    scenario = _scenario_with(name, assets)
+    scenario.spec["spec"]["networks"] = [{"name": "n", "cidr": "10.10.0.0/24"}]
+    session.add(scenario)
+    await session.commit()
+    adapter = adapter_cls(ip_template=ip)  # the address the scenario gives this role
+    adapter.seed_template("tpl-x", 9000)
+    runner = Runner(adapter=adapter)
+    await runner.build_snapshot_baselines(scenario.id, session)
+    result = await runner.start_run(RunRequest(scenario_id=scenario.id), session)
+    return runner, adapter, result
+
+
+@pytest.mark.asyncio
+async def test_reset_waits_for_the_guest_agent_to_report_an_address(session: AsyncSession) -> None:
+    class SlowBootAdapter(MockProxmoxAdapter):
+        polls = 0
+
+        async def get_vm_state(self, vmid: int, node: str):
+            state = await super().get_vm_state(vmid, node)
+            self.polls += 1
+            return state if self.polls > 4 else dataclasses.replace(state, ip=None)
+
+    runner, adapter, result = await _range_with_baselines(
+        session, SlowBootAdapter, "reset-slow-boot", [_asset("web")]
+    )
+    adapter.polls = 0
+    assert await runner.reset_run_to_baselines(result.run_id, session, poll_s=0) == 1
+    assert adapter.polls > 4  # it polled until the agent answered
+
+
+@pytest.mark.asyncio
+async def test_reset_fails_when_a_guest_has_no_address_or_the_wrong_one(
+    session: AsyncSession,
+) -> None:
+    class NoNetAdapter(MockProxmoxAdapter):
+        ip_override: str | None = "UNSET"
+
+        async def get_vm_state(self, vmid: int, node: str):
+            state = await super().get_vm_state(vmid, node)
+            if self.ip_override == "UNSET":
+                return state
+            return dataclasses.replace(state, ip=self.ip_override)
+
+    runner, adapter, result = await _range_with_baselines(
+        session, NoNetAdapter, "reset-no-net", [_asset("red_workstation")], ip="10.10.0.10"
+    )
+    adapter.ip_override = None
+    with pytest.raises(RunnerError, match="red_workstation: the guest agent reports no address"):
+        await runner.reset_run_to_baselines(result.run_id, session, settle_timeout_s=0, poll_s=0)
+    adapter.ip_override = "10.10.0.99"  # declared address is 10.10.0.10 for a red workstation
+    with pytest.raises(RunnerError, match="address 10.10.0.99, expected 10.10.0.10"):
+        await runner.reset_run_to_baselines(result.run_id, session, settle_timeout_s=0, poll_s=0)
 
 
 # --- fixtures ---------------------------------------------------------------

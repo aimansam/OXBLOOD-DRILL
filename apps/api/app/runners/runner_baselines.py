@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import UTC, datetime
@@ -17,6 +18,7 @@ from app.runners.runner_base import (
     _PERSISTENT_APPLIANCE_BASELINE,
     RunnerBase,
     RunnerError,
+    _static_ip_configs,
     _vm_name,
     instance_spec,
 )
@@ -48,7 +50,13 @@ class BaselineMixin(RunnerBase):
         return {row.role for row in rows}
 
     async def reset_run_to_baselines(
-        self, run_id: int, session: AsyncSession, actor: str | None = None
+        self,
+        run_id: int,
+        session: AsyncSession,
+        actor: str | None = None,
+        *,
+        settle_timeout_s: float = 150.0,
+        poll_s: float = 3.0,
     ) -> int:
         """Roll a live run's VMs back to their clean snapshots, boot and check them.
 
@@ -88,7 +96,57 @@ class BaselineMixin(RunnerBase):
         down = [a.role for a in assets if a.status != AssetStatus.RUNNING]
         if down:
             raise RunnerError("Range reset incomplete, not running: " + ", ".join(sorted(down)))
+        problems = await self._wait_for_guests(assets, specs, spec, settle_timeout_s, poll_s)
+        if problems:
+            raise RunnerError("Range reset check failed: " + "; ".join(problems))
         return len(assets)
+
+    async def _wait_for_guests(
+        self,
+        assets: list[models.Asset],
+        specs: dict[str, dict],
+        spec: dict,
+        timeout_s: float,
+        poll_s: float,
+    ) -> list[str]:
+        """Wait until every guest agent reports the address the scenario gives that machine.
+
+        "The VM is running" is not enough: after a snapshot rollback a guest can be up with no
+        network (drill 143: RED01 had only a loopback address). Machines without a guest agent
+        (the OPNsense router) are skipped.
+        """
+        pending = {
+            a.id: a
+            for a in assets
+            if a.pve_vmid is not None
+            and a.pve_node
+            and "opnsense" not in (a.template or "").lower()
+        }
+        problems: dict[int, str] = {}
+        deadline = asyncio.get_running_loop().time() + timeout_s
+        while pending:
+            for asset_id, asset in list(pending.items()):
+                state = await self._adapter.get_vm_state(asset.pve_vmid, asset.pve_node)  # type: ignore[arg-type]
+                asset_spec = specs.get(re.sub(r"_\d+$", "", asset.role), {})
+                configs = _static_ip_configs(asset_spec, spec) if asset_spec else {}
+                expected = None
+                if len(configs) == 1:
+                    match = re.search(r"ip=([\d.]+)/", next(iter(configs.values())))
+                    expected = match.group(1) if match else None
+                if state.status != "running":
+                    problems[asset_id] = f"{asset.role}: {state.status}"
+                elif not state.ip:
+                    problems[asset_id] = f"{asset.role}: the guest agent reports no address"
+                elif expected and state.ip != expected:
+                    problems[asset_id] = f"{asset.role}: address {state.ip}, expected {expected}"
+                else:
+                    asset.pve_ip = state.ip
+                    problems.pop(asset_id, None)
+                    del pending[asset_id]
+            if not pending or asyncio.get_running_loop().time() >= deadline:
+                break
+            await asyncio.sleep(poll_s)
+        return sorted(problems.values())
 
     async def build_snapshot_baselines(
         self,

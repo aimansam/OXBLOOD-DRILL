@@ -51,7 +51,10 @@ without baselines cannot be reset in place; the reset refuses and names the mach
 - **Flags are per round, not per team.** Starting a round plants fresh values on the machines (guest
   agent) and saves them; round 1's values stop scoring. Teams that attack the same machine in the same
   round still share its value. Per-team values need one range copy per match.
-- **The reset check is shallow:** it confirms each VM is running, not that its services answer.
+- **The reset check stops at the network:** after a reset it waits (up to 150 s) for every guest agent
+  to report the address the scenario gives that machine, and fails naming the machine otherwise. The
+  OPNsense router has no agent and is skipped. It does not test that services answer; do that from
+  the Blue workstation before the first round.
 - **Blue-team detection points** are awarded by a referee ("Detection" in the referee form); nothing
   scores blue automatically from alerts.
 - **Flags are fixed strings**, the same for every team. Teams that share a flag will both score it;
