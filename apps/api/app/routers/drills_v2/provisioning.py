@@ -17,6 +17,7 @@ from app.db.models_drill import (
     Drill,
     DrillEvent,
     DrillStatus,
+    DrillTeam,
 )
 from app.db.session import get_sessionmaker
 from app.modules.drills.lifecycle import (
@@ -27,6 +28,7 @@ from app.modules.drills.lock import (
     set_environment_lock_status,
 )
 from app.runners.runner import RunnerError, RunRequest
+from app.services import matches
 from app.services.drill_service import (
     get_drill,
 )
@@ -165,13 +167,17 @@ async def _provision_drill_background(
                 return
             scenario = await db.get(catalog_models.Scenario, scenario_id)
             doc = (scenario.spec if scenario else None) or {}
+            copies = await _match_count(db, drill)
             if ((doc.get("spec") or doc).get("provisioning") or {}).get("auto_baseline"):
                 await _set_drill_provision_status(
                     drill_id,
                     "starting",
                     error="Checking clean snapshots; building them on the first prepare.",
                 )
-                await runner.build_snapshot_baselines(scenario_id, db, actor="oxblood")
+                for copy in range(1, copies + 1):
+                    await runner.build_snapshot_baselines(
+                        scenario_id, db, actor="oxblood", instance=copy
+                    )
             run_task = asyncio.create_task(
                 runner.start_run(
                     RunRequest(
@@ -208,6 +214,26 @@ async def _provision_drill_background(
                         )
                 await asyncio.sleep(0.5)
             result = await run_task
+            for copy in range(2, copies + 1):
+                if job.cancel_event.is_set():
+                    break
+                await _set_drill_provision_status(
+                    drill_id,
+                    "starting",
+                    provision_run_id=result.run_id,
+                    error=f"Preparing the range for match {copy} of {copies}.",
+                )
+                extra = await runner.start_run(
+                    RunRequest(
+                        scenario_id=scenario_id,
+                        started_by="oxblood",
+                        timeout_min=-1,
+                        cancel_event=job.cancel_event,
+                        instance=copy,
+                    ),
+                    db,
+                )
+                await _record_match_run(drill_id, copy, extra.run_id)
         if result.status == RunStatus.CANCELLED:
             await _set_drill_provision_status(drill_id, "cancelled", provision_run_id=result.run_id)
         else:
@@ -315,13 +341,15 @@ async def _stop_drill_provision_run(db: AsyncSession, drill) -> str | None:
         await release_environment_lock(db, drill_id=drill.id)
         return "stopped"
 
+    all_run_ids = [run_id, *(r for n, r in sorted(matches.run_ids(drill).items()) if r != run_id)]
     try:
-        await _get_runner().stop_run(
-            run_id,
-            reason=f"OxBlood drill {drill.id} stopped",
-            session=db,
-            actor="oxblood",
-        )
+        for each in all_run_ids:
+            await _get_runner().stop_run(
+                each,
+                reason=f"OxBlood drill {drill.id} stopped",
+                session=db,
+                actor="oxblood",
+            )
     except RunnerError as exc:
         env = dict(drill.environment_config or {})
         env["cleanup_status"] = "failed"
@@ -342,7 +370,7 @@ async def _stop_drill_provision_run(db: AsyncSession, drill) -> str | None:
         (
             await db.execute(
                 select(catalog_models.Asset)
-                .where(catalog_models.Asset.run_id == run_id)
+                .where(catalog_models.Asset.run_id.in_(all_run_ids))
                 .where(catalog_models.Asset.status == AssetStatus.ORPHANED)
             )
         )
@@ -438,11 +466,34 @@ async def _set_range_reset(drill_id: int, status: str, error: str | None = None)
         await db.commit()
 
 
-async def _reset_range_background(drill_id: int, run_id: int) -> None:
+async def _reset_range_background(drill_id: int, run_ids: int | list[int]) -> None:
+    ids = [run_ids] if isinstance(run_ids, int) else list(run_ids)
     try:
-        async with get_sessionmaker()() as db:
-            await _get_runner().reset_run_to_baselines(run_id, db, actor="oxblood")
+        for run_id in ids:
+            async with get_sessionmaker()() as db:
+                await _get_runner().reset_run_to_baselines(run_id, db, actor="oxblood")
         await _set_range_reset(drill_id, "ready")
     except Exception as exc:  # noqa: BLE001
         log.exception("oxblood.range_reset_failed drill_id=%s", drill_id)
         await _set_range_reset(drill_id, "failed", _provision_error_message(exc))
+
+
+async def _match_count(db: AsyncSession, drill) -> int:
+    """How many range copies this drill needs: 1 unless matches are separate."""
+    if not matches.is_separate(drill):
+        return 1
+    teams = (await db.execute(select(DrillTeam).where(DrillTeam.drill_id == drill.id))).scalars()
+    return matches.match_count(list(teams))
+
+
+async def _record_match_run(drill_id: int, copy: int, run_id: int) -> None:
+    async with get_sessionmaker()() as db:
+        drill = (
+            await db.execute(select(Drill).where(Drill.id == drill_id).with_for_update())
+        ).scalar_one_or_none()
+        if drill is None:
+            return
+        env = dict(drill.environment_config or {})
+        env[matches.RUNS_KEY] = {**(env.get(matches.RUNS_KEY) or {}), str(copy): run_id}
+        drill.environment_config = env
+        await db.commit()

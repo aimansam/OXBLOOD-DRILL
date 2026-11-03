@@ -266,6 +266,7 @@ def test_responses_do_not_grow_spurious_null_fields(api):
         "color",
         "position",
         "captain_user_id",
+        "match_number",
         "member_count",
         "members",
     }
@@ -331,7 +332,7 @@ def test_next_round_waits_for_a_healthy_range(api, reset_calls):
 
     reset = client.post("/api/v2/drills/1/range/reset", headers=ref())
     assert reset.status_code == 202
-    assert reset_calls == [(1, 7)]
+    assert reset_calls == [(1, [7])]
     assert client.get("/api/v2/drills/1/rounds", headers=ref()).json()["range_reset"]["status"] == (
         "resetting"
     )
@@ -344,3 +345,23 @@ def test_next_round_waits_for_a_healthy_range(api, reset_calls):
 
     _set_env(maker, range_reset={"status": "ready", "error": None})
     assert client.post("/api/v2/drills/1/rounds/2/start", headers=ref()).status_code == 200
+
+
+def test_teams_are_paired_into_matches_and_the_mode_is_chosen_before_a_range_exists(api):
+    client, maker = api
+    teams = setup_four_teams(client)
+    assert [t["match_number"] for t in teams] == [1, 2, 1, 2]  # Alpha+Charlie, Bravo+Delta
+
+    assert (
+        client.put("/api/v2/drills/1/matches", json={"mode": "x"}, headers=ref()).status_code == 422
+    )
+    assert (
+        client.put("/api/v2/drills/1/matches", json={"mode": "separate"}, headers=ana()).status_code
+        == 403
+    )
+    ok = client.put("/api/v2/drills/1/matches", json={"mode": "separate"}, headers=ref())
+    assert ok.json() == {"mode": "separate", "matches": 2}
+
+    _set_env(maker, provision_run_id=5)
+    late = client.put("/api/v2/drills/1/matches", json={"mode": "shared"}, headers=ref())
+    assert late.status_code == 409  # a range already exists

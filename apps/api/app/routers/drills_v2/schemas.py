@@ -254,6 +254,7 @@ class TeamOut(BaseModel):
     color: str | None = None
     position: int
     captain_user_id: int | None = None
+    match_number: int = 1
     members: list[TeamMemberOut] = []
     member_count: int = 0
 
@@ -317,6 +318,10 @@ class MyTeamOut(BaseModel):
     team: TeamOut | None = None
     round: RoundOut | None = None
     side: str | None = None
+
+
+class MatchModeUpdate(BaseModel):
+    mode: str  # "shared" (one range for all teams) or "separate" (one range copy per match)
 
 
 class CaptainUpdate(BaseModel):

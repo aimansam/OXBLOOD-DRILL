@@ -218,6 +218,10 @@ class DrillTeam(Base):
     captain_user_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="SET NULL")
     )
+    # Teams that share a match number play each other on the same range copy (see services/matches).
+    match_number: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -225,6 +229,30 @@ class DrillTeam(Base):
     __table_args__ = (
         UniqueConstraint("drill_id", "name", name="uq_drill_teams_name"),
         UniqueConstraint("drill_id", "position", name="uq_drill_teams_position"),
+    )
+
+
+class DrillTeamFlag(Base):
+    """A flag value that belongs to one team in one round (separate-match competitions)."""
+
+    __tablename__ = "drill_team_flags"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    drill_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("drills.id", ondelete="CASCADE"), nullable=False
+    )
+    round_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("drill_teams.id", ondelete="CASCADE"), nullable=False
+    )
+    flag_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "drill_id", "round_number", "team_id", "flag_name", name="uq_drill_team_flags_key"
+        ),
+        Index("idx_drill_team_flags_value", "drill_id", "round_number", "value"),
     )
 
 

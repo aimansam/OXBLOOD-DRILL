@@ -17,6 +17,7 @@ from app.db.models_drill import (
     DrillFlag,
     DrillObjective,
     DrillParticipant,
+    DrillTeam,
 )
 from app.modules.drills.lifecycle import (
     lifecycle_snapshot as _drill_lifecycle,
@@ -27,6 +28,7 @@ from app.modules.drills.lifecycle import (
 from app.modules.drills.lifecycle import (
     provision_run_id as _drill_provision_run_id,
 )
+from app.services import matches as match_svc
 from app.services.proxmox import ProxmoxAPIError
 
 from .access import _asset_side, _get_runner
@@ -497,6 +499,46 @@ async def _range_health(db: AsyncSession, drill, token: TokenData | None = None)
             "detail": f"{len(healthy_assets)}/{expected_assets} machines running without provisioning errors.",
         },
     )
+    if match_svc.is_separate(drill):
+        copies = match_svc.match_count(
+            list(
+                (
+                    await db.execute(select(DrillTeam).where(DrillTeam.drill_id == drill.id))
+                ).scalars()
+            )
+        )
+        prepared = match_svc.run_ids(drill)
+        for copy in range(2, copies + 1):
+            copy_assets = (
+                (
+                    await db.execute(
+                        select(catalog_models.Asset).where(
+                            catalog_models.Asset.run_id == prepared.get(copy, -1)
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            up = [a for a in copy_assets if a.status == AssetStatus.RUNNING and not a.error]
+            done = expected_assets > 0 and len(up) == expected_assets == len(copy_assets)
+            checks.insert(
+                2,
+                {
+                    "id": f"match-{copy}-machines",
+                    "label": f"Match {copy} range machines are running",
+                    "side": "shared",
+                    "required": True,
+                    "state": "ready"
+                    if done
+                    else "starting"
+                    if copy not in prepared and provision in {"starting", "waiting", "validating"}
+                    else "needs_attention",
+                    "detail": f"{len(up)}/{expected_assets} machines running in match {copy}."
+                    if copy in prepared
+                    else f"Match {copy} has not been prepared yet.",
+                },
+            )
     required_sides = [
         side for side in ("red", "blue") if (scenario_spec.get("objectives") or {}).get(side)
     ]

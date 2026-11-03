@@ -66,8 +66,13 @@ async def ensure_teams(db: AsyncSession, drill_id: int, count: int = 4) -> list[
             continue
         name, color = TEAM_PALETTE[position - 1]
         db.add(DrillTeam(drill_id=drill_id, name=name, color=color, position=position))
+    await db.flush()
+    teams = await list_teams(db, drill_id)
+    from app.services.matches import pair_matches  # local: matches imports the drill models too
+
+    pair_matches(teams)
     await db.commit()
-    return await list_teams(db, drill_id)
+    return teams
 
 
 async def get_team(db: AsyncSession, drill_id: int, team_id: int) -> DrillTeam:

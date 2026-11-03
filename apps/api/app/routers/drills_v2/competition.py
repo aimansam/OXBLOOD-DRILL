@@ -13,6 +13,7 @@ from app.db.models import User
 from app.db.models_drill import DrillParticipant, DrillRound, DrillTeam
 from app.db.session import get_session
 from app.modules.drills.lifecycle import provision_run_id
+from app.services import matches
 from app.services import teams as svc
 from app.services.drill_service import get_drill
 from app.services.flag_rotation import rotate_round_flags
@@ -22,6 +23,7 @@ from .provisioning import _reset_range_background, _set_range_reset
 from .schemas import (
     CaptainUpdate,
     FreezeUpdate,
+    MatchModeUpdate,
     MyTeamOut,
     RoundListOut,
     RoundPlan,
@@ -67,6 +69,7 @@ def _team_out(team: DrillTeam, members: list[dict], show_members: bool) -> dict:
         "color": team.color,
         "position": team.position,
         "captain_user_id": team.captain_user_id,
+        "match_number": team.match_number,
         "member_count": len(members),
         "members": members if show_members else [],
     }
@@ -174,6 +177,31 @@ async def put_team_member(
     except svc.TeamError as exc:
         raise _fail(exc) from exc
     return {"ok": True}
+
+
+@router.put("/{drill_id}/matches")
+async def put_match_mode(
+    drill_id: int,
+    body: MatchModeUpdate,
+    db: AsyncSession = Depends(get_session),
+    token: TokenData = Depends(require_role(*_OPERATORS)),
+):
+    """Choose one shared range or one range copy per match. Only before a range is prepared."""
+    drill = await _drill_or_404(db, drill_id)
+    if body.mode not in {"shared", "separate"}:
+        raise HTTPException(status_code=422, detail="mode must be 'shared' or 'separate'.")
+    if matches.run_ids(drill):
+        raise HTTPException(
+            status_code=409, detail="A range is already prepared. Stop the drill to change this."
+        )
+    teams = await svc.list_teams(db, drill_id)
+    if body.mode == "separate" and (len(teams) < 4 or len(teams) % 2):
+        raise HTTPException(status_code=409, detail="Separate matches need 4 or 6 teams.")
+    env = dict(drill.environment_config or {})
+    env[matches.MODE_KEY] = body.mode
+    drill.environment_config = env
+    await db.commit()
+    return {"mode": body.mode, "matches": matches.match_count(teams) if teams else 1}
 
 
 @router.put("/{drill_id}/teams/{team_id}/captain")
@@ -343,15 +371,15 @@ async def reset_range(
 ):
     """Roll every range VM back to its clean snapshot, between rounds."""
     drill = await _drill_or_404(db, drill_id)
-    run_id = provision_run_id(drill)
-    if run_id is None:
+    copies = sorted(matches.run_ids(drill).items())
+    if not copies:
         raise HTTPException(status_code=409, detail="This drill has no prepared range to reset.")
     if await svc.active_round(db, drill_id) is not None:
         raise HTTPException(status_code=409, detail="Finish the running round before resetting.")
     if ((drill.environment_config or {}).get("range_reset") or {}).get("status") == "resetting":
         raise HTTPException(status_code=409, detail="A range reset is already running.")
     await _set_range_reset(drill_id, "resetting")
-    background_tasks.add_task(_reset_range_background, drill_id, run_id)
+    background_tasks.add_task(_reset_range_background, drill_id, [run for _copy, run in copies])
     return {"status": "resetting"}
 
 

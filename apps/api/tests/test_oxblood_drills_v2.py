@@ -279,6 +279,7 @@ def sessionmaker():
                 m.DrillTeam.__table__,
                 m.DrillRound.__table__,
                 m.DrillScoreEvent.__table__,
+                m.DrillTeamFlag.__table__,
             ]:
                 await conn.run_sync(table.create)
         return engine, async_sessionmaker(bind=engine, expire_on_commit=False)
@@ -1289,3 +1290,86 @@ def test_v2_console_requires_login_and_returns_allowed_ticket(sessionmaker, monk
     assert access_body["assets"][0]["networks"] == ["red_vlan"]
     assert access_body["assets"][0]["seeded"] is True
     assert access_body["assets"][0]["seed_status"] == "Seeded"
+
+
+def test_v2_prepare_builds_one_range_copy_per_match_and_stop_removes_all(sessionmaker, monkeypatch):
+    async def _seed():
+        async with sessionmaker() as session:
+            scenario = auth_models.Scenario(
+                name="two-matches",
+                title="Two Matches",
+                version=1,
+                difficulty="beginner",
+                duration_min=10,
+                tags=[],
+                authors=[],
+                spec={"spec": {"assets": [], "networks": []}},
+            )
+            session.add(scenario)
+            await session.flush()
+            drill = await create_drill(session, title="Matches", scenario_id=scenario.id)
+            drill.environment_config = {"match_mode": "separate"}
+            for position, match in enumerate((1, 2, 1, 2), start=1):
+                session.add(
+                    m.DrillTeam(
+                        drill_id=drill.id,
+                        name=f"T{position}",
+                        position=position,
+                        match_number=match,
+                    )
+                )
+            await session.commit()
+            return drill.id
+
+    async def _override_session():
+        async with sessionmaker() as session:
+            yield session
+
+    class FakeRunResult:
+        def __init__(self, run_id):
+            self.run_id = run_id
+            self.status = auth_models.RunStatus.RUNNING
+
+    class FakeRunner:
+        def __init__(self):
+            self.requests = []
+            self.stopped = []
+
+        async def start_run(self, req, session):
+            self.requests.append(req)
+            return FakeRunResult(320 + req.instance)
+
+        async def stop_run(self, run_id, reason, session, actor):
+            self.stopped.append(run_id)
+
+    fake_runner = FakeRunner()
+    drill_id = _run(_seed())
+
+    from app.main import app
+
+    app.dependency_overrides[get_session] = _override_session
+    _patch(monkeypatch, "_get_runner", lambda: fake_runner)
+    _patch(monkeypatch, "get_sessionmaker", lambda: sessionmaker)
+    try:
+        client = TestClient(app)
+        response = client.post(
+            f"/api/v2/drills/{drill_id}/prepare",
+            headers={"X-Divide-Token": sign_token("operator", "lead", 60)},
+        )
+        env = client.get(f"/api/v2/drills/{drill_id}").json()["environment_config"]
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 200, response.text
+    assert [r.instance for r in fake_runner.requests] == [1, 2]
+    assert env["provision_run_id"] == 321 and env["match_runs"] == {"2": 322}
+
+    async def _stop():
+        from app.routers import drills_v2
+
+        async with sessionmaker() as session:
+            drill = await session.get(m.Drill, drill_id)
+            return await drills_v2._stop_drill_provision_run(session, drill)
+
+    assert _run(_stop()) == "stopped"
+    assert sorted(fake_runner.stopped) == [321, 322]

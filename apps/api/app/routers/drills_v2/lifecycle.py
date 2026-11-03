@@ -129,6 +129,7 @@ async def prepare_drill_endpoint(
                 env.pop("provision_error", None)
                 env.pop("cleanup_status", None)
                 env.pop("provision_run_id", None)
+                env.pop("match_runs", None)
                 env["preparation_started_at"] = datetime.now(UTC).isoformat()
                 env["run_owner_sub"] = token.sub
                 env["run_owner_role"] = token.role
